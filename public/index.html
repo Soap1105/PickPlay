@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>실시간 소셜 게임 플랫폼</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #2c3e50;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .lobby-wrapper {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .lobby-left {
+            flex: 1;
+            background: linear-gradient(135deg, #1abc9c, #16a085);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding: 40px;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .lobby-left h1 {
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .lobby-left p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 80%;
+            line-height: 1.6;
+        }
+
+        .mascot-icon {
+            font-size: 6rem;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite ease-in-out;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .lobby-right {
+            flex: 1;
+            background: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            padding: 40px;
+        }
+
+        .lobby-right h2 {
+            color: #2c3e50;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .game-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            width: 80%;
+            max-width: 400px;
+            padding: 25px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border-radius: 15px;
+            border: none;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .btn-bingo {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+
+        .btn-bingo:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 20px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-liar {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .btn-liar:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 20px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-icon {
+            font-size: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .lobby-wrapper {
+                flex-direction: column;
+            }
+
+            .lobby-left {
+                padding: 30px 15px;
+            }
+
+            .lobby-left h1 {
+                font-size: 2.5rem;
+            }
+
+            .mascot-icon {
+                font-size: 4rem;
+                margin-bottom: 10px;
+            }
+
+            .lobby-right {
+                padding: 30px 15px;
+            }
+
+            .game-btn {
+                padding: 15px;
+                font-size: 1.2rem;
+                width: 90%;
+            }
+
+            .btn-icon {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="lobby-wrapper">
+        <div class="lobby-left">
+            <div class="mascot-icon">🎮</div>
+            <h1>Mini Games</h1>
+            <p>친구들과 함께 실시간으로 즐기는<br>다양한 멀티플레이어 게임 캐주얼 플랫폼입니다.</p>
+        </div>
+        <div class="lobby-right">
+            <h2>어떤 게임을 할까요?</h2>
+            <button class="game-btn btn-bingo" onclick="createRoom('bingo')">
+                <i class="fas fa-border-all btn-icon"></i> AI 테마 빙고
+            </button>
+            <button class="game-btn btn-liar" onclick="createRoom('liar')">
+                <i class="fas fa-user-secret btn-icon"></i> 라이어 게임
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 닉네임 입력 로직을 게임방 모달로 위임했으므로 여기서는 닉네임을 제거하고 즉시 방을 생성
+        function createRoom(gameType) {
+            const roomId = "room-" + Math.random().toString(36).substring(2, 9);
+            window.location.href = `/room/${gameType}/${roomId}`;
+        }
+    </script>
+</body>
+
+</html>
