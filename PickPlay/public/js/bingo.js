@@ -1,0 +1,738 @@
+// bingo.js
+(function() {
+// common.js에서 생성된 전역 변수(window.socket, window.myName, window.roomId)를 활용합니다.
+const readyStatusDisplay = document.querySelector('#bingo-container .ready-status-display');
+const setupArea = document.querySelector('#bingo-container .setup-area');
+const waitingArea = document.querySelector('#bingo-container .waiting-area');
+
+const turnTrack = document.createElement('div');
+turnTrack.id = 'turn-track';
+turnTrack.style.cssText = "display: flex; justify-content: center; gap: 10px; margin: 10px 0; font-size: 1rem; flex-wrap: wrap; font-weight: bold;";
+document.querySelector('#bingo-container .player-ui').parentNode.insertBefore(turnTrack, document.querySelector('#bingo-container .player-ui'));
+
+const playerUI = document.querySelector('#bingo-container .player-ui');
+const inputControls = document.getElementById('input-controls');
+const turnOrderSelect = document.getElementById('turn-order-select');
+const startGameBtn = document.getElementById('start-bingo-btn');
+const winLinesRadios = document.getElementsByName('win-lines');
+const themeTitle = document.getElementById('theme-title');
+const readyButton = document.getElementById('ready-button');
+const turnDisplay = document.getElementById('turn-display');
+const bigEventDisplay = document.getElementById('big-event-display');
+const eventIcon = document.getElementById('event-icon');
+const eventTitle = document.getElementById('event-title');
+const eventMsg = document.getElementById('event-msg');
+const bingoBoard = document.getElementById('bingo-board');
+const calledNumbersDisplay = document.getElementById('called-numbers-display');
+const bingoButton = document.getElementById('bingo-button');
+
+const loadThemeBtn = document.getElementById('load-theme-btn');
+const saveThemeBtn = document.getElementById('save-theme-btn');
+const themeModal = document.getElementById('theme-modal');
+const systemThemeList = document.getElementById('system-theme-list');
+const myThemeList = document.getElementById('my-theme-list');
+const closeModal = document.querySelector('.close-modal');
+const autoFillBtn = document.getElementById('auto-fill-btn');
+
+const themeTopicInput = document.getElementById('theme-topic-input');
+
+// 1. 효과음
+const effectSound = new Audio('/call.mp3');
+const eventSound = new Audio('/event.wav');
+
+function playSound() {
+    effectSound.currentTime = 0;
+    effectSound.play().catch(() => { });
+}
+
+function playEvent() {
+    eventSound.currentTime = 0;
+    eventSound.play().catch(() => { });
+}
+
+// 4. 변수 초기화
+let myBoard = [];
+let calledNumbers = [];
+let isMyTurn = false;
+let amIHost = false;
+let targetLines = 3;
+let isGameStarted = false;
+let isMyReady = false;
+let currentProgressMap = {};
+let currentTurnPlayerName = "";
+let currentTurnId = "";
+let myUsedEventCount = 0;
+let currentUsers = [];
+
+function getUserId() {
+    let userId = localStorage.getItem('bingo_user_id');
+    if (!userId) {
+        userId = 'user-' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('bingo_user_id', userId);
+    }
+    return userId;
+}
+const myUserId = getUserId();
+
+function getDuplicates(array) {
+    const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
+    const seen = new Set();
+    const duplicates = new Set();
+    array.forEach(item => {
+        const normalizedItem = normalize(item);
+        if (seen.has(normalizedItem)) duplicates.add(item);
+        seen.add(normalizedItem);
+    });
+    return [...duplicates];
+}
+
+function updateTurnTrack(users) {
+    turnTrack.innerHTML = '';
+    if (!isGameStarted) {
+        turnTrack.style.display = 'none';
+        return;
+    }
+    turnTrack.style.display = 'flex';
+
+    users.forEach((user, index) => {
+        const span = document.createElement('div');
+        span.textContent = user.name;
+        span.style.padding = "5px 10px";
+        span.style.borderRadius = "15px";
+        span.style.border = "2px solid #ccc";
+        span.style.backgroundColor = "#fff";
+        span.style.color = "#333";
+        span.style.transition = "all 0.3s";
+
+        if (user.id === currentTurnId) {
+            span.style.borderColor = "#f1c40f";
+            span.style.backgroundColor = "#fffcf0";
+            span.style.transform = "scale(1.1)";
+            span.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+            span.style.zIndex = "10";
+        } else {
+            span.style.opacity = "0.6";
+        }
+        turnTrack.appendChild(span);
+
+        if (index < users.length - 1) {
+            const arrow = document.createElement('span');
+            arrow.textContent = "→";
+            arrow.style.margin = "0 5px";
+            arrow.style.color = "#999";
+            turnTrack.appendChild(arrow);
+        }
+    });
+}
+
+window.renderBingoUsers = function(users, hostStatus) {
+    currentUsers = users;
+    const userGrid = document.getElementById('user-grid');
+    userGrid.innerHTML = '';
+    updateTurnTrack(users);
+
+    let bingoReadyCount = 0;
+
+    users.forEach(user => {
+        if (user.id === socket.id) {
+            myUsedEventCount = user.usedEventCount || 0;
+            updateBingoButton(checkBingoLines(myBoard, calledNumbers));
+        }
+
+        const card = document.createElement('div');
+        card.className = 'user-card';
+        if (user.ready) card.classList.add('is-ready');
+        if (user.isSkipped) card.classList.add('is-skipped');
+        card.id = `user-${user.id}`;
+        if (user.id === socket.id) card.classList.add('is-me');
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'user-info';
+
+        const avatarWrapper = document.createElement('div');
+        avatarWrapper.className = 'avatar-wrapper';
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = user.avatar;
+        avatarWrapper.appendChild(avatar);
+        if (user.skipCount > 0) {
+            const overlay = document.createElement('div');
+            overlay.className = 'skip-overlay';
+            overlay.textContent = '🚫';
+            avatarWrapper.appendChild(overlay);
+        }
+
+        const nickname = document.createElement('div');
+        nickname.className = 'nickname';
+        if (user.isWaiting) {
+            nickname.textContent = `⏳ ${user.name}`;
+            nickname.style.color = "#7f8c8d";
+        } else {
+            nickname.textContent = user.name;
+            nickname.style.color = "#333";
+            if (user.ready) {
+                nickname.innerHTML += ' <span style="color:#2ecc71">✔</span>';
+                bingoReadyCount++;
+            }
+        }
+
+        const statusRow = document.createElement('div');
+        statusRow.className = 'status-row';
+
+        if (isGameStarted && !user.isWaiting) {
+            const dotsContainer = document.createElement('div');
+            dotsContainer.className = 'bingo-progress';
+            const lines = currentProgressMap[user.id] || 0;
+            for (let i = 0; i < targetLines; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'progress-dot';
+                if (i < lines) dot.classList.add('filled');
+                dotsContainer.appendChild(dot);
+            }
+
+            const divider = document.createElement('span');
+            divider.className = 'status-divider';
+            divider.textContent = '|';
+
+            const eventContainer = document.createElement('div');
+            eventContainer.className = 'event-progress';
+
+            const used = user.usedEventCount || 0;
+            const maxSlots = Math.max(0, targetLines - 1);
+            const earned = Math.min(lines, maxSlots);
+            const fillCount = Math.max(0, earned - used);
+
+            for (let i = 0; i < maxSlots; i++) {
+                const star = document.createElement('i');
+                star.className = 'event-star';
+                if (i < fillCount) {
+                    star.className += ' fas fa-star filled';
+                } else {
+                    star.className += ' far fa-star';
+                }
+                eventContainer.appendChild(star);
+            }
+
+            statusRow.appendChild(dotsContainer);
+            statusRow.appendChild(divider);
+            statusRow.appendChild(eventContainer);
+        }
+        infoDiv.appendChild(nickname);
+        infoDiv.appendChild(statusRow);
+
+        if (amIHost && user.id !== socket.id && setupArea.style.display !== 'none') {
+            const kickBtn = document.createElement('button');
+            kickBtn.className = 'kick-btn';
+            kickBtn.textContent = 'X';
+            kickBtn.onclick = () => {
+                if (confirm(`${user.name}님 강퇴?`)) socket.emit('kick user', user.id);
+            };
+            card.appendChild(kickBtn);
+        }
+
+        card.appendChild(avatarWrapper);
+        card.appendChild(infoDiv);
+        userGrid.appendChild(card);
+    });
+    if (readyStatusDisplay) readyStatusDisplay.textContent = `준비 인원: ${bingoReadyCount} / ${users.length}`;
+};
+
+function updateBingoButton(lines) {
+    if (lines >= targetLines) {
+        bingoButton.disabled = false;
+        bingoButton.textContent = "🏆 승리 선언! 🏆";
+        bingoButton.style.backgroundColor = "#ff0000";
+        bingoButton.style.cursor = "pointer";
+    } else if (lines >= 1) {
+        const remaining = lines - myUsedEventCount;
+        if (!isMyTurn) {
+            bingoButton.disabled = true;
+            bingoButton.textContent = "🚫 상대방 턴";
+            bingoButton.style.backgroundColor = "#555";
+            return;
+        }
+        if (remaining > 0) {
+            bingoButton.disabled = false;
+            bingoButton.textContent = `⚡ 이벤트 발동! (${remaining}회 남음)`;
+            bingoButton.style.backgroundColor = "#2196F3";
+            bingoButton.style.cursor = "pointer";
+        } else {
+            bingoButton.disabled = true;
+            bingoButton.textContent = `빙고 ${lines}줄 (이벤트 소진)`;
+            bingoButton.style.backgroundColor = "#ccc";
+        }
+    } else {
+        bingoButton.disabled = true;
+        bingoButton.textContent = lines >= 1 ? `빙고 ${lines}줄` : "진행 중...";
+        bingoButton.style.backgroundColor = "#ccc";
+    }
+}
+
+function getBingoLines(board, calledNums) {
+    const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
+    const calledSet = new Set(calledNums.map(normalize));
+    const winningIndices = new Set();
+    let count = 0;
+    const checkLine = (indices) => {
+        if (indices.every(index => calledSet.has(normalize(board[index])))) {
+            count++;
+            indices.forEach(idx => winningIndices.add(idx));
+        }
+    };
+    for (let i = 0; i < 5; i++) checkLine([i * 5, i * 5 + 1, i * 5 + 2, i * 5 + 3, i * 5 + 4]);
+    for (let i = 0; i < 5; i++) checkLine([i, i + 5, i + 10, i + 15, i + 20]);
+    checkLine([0, 6, 12, 18, 24]);
+    checkLine([4, 8, 12, 16, 20]);
+    return { count, winningIndices: Array.from(winningIndices) };
+}
+
+function checkBingoLines(board, calledNums) { return getBingoLines(board, calledNums).count; }
+
+function updateBoardVisuals() {
+    const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
+    const cells = document.querySelectorAll('.board-cell');
+    cells.forEach(cell => {
+        const word = cell.dataset.word;
+        const isCalled = calledNumbers.some(num => normalize(num) === normalize(word));
+        if (isCalled) cell.classList.add('checked');
+        else cell.classList.remove('checked');
+        cell.classList.remove('bingo-completed');
+    });
+    const { count, winningIndices } = getBingoLines(myBoard, calledNumbers);
+    winningIndices.forEach(index => {
+        if (cells[index]) cells[index].classList.add('bingo-completed');
+    });
+    updateBingoButton(count);
+}
+
+function renderBoard(boardData) {
+    bingoBoard.innerHTML = '';
+    myBoard = boardData;
+    boardData.forEach((word, index) => {
+        const cell = document.createElement('button');
+        cell.classList.add('board-cell');
+        if (word.length > 11) cell.classList.add('text-small');
+        else if (word.length > 6) cell.classList.add('text-medium');
+        cell.textContent = word;
+        cell.dataset.word = word;
+        cell.dataset.index = index;
+        cell.addEventListener('click', () => {
+            if (setupArea.style.display !== 'none' || waitingArea.style.display !== 'none') return;
+            if (turnDisplay.style.display === 'none') return;
+            if (!isMyTurn) return alert("당신의 차례가 아닙니다!");
+            if (calledNumbers.includes(word)) return alert("이미 선택된 단어입니다.");
+            socket.emit('theme word selected', { roomId: window.roomId, word });
+        });
+        bingoBoard.appendChild(cell);
+    });
+}
+
+function showBigEvent(icon, title, msg, type) {
+    eventIcon.textContent = icon;
+    eventTitle.textContent = title;
+    eventMsg.textContent = msg;
+    const overlay = bigEventDisplay;
+    overlay.style.display = 'flex';
+    const content = overlay.querySelector('.event-content');
+    content.classList.remove('pop-in');
+    void content.offsetWidth;
+    content.classList.add('pop-in');
+    if (type === 'bad' || type === 'bomb') content.style.borderColor = '#ff6b6b';
+    else if (type === 'good' || type === 'bonus') content.style.borderColor = '#51cf66';
+    else content.style.borderColor = 'white';
+    setTimeout(() => { overlay.style.display = 'none'; }, 3000);
+}
+
+// 6. UI 이벤트 리스너
+
+if (loadThemeBtn) loadThemeBtn.addEventListener('click', () => { themeModal.style.display = 'block'; loadThemes(); });
+if (closeModal) closeModal.addEventListener('click', () => { themeModal.style.display = 'none'; });
+if (autoFillBtn) {
+    autoFillBtn.addEventListener('click', () => {
+        const inputs = document.querySelectorAll('.board-input');
+        inputs.forEach((input, index) => {
+            if (!input.disabled) {
+                input.value = `단어 ${index + 1}`;
+            }
+        });
+    });
+}
+
+if (saveThemeBtn) saveThemeBtn.addEventListener('click', async () => {
+    const inputs = document.querySelectorAll('.board-input');
+    const words = [];
+    let isAllFilled = true;
+    inputs.forEach(input => {
+        const val = input.value.trim() || input.placeholder;
+        if (!val) isAllFilled = false;
+        words.push(val);
+    });
+    if (!isAllFilled) return alert("모든 칸을 채운 뒤 저장해주세요.");
+    const duplicates = getDuplicates(words);
+    if (duplicates.length > 0) return alert(`중복된 단어: ${duplicates.join(', ')}`);
+    const title = prompt("테마 제목 입력:");
+    if (!title) return;
+    try {
+        const res = await fetch('/api/themes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, words, userId: myUserId })
+        });
+        if (res.ok) alert("저장되었습니다!");
+        else alert("저장 실패");
+    } catch (e) { alert("오류 발생"); }
+});
+
+readyButton.addEventListener('click', () => {
+    if (isMyReady) {
+        socket.emit('cancel ready');
+
+        isMyReady = false;
+        readyButton.textContent = "테마 단어 확정! (준비 완료)";
+        readyButton.style.backgroundColor = "#3498db";
+        readyButton.disabled = false;
+
+        document.querySelectorAll('.board-input').forEach(input => {
+            input.disabled = false;
+            input.style.backgroundColor = "#f9f9f9";
+        });
+
+        return;
+    }
+
+    const inputs = document.querySelectorAll('.board-input');
+    const words = [];
+    let isAllFilled = true;
+
+    inputs.forEach(input => {
+        const val = input.value.trim();
+        if (!val) isAllFilled = false;
+        words.push(val);
+    });
+
+    if (!isAllFilled) return alert("모든 칸을 채워주세요.");
+    const duplicates = getDuplicates(words);
+    if (duplicates.length > 0) return alert(`중복된 단어: ${duplicates.join(', ')}`);
+
+    isMyReady = true;
+    readyButton.textContent = "🔄 확정 해제 (수정하기)";
+    readyButton.style.backgroundColor = "#e74c3c";
+
+    inputs.forEach(input => {
+        input.disabled = true;
+        input.style.backgroundColor = "#e0e0e0";
+    });
+
+    socket.emit('submit theme board', {
+        roomId: window.roomId,
+        board: words,
+        name: window.myName
+    });
+});
+
+async function loadThemes() {
+    if (systemThemeList) systemThemeList.innerHTML = '<li>로딩 중...</li>';
+    if (myThemeList) myThemeList.innerHTML = '<li>로딩 중...</li>';
+    try {
+        const res = await fetch(`/api/themes?userId=${myUserId}`);
+        const themes = await res.json();
+        if (systemThemeList) systemThemeList.innerHTML = '';
+        if (myThemeList) myThemeList.innerHTML = '';
+        themes.forEach(theme => {
+            const li = document.createElement('li');
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = theme.title;
+            titleSpan.style.flexGrow = "1";
+            titleSpan.style.fontWeight = "bold";
+            titleSpan.style.cursor = "pointer";
+            titleSpan.onclick = () => { selectTheme(theme.id); };
+            if (theme.creator === 'System') {
+                li.appendChild(titleSpan);
+                const tag = document.createElement('span');
+                tag.textContent = "추천 ⭐";
+                tag.style.fontSize = "0.8rem";
+                tag.style.color = "#e67e22";
+                li.appendChild(tag);
+                if (systemThemeList) systemThemeList.appendChild(li);
+            } else {
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '삭제';
+                delBtn.className = 'delete-theme-btn';
+                delBtn.onclick = (e) => { e.stopPropagation(); deleteTheme(theme.id); };
+                li.appendChild(titleSpan);
+                li.appendChild(delBtn);
+                if (myThemeList) myThemeList.appendChild(li);
+            }
+        });
+        if (systemThemeList && systemThemeList.children.length === 0) systemThemeList.innerHTML = '<li style="color:#999">기본 테마 없음</li>';
+        if (myThemeList && myThemeList.children.length === 0) myThemeList.innerHTML = '<li style="color:#999">저장된 테마 없음</li>';
+    } catch (e) { console.error(e); }
+}
+
+async function deleteTheme(id) {
+    if (!confirm("삭제하시겠습니까?")) return;
+    try {
+        const res = await fetch(`/api/themes/${id}?userId=${myUserId}`, { method: 'DELETE' });
+        if (res.ok) { alert("삭제됨"); loadThemes(); } else alert("실패");
+    } catch (e) { alert("오류"); }
+}
+
+async function selectTheme(id) {
+    try {
+        const res = await fetch(`/api/themes/${id}`);
+        const data = await res.json();
+        let words = data.words;
+        if (typeof words === 'string') words = JSON.parse(words);
+        if (confirm(`'${data.title}' 테마를 불러와서 채울까요?`)) {
+            themeModal.style.display = 'none';
+            words = words.sort(() => Math.random() - 0.5);
+            const inputs = document.querySelectorAll('.board-input');
+            inputs.forEach((input, index) => { if (words[index]) input.value = words[index]; });
+            alert("자동 입력 완료!");
+        }
+    } catch (e) { alert("실패"); }
+}
+
+startGameBtn.addEventListener('click', () => {
+    const players = document.querySelectorAll('.user-card').length;
+    if (players < 2) return alert("🚫 최소 2명이 모여야 합니다.");
+    if (!confirm("게임을 시작하시겠습니까? (AI 테마 생성이 추가될 예정입니다)")) return;
+
+    let selectedLines = 3;
+    for (const radio of winLinesRadios) { if (radio.checked) selectedLines = parseInt(radio.value); }
+    const selectedOrder = turnOrderSelect.value;
+
+    const topic = themeTopicInput.value.trim() || "자유 주제";
+    socket.emit('init theme mode', { roomId: window.roomId, topic, winLines: selectedLines, turnOrder: selectedOrder });
+
+    setupArea.style.display = 'none';
+});
+
+// 빙고 이벤트 리스너들
+bingoButton.addEventListener('click', () => {
+    const { count } = getBingoLines(myBoard, calledNumbers);
+    bingoButton.disabled = true;
+    if (count >= targetLines) {
+        socket.emit('bingo declared', { name: window.myName });
+    } else if (count >= 1) {
+        if (!isMyTurn) {
+            bingoButton.disabled = true;
+            return alert("내 턴이 아님");
+        }
+        const remaining = count - myUsedEventCount;
+        if (remaining <= 0) {
+            bingoButton.disabled = false;
+            return alert("이벤트를 사용할 기회가 없습니다!");
+        }
+        if (confirm(`이벤트를 발동하시겠습니까? (남은 기회: ${remaining}회)`)) {
+            socket.emit('trigger event', { name: window.myName });
+        } else {
+            bingoButton.disabled = false;
+        }
+    }
+});
+
+// Event listeners for users removed here, handled by room.js calls
+// socket.on('update user list', ...);
+
+socket.on('bingo progress update', (progressMap) => {
+    currentProgressMap = progressMap;
+    if (window.gameType === 'bingo') {
+        window.renderBingoUsers(currentUsers, amIHost);
+    }
+});
+
+socket.on('update ready status', (data) => {
+    readyStatusDisplay.textContent = `준비 인원: ${data.ready} / ${data.total}`;
+    readyStatusDisplay.style.display = 'block';
+});
+
+socket.on('game status update', (data) => { isGameStarted = data.started; });
+
+socket.on('turn update', (data) => {
+    currentTurnId = data.currentTurnId;
+    currentTurnPlayerName = data.currentTurnName;
+    document.querySelectorAll('.user-card').forEach(c => c.classList.remove('current-turn'));
+    const currentCard = document.getElementById(`user-${currentTurnId}`);
+    if (currentCard) currentCard.classList.add('current-turn');
+    updateTurnTrack(currentUsers);
+
+    if (socket.id === currentTurnId) {
+        isMyTurn = true;
+        turnDisplay.textContent = "👉 당신의 차례입니다!";
+        turnDisplay.style.backgroundColor = "#e3f2fd";
+        bingoBoard.classList.remove('inactive-board');
+        bingoBoard.classList.add('active-board');
+    } else {
+        isMyTurn = false;
+        turnDisplay.textContent = `⏳ ${currentTurnPlayerName}님의 차례...`;
+        turnDisplay.style.backgroundColor = "#f0f0f0";
+        bingoBoard.classList.add('inactive-board');
+        bingoBoard.classList.remove('active-board');
+    }
+    turnDisplay.style.display = 'block';
+    updateBoardVisuals();
+});
+
+window.updateBingoRoleUI = function(isHostStatus) {
+    amIHost = isHostStatus;
+    const myCard = document.getElementById(`user-${socket.id}`);
+    if (myCard && amIHost) myCard.classList.add('is-host');
+
+    setupArea.style.display = 'none';
+    waitingArea.style.display = 'none';
+    playerUI.style.display = 'none';
+    readyStatusDisplay.style.display = 'none';
+
+    if (isGameStarted) {
+        if (isMyReady) {
+            playerUI.style.display = 'block';
+        }
+    } else {
+        if (amIHost) {
+            setupArea.style.display = 'block';
+        } else {
+            waitingArea.style.display = 'block';
+        }
+        readyStatusDisplay.style.display = 'block';
+    }
+};
+
+window.initBingoUI = function(isHostStatus) {
+    window.updateBingoRoleUI(isHostStatus);
+};
+
+socket.on('setup theme input', (data) => {
+    targetLines = data.winLines;
+    calledNumbers = [];
+    setupArea.style.display = 'none';
+    waitingArea.style.display = 'none';
+    readyStatusDisplay.style.display = 'block';
+    playerUI.style.display = 'block';
+    themeTitle.style.display = 'block';
+    themeTitle.textContent = `주제: ${data.topic} (목표: ${targetLines}줄)`;
+    bingoBoard.innerHTML = '';
+    bingoBoard.classList.remove('inactive-board');
+    bingoBoard.classList.remove('active-board');
+
+    bingoButton.style.display = 'none';
+    isMyReady = false;
+    readyButton.disabled = false;
+    readyButton.textContent = "테마 단어 확정! (준비 완료)";
+    readyButton.style.backgroundColor = "#3498db";
+    readyButton.style.display = 'inline-block';
+    readyButton.style.position = 'relative';
+    readyButton.style.zIndex = '9999';
+
+    if (saveThemeBtn) saveThemeBtn.style.display = 'inline-block';
+    if (loadThemeBtn) loadThemeBtn.style.display = 'block';
+
+    inputControls.style.display = 'block';
+    inputControls.style.position = 'relative';
+    inputControls.style.zIndex = '9999';
+
+    const preset = data.presetWords || [];
+    for (let i = 0; i < 25; i++) {
+        const inputCell = document.createElement('input');
+        inputCell.classList.add('board-input');
+        inputCell.placeholder = `${i + 1}`;
+        inputCell.maxLength = 15;
+        inputCell.addEventListener('input', function () {
+            if (this.value.length > 15) {
+                alert("15글자까지만 입력 가능합니다.");
+                this.value = this.value.slice(0, 15);
+            }
+        });
+        if (preset[i]) inputCell.value = preset[i];
+        bingoBoard.appendChild(inputCell);
+    }
+    alert(`주제: '${data.topic}'\n25칸을 채워주세요. (목표: ${targetLines}줄)`);
+});
+
+socket.on('start theme game', (data) => {
+    readyButton.style.display = 'none';
+    if (saveThemeBtn) saveThemeBtn.style.display = 'none';
+    if (loadThemeBtn) loadThemeBtn.style.display = 'none';
+    inputControls.style.display = 'none';
+    readyStatusDisplay.style.display = 'none';
+    targetLines = data.winLines;
+    calledNumbers = [];
+    myUsedEventCount = 0;
+    isGameStarted = true;
+    renderBoard(data.board);
+    bingoButton.style.display = 'block';
+    bingoButton.style.position = 'relative';
+    bingoButton.style.zIndex = '9999';
+
+    updateBoardVisuals();
+    showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
+});
+
+socket.on('number called', (number) => {
+    playSound();
+    calledNumbers.push(number);
+    updateBoardVisuals();
+    let msgText = `🔔 ${currentTurnPlayerName || '누군가'} 님이 단어 [ ${number} ] (을)를 선택! 🔔`;
+    calledNumbersDisplay.innerHTML = msgText;
+});
+
+socket.on('server called numbers', (newCalledList) => {
+    calledNumbers = newCalledList;
+    updateBoardVisuals();
+});
+
+socket.on('action failed', (msg) => {
+    alert(msg);
+    if (isMyTurn) bingoButton.disabled = false;
+    updateBingoButton(checkBingoLines(myBoard, calledNumbers));
+});
+
+socket.on('event happened', (data) => {
+    playEvent();
+    showBigEvent(data.icon, data.title, data.msg, data.type);
+    if (data.type === 'shuffle') {
+        bingoBoard.classList.add('shake-effect');
+        setTimeout(() => bingoBoard.classList.remove('shake-effect'), 1000);
+    }
+});
+
+socket.on('update board', (newBoard) => {
+    renderBoard(newBoard);
+    updateBoardVisuals();
+});
+
+socket.on('game over', (data) => {
+    playEvent();
+    showBigEvent('🏆', '게임 종료!', `승자: ${data.winner}`, 'good');
+    calledNumbersDisplay.textContent = '';
+    bingoBoard.innerHTML = '';
+    bingoButton.style.display = 'none';
+    themeTitle.style.display = 'none';
+    readyButton.style.display = 'none';
+    if (saveThemeBtn) saveThemeBtn.style.display = 'none';
+    turnDisplay.style.display = 'none';
+    inputControls.style.display = 'none';
+    isGameStarted = false;
+    playerUI.style.display = 'none';
+
+    if (amIHost) setupArea.style.display = 'block';
+    else {
+        waitingArea.style.display = 'block';
+        waitingArea.innerHTML = `<h3>⏳ 대기 중...</h3><p>방장이 게임을 설정하고 있습니다.</p>`;
+    }
+
+    readyStatusDisplay.style.display = 'none';
+    bingoBoard.classList.remove('inactive-board');
+    bingoBoard.classList.remove('active-board');
+    currentProgressMap = {};
+    if (document.getElementById('turn-track')) document.getElementById('turn-track').style.display = 'none';
+});
+
+socket.on('false bingo', (msg) => {
+    alert(`🚨 ${msg}`);
+    if (isMyTurn) {
+        bingoButton.disabled = false;
+        updateBingoButton(checkBingoLines(myBoard, calledNumbers));
+    }
+});
+})();
