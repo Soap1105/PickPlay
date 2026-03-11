@@ -11,10 +11,10 @@ module.exports = (io, socket, gameRooms) => {
 
         if (!gameRooms[roomId]) {
             gameRooms[roomId] = {
-                hostId: socket.id, players: {}, status: 'WAITING', mode: data.gameType || 'bingo',
+                hostId: socket.id, players: {}, status: 'WAITING', mode: 'lobby', // [수정] 기본 모드를 로비로 설정
                 winLines: 3, turnOrderOption: 'host_first', calledNumbers: [], allNumbers: [],
                 numberInterval: null, turnOrder: [], currentTurnIndex: 0, joinOrder: [],
-                liarGame: { scores: {} } // 라이어 게임용 초기화
+                liarGame: { scores: {}, votes: {}, submissions: {} } // 라이어 게임용 초기화
             };
         }
 
@@ -42,6 +42,8 @@ module.exports = (io, socket, gameRooms) => {
         room.joinOrder.push(socket.id);
 
         io.to(socket.id).emit('role update', { isHost: socket.id === room.hostId });
+        io.to(socket.id).emit('game changed', room.mode); // 접속 시 현재 방의 게임 상태 전달
+
         io.to(roomId).emit('update user list', getSortedUserList(room));
         updateReadyStatus(io, room, roomId);
         io.to(roomId).emit('system message', `👋 ${nickname}님이 입장하셨습니다.`);
@@ -68,6 +70,37 @@ module.exports = (io, socket, gameRooms) => {
 
         const targetSocket = io.sockets.sockets.get(targetId);
         if (targetSocket) targetSocket.disconnect(true);
+    });
+
+    // --- 새로운 통합 방 이벤트 ---
+    socket.on('host select game', (selectedGame) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (socket.id !== room.hostId) return;
+
+        room.mode = selectedGame;
+        room.status = 'WAITING'; // 게임 시작 전 준비 상태로 변경
+        
+        io.to(roomId).emit('game changed', selectedGame);
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+        
+        const gameName = selectedGame === 'bingo' ? '테마 빙고' : '라이어 게임';
+        io.to(roomId).emit('system message', `방장이 ${gameName}을(를) 선택했습니다. 게임 세팅을 준비합니다.`);
+    });
+
+    socket.on('return to lobby', () => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (socket.id !== room.hostId) return;
+
+        room.mode = 'lobby';
+        room.status = 'WAITING';
+        
+        io.to(roomId).emit('game changed', 'lobby');
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+        io.to(roomId).emit('system message', '방장이 대기실로 복귀했습니다. 잠시 쉬어갑시다!');
     });
 
     socket.on('disconnect', () => {

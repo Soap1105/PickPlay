@@ -1,20 +1,19 @@
-// public/js/bingo.js
+// bingo.js
+(function() {
 // common.js에서 생성된 전역 변수(window.socket, window.myName, window.roomId)를 활용합니다.
-const myRoleDisplay = document.getElementById('my-role-display');
-const readyStatusDisplay = document.getElementById('ready-status-display');
-const userGrid = document.getElementById('user-grid');
-const setupArea = document.getElementById('setup-area');
-const waitingArea = document.getElementById('waiting-area');
+const readyStatusDisplay = document.querySelector('#bingo-container .ready-status-display');
+const setupArea = document.querySelector('#bingo-container .setup-area');
+const waitingArea = document.querySelector('#bingo-container .waiting-area');
 
 const turnTrack = document.createElement('div');
 turnTrack.id = 'turn-track';
 turnTrack.style.cssText = "display: flex; justify-content: center; gap: 10px; margin: 10px 0; font-size: 1rem; flex-wrap: wrap; font-weight: bold;";
-document.getElementById('game-container').insertBefore(turnTrack, document.getElementById('player-ui'));
+document.querySelector('#bingo-container .player-ui').parentNode.insertBefore(turnTrack, document.querySelector('#bingo-container .player-ui'));
 
-const playerUI = document.getElementById('player-ui');
+const playerUI = document.querySelector('#bingo-container .player-ui');
 const inputControls = document.getElementById('input-controls');
 const turnOrderSelect = document.getElementById('turn-order-select');
-const startGameBtn = document.getElementById('start-game-btn');
+const startGameBtn = document.getElementById('start-bingo-btn');
 const winLinesRadios = document.getElementsByName('win-lines');
 const themeTitle = document.getElementById('theme-title');
 const readyButton = document.getElementById('ready-button');
@@ -33,6 +32,7 @@ const themeModal = document.getElementById('theme-modal');
 const systemThemeList = document.getElementById('system-theme-list');
 const myThemeList = document.getElementById('my-theme-list');
 const closeModal = document.querySelector('.close-modal');
+const autoFillBtn = document.getElementById('auto-fill-btn');
 
 const themeTopicInput = document.getElementById('theme-topic-input');
 
@@ -125,9 +125,13 @@ function updateTurnTrack(users) {
     });
 }
 
-function renderUserList(users) {
+window.renderBingoUsers = function(users, hostStatus) {
+    currentUsers = users;
+    const userGrid = document.getElementById('user-grid');
     userGrid.innerHTML = '';
     updateTurnTrack(users);
+
+    let bingoReadyCount = 0;
 
     users.forEach(user => {
         if (user.id === socket.id) {
@@ -166,7 +170,10 @@ function renderUserList(users) {
         } else {
             nickname.textContent = user.name;
             nickname.style.color = "#333";
-            if (user.ready) nickname.innerHTML += ' <span style="color:#2ecc71">✔</span>';
+            if (user.ready) {
+                nickname.innerHTML += ' <span style="color:#2ecc71">✔</span>';
+                bingoReadyCount++;
+            }
         }
 
         const statusRow = document.createElement('div');
@@ -227,7 +234,8 @@ function renderUserList(users) {
         card.appendChild(infoDiv);
         userGrid.appendChild(card);
     });
-}
+    if (readyStatusDisplay) readyStatusDisplay.textContent = `준비 인원: ${bingoReadyCount} / ${users.length}`;
+};
 
 function updateBingoButton(lines) {
     if (lines >= targetLines) {
@@ -339,6 +347,16 @@ function showBigEvent(icon, title, msg, type) {
 
 if (loadThemeBtn) loadThemeBtn.addEventListener('click', () => { themeModal.style.display = 'block'; loadThemes(); });
 if (closeModal) closeModal.addEventListener('click', () => { themeModal.style.display = 'none'; });
+if (autoFillBtn) {
+    autoFillBtn.addEventListener('click', () => {
+        const inputs = document.querySelectorAll('.board-input');
+        inputs.forEach((input, index) => {
+            if (!input.disabled) {
+                input.value = `단어 ${index + 1}`;
+            }
+        });
+    });
+}
 
 if (saveThemeBtn) saveThemeBtn.addEventListener('click', async () => {
     const inputs = document.querySelectorAll('.board-input');
@@ -514,14 +532,14 @@ bingoButton.addEventListener('click', () => {
     }
 });
 
-socket.on('update user list', (users) => {
-    currentUsers = users;
-    renderUserList(users);
-});
+// Event listeners for users removed here, handled by room.js calls
+// socket.on('update user list', ...);
 
 socket.on('bingo progress update', (progressMap) => {
     currentProgressMap = progressMap;
-    renderUserList(currentUsers);
+    if (window.gameType === 'bingo') {
+        window.renderBingoUsers(currentUsers, amIHost);
+    }
 });
 
 socket.on('update ready status', (data) => {
@@ -556,10 +574,8 @@ socket.on('turn update', (data) => {
     updateBoardVisuals();
 });
 
-socket.on('role update', (data) => {
-    amIHost = data.isHost;
-    let roleText = amIHost ? "👑 방장" : "😀 참가자";
-    myRoleDisplay.textContent = `${roleText} | 닉네임: ${window.myName}`;
+window.updateBingoRoleUI = function(isHostStatus) {
+    amIHost = isHostStatus;
     const myCard = document.getElementById(`user-${socket.id}`);
     if (myCard && amIHost) myCard.classList.add('is-host');
 
@@ -580,7 +596,11 @@ socket.on('role update', (data) => {
         }
         readyStatusDisplay.style.display = 'block';
     }
-});
+};
+
+window.initBingoUI = function(isHostStatus) {
+    window.updateBingoRoleUI(isHostStatus);
+};
 
 socket.on('setup theme input', (data) => {
     targetLines = data.winLines;
@@ -638,6 +658,7 @@ socket.on('start theme game', (data) => {
     targetLines = data.winLines;
     calledNumbers = [];
     myUsedEventCount = 0;
+    isGameStarted = true;
     renderBoard(data.board);
     bingoButton.style.display = 'block';
     bingoButton.style.position = 'relative';
@@ -714,3 +735,4 @@ socket.on('false bingo', (msg) => {
         updateBingoButton(checkBingoLines(myBoard, calledNumbers));
     }
 });
+})();

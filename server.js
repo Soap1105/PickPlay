@@ -31,15 +31,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/room/:gameType/:roomId', (req, res) => {
-  const gameType = req.params.gameType;
-  if (gameType === 'bingo') {
-    res.sendFile(path.join(__dirname, 'public', 'games', 'bingo.html'));
-  } else if (gameType === 'liar') {
-    res.sendFile(path.join(__dirname, 'public', 'games', 'liar.html'));
-  } else {
-    res.status(404).send("존재하지 않는 게임입니다.");
-  }
+app.get('/room/:roomId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'games', 'game.html'));
 });
 
 const PORT = process.env.PORT || 80;

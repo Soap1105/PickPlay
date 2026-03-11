@@ -161,25 +161,22 @@
     <div class="lobby-wrapper">
         <div class="lobby-left">
             <div class="mascot-icon">🎮</div>
-            <h1>Mini Games</h1>
+            <h1>PickPlay</h1>
             <p>친구들과 함께 실시간으로 즐기는<br>다양한 멀티플레이어 게임 캐주얼 플랫폼입니다.</p>
         </div>
         <div class="lobby-right">
-            <h2>어떤 게임을 할까요?</h2>
-            <button class="game-btn btn-bingo" onclick="createRoom('bingo')">
-                <i class="fas fa-border-all btn-icon"></i> AI 테마 빙고
-            </button>
-            <button class="game-btn btn-liar" onclick="createRoom('liar')">
-                <i class="fas fa-user-secret btn-icon"></i> 라이어 게임
+            <h2>지금 게임을 플레이 하세요!</h2>
+            <button class="game-btn btn-bingo" onclick="createRoom()">
+                <i class="fas fa-plus-circle btn-icon"></i> 새 방 만들기
             </button>
         </div>
     </div>
 
     <script>
         // 닉네임 입력 로직을 게임방 모달로 위임했으므로 여기서는 닉네임을 제거하고 즉시 방을 생성
-        function createRoom(gameType) {
+        function createRoom() {
             const roomId = "room-" + Math.random().toString(36).substring(2, 9);
-            window.location.href = `/room/${gameType}/${roomId}`;
+            window.location.href = `/room/${roomId}`;
         }
     </script>
 </body>

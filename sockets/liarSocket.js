@@ -14,6 +14,12 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[socket.roomId];
         if (!room || room.hostId !== socket.id) return;
 
+        const players = Object.keys(room.players);
+        if (players.length < 3) {
+            socket.emit('system message', '라이어 게임은 최소 3명 이상이어야 시작할 수 있습니다!');
+            return;
+        }
+
         // 새로 게임을 엎친 것처럼 scores 초기화
         room.liarGameConfig = {
             winTarget: data.winTarget || 3
@@ -24,7 +30,7 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig.winTarget);
-        socket.emit('system message', `목표 승수가 ${data.winTarget}승으로 설정되었습니다. 곧 게임이 시작됩니다.`);
+        socket.emit('system message', `목표 승수가 ${data.winTarget}승으로 설정되었습니다.`);
 
         // 그리고 바로 최초 시작 처리
         startRound(socket.roomId);
@@ -181,11 +187,11 @@ module.exports = (io, socket, gameRooms) => {
         const isCorrect = (guessWord.trim().toLowerCase() === room.liarGame.word.trim().toLowerCase());
 
         if (isCorrect) {
-            resultMsg = `소름! 라이어가 정답을 정확히 맞췄습니다. 라이어의 역전승입니다!`;
+            resultMsg = `라이어가 정답을 맞췄습니다! 라이어의 승리입니다.`;
             // 정답을 맞춘 라이어 1점 획득
             room.liarGame.scores[socket.id] = (room.liarGame.scores[socket.id] || 0) + 1;
         } else {
-            resultMsg = `라이어의 조급한 변론은 틀렸습니다. (정답: ${room.liarGame.word}) 시민들이 완전히 승리했습니다!`;
+            resultMsg = `라이어가 오답을 제출했습니다. (정답: ${room.liarGame.word}) 시민들이 승리했습니다!`;
             citizensWon = true;
 
             // 옵션1 룰: "라이어를 정확히 지목한 유저만 1점 부여"

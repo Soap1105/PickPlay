@@ -3,9 +3,8 @@ const socket = window.io();
 window.socket = socket;
 
 const pathParts = window.location.pathname.split('/');
-const gameType = pathParts[2];
-const roomId = pathParts[3];
-window.gameType = gameType;
+const roomId = pathParts[2];
+window.gameType = 'lobby'; // 기본 상태는 로비
 window.roomId = roomId;
 
 // --- 닉네임 모달 창 띄우기 로직 ---

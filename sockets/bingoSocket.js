@@ -46,7 +46,6 @@ module.exports = (io, socket, gameRooms) => {
 
             room.turnOrder = sortTurnOrder(room);
             room.currentTurnIndex = 0;
-            io.to(roomId).emit('update user list', getSortedUserList(room));
 
             room.turnOrder.forEach(socketId => {
                 if (room.players[socketId]) {
@@ -57,6 +56,9 @@ module.exports = (io, socket, gameRooms) => {
                 }
             });
 
+            // Emit user list and progress *after* start game event so clients have isGameStarted = true
+            io.to(roomId).emit('update user list', getSortedUserList(room));
+            
             const firstPlayerId = room.turnOrder[0];
             io.to(roomId).emit('turn update', { currentTurnId: firstPlayerId, currentTurnName: room.players[firstPlayerId].name });
             broadcastBingoProgress(io, room, roomId);

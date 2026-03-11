@@ -1,18 +1,19 @@
-// public/js/liar.js
+// liar.js
+(function() {
 // common.js에서 생성된 전역 변수(window.socket, window.myName, window.roomId)를 활용합니다.
 
-const myRoleDisplay = document.getElementById('my-role-display');
-const readyStatusDisplay = document.getElementById('ready-status-display');
-const userGrid = document.getElementById('user-grid');
-const setupArea = document.getElementById('setup-area');
-const waitingArea = document.getElementById('waiting-area');
-const playerUI = document.getElementById('player-ui');
-const startGameBtn = document.getElementById('start-game-btn');
+const setupArea = document.querySelector('#liar-container .setup-area');
+const waitingArea = document.querySelector('#liar-container .waiting-area');
+const playerUI = document.querySelector('#liar-container .player-ui');
+const startGameBtn = document.getElementById('start-liar-btn');
 
 let amIHost = false;
 let currentUsers = [];
 
-function renderUserList(users) {
+window.renderLiarUsers = function(users, hostStatus) {
+    currentUsers = users;
+    amIHost = hostStatus;
+    const userGrid = document.getElementById('user-grid');
     userGrid.innerHTML = '';
     users.forEach(user => {
         const card = document.createElement('div');
@@ -74,20 +75,13 @@ function renderUserList(users) {
     });
 }
 
-socket.on('update user list', (users) => {
-    currentUsers = users;
-    renderUserList(users);
-});
+// Event listeners for users removed here, handled by room.js calls
+// socket.on('update user list', ...);
 
-socket.on('update ready status', (data) => {
-    readyStatusDisplay.textContent = `준비 인원: ${data.ready} / ${data.total}`;
-    readyStatusDisplay.style.display = 'block';
-});
+// Ready status logic removed because Liar game starts immediately without ready checks
 
-socket.on('role update', (data) => {
-    amIHost = data.isHost;
-    let roleText = amIHost ? "👑 방장" : "😀 참가자";
-    myRoleDisplay.textContent = `${roleText} | 닉네임: ${window.myName}`;
+window.updateLiarRoleUI = function(isHostStatus) {
+    amIHost = isHostStatus;
 
     setupArea.style.display = 'none';
     waitingArea.style.display = 'none';
@@ -97,7 +91,11 @@ socket.on('role update', (data) => {
     } else {
         waitingArea.style.display = 'block';
     }
-});
+};
+
+window.initLiarUI = function(isHostStatus) {
+    window.updateLiarRoleUI(isHostStatus);
+};
 
 // 라이어 게임 전역 상태
 window.isGamePlaying = false;
@@ -111,7 +109,9 @@ startGameBtn.addEventListener('click', () => {
 socket.on('update scores', (scores, target) => {
     window.gameScores = scores;
     window.winTarget = target;
-    renderUserList(currentUsers); // 점수 반영해서 다시 그리기
+    if (window.gameType === 'liar') {
+        window.renderLiarUsers(currentUsers, amIHost); // 점수 반영해서 다시 그리기
+    }
 });
 
 socket.on('liar role assigned', (data) => {
@@ -133,7 +133,7 @@ socket.on('liar role assigned', (data) => {
             </div>
             
             <div id="waiting-submit-area" style="display: none; margin-top: 30px; padding: 15px; background: #fff3cd; color: #856404; border-radius: 10px; font-weight: bold;">
-                다른 플레이어들의 제출을 기다리고 있습니다... ⏳
+               ⏳ 다른 플레이어를 기다리는 중... ⏳
             </div>
         </div>
     `;
@@ -191,7 +191,7 @@ socket.on('all submissions received', (submissions) => {
             </div>
             
             <div id="waiting-vote-area" style="display: none; margin-top: 20px; padding: 15px; background: #fff3cd; color: #856404; border-radius: 10px; font-weight: bold; text-align: center;">
-                투표 완료! 다른 사람들의 투표를 기다리는 중... ⏳
+                ⏳ 다른 플레이어를 기다리는 중... ⏳
             </div>
         </div>
     `;
@@ -230,7 +230,7 @@ socket.on('final guess phase', (data) => {
     if (socket.id === data.liarId) {
         playerUI.innerHTML = `
             <div style="background: #fdfefe; padding: 40px; border-radius: 15px; text-align: center; border: 3px solid #e74c3c;">
-                <h1 style="color: #c0392b; margin-top:0;">🚨 정체가 발각되었습니다!</h1>
+                <h1 style="color: #c0392b; margin-top:0;">🚨 정체가 발각되었습니다! 🚨</h1>
                 <h3 style="color: #333;">하지만 아직 기회가 있습니다. 제시어 정답을 맞추면 <span style="color:#e74c3c">당신의 역전승</span>입니다!</h3>
                 <p style="color: #7f8c8d;">카테고리와 다른 사람들의 힌트를 보고 추리하세요.</p>
                 <input type="text" id="final-guess-input" placeholder="정답 단어 입력" style="width: 80%; padding: 15px; font-size: 1.5rem; text-align: center; border-radius: 10px; border: 2px solid #e74c3c; margin-top: 20px; outline: none;">
@@ -297,6 +297,8 @@ socket.on('game restarted', () => {
         setupArea.style.display = 'none';
         waitingArea.style.display = 'block';
     }
-    const roleText = amIHost ? "👑 방장" : "😀 참가자";
-    myRoleDisplay.textContent = `${roleText} | 닉네임: ${window.myName}`;
+    if (window.gameType === 'liar' && currentUsers.length > 0) {
+        window.updateLiarRoleUI(amIHost);
+    }
 });
+})();
