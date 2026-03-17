@@ -14,7 +14,8 @@ module.exports = (io, socket, gameRooms) => {
                 hostId: socket.id, players: {}, status: 'WAITING', mode: 'lobby', // [수정] 기본 모드를 로비로 설정
                 winLines: 3, turnOrderOption: 'host_first', calledNumbers: [], allNumbers: [],
                 numberInterval: null, turnOrder: [], currentTurnIndex: 0, joinOrder: [],
-                liarGame: { scores: {}, votes: {}, submissions: {} } // 라이어 게임용 초기화
+                liarGame: { scores: {}, votes: {}, submissions: {} }, // 라이어 게임용 초기화
+                lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {} // 로비 투표 초기화
             };
         }
 
@@ -43,6 +44,15 @@ module.exports = (io, socket, gameRooms) => {
 
         io.to(socket.id).emit('role update', { isHost: socket.id === room.hostId });
         io.to(socket.id).emit('game changed', room.mode); // 접속 시 현재 방의 게임 상태 전달
+        io.to(socket.id).emit('vote update', room.lobbyVotes); // 접속 시 투표 현황 전달
+        
+        // [Bug 1-1 FIX] 투표 진행 중일 때 새로운 참가자에게 타이머 정보 전송
+        if (room.voteTimer && room.voteTimeLeft > 0) {
+            io.to(socket.id).emit('vote timer', { 
+                status: 'started', 
+                timeLeft: room.voteTimeLeft 
+            });
+        }
 
         io.to(roomId).emit('update user list', getSortedUserList(room));
         updateReadyStatus(io, room, roomId);
@@ -97,10 +107,95 @@ module.exports = (io, socket, gameRooms) => {
 
         room.mode = 'lobby';
         room.status = 'WAITING';
+        room.lobbyVotes = { bingo: 0, liar: 0 };
+        room.votedUsers = {};
+        
+        // [Bug 1-2 FIX] 대기실 복귀 시 기존 투표 타이머 확실히 중지
+        if (room.voteTimer) {
+            clearInterval(room.voteTimer);
+            room.voteTimer = null;
+        }
+        room.voteTimeLeft = 0;
         
         io.to(roomId).emit('game changed', 'lobby');
+        io.to(roomId).emit('vote update', room.lobbyVotes);
         io.to(roomId).emit('update user list', getSortedUserList(room));
         io.to(roomId).emit('system message', '방장이 대기실로 복귀했습니다. 잠시 쉬어갑시다!');
+    });
+
+    socket.on('host start vote', (data) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (socket.id !== room.hostId) return;
+        if (room.mode !== 'lobby') return;
+        if (room.voteTimer) return;
+
+        room.lobbyVotes = { bingo: 0, liar: 0 };
+        room.votedUsers = {};
+        room.voteTimeLeft = data.duration || 30;
+        
+        io.to(roomId).emit('vote timer', { status: 'started', timeLeft: room.voteTimeLeft });
+        io.to(roomId).emit('vote update', room.lobbyVotes);
+        io.to(roomId).emit('system message', `방장이 게임 투표를 시작했습니다! ${room.voteTimeLeft}초 안에 투표해주세요.`);
+
+        room.voteTimer = setInterval(() => {
+            room.voteTimeLeft--;
+
+            if (room.voteTimeLeft <= 0) {
+                clearInterval(room.voteTimer);
+                room.voteTimer = null;
+
+                let winner = 'tie';
+                if (room.lobbyVotes.bingo > room.lobbyVotes.liar) winner = 'bingo';
+                else if (room.lobbyVotes.liar > room.lobbyVotes.bingo) winner = 'liar';
+
+                io.to(roomId).emit('vote timer', { status: 'ended', winner });
+                
+                if (winner !== 'tie') {
+                    // [Refinement] Don't switch game automatically anymore. 
+                    // Just show the result in the lobby.
+                    const gameName = winner === 'bingo' ? '테마 빙고' : '라이어 게임';
+                    io.to(roomId).emit('system message', `투표 결과, ${gameName}이(가) 선택되었습니다! 게임을 시작하려면 방장이 게임을 선택해 주세요.`);
+                }
+            } else {
+                io.to(roomId).emit('vote timer', { status: 'running', timeLeft: room.voteTimeLeft });
+            }
+        }, 1000);
+    });
+
+    socket.on('vote game', (game) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (room.mode !== 'lobby') return;
+        if (room.votedUsers[socket.id] || !room.voteTimer) return;
+
+        if (room.lobbyVotes[game] !== undefined) {
+            room.lobbyVotes[game]++;
+            room.votedUsers[socket.id] = game;
+            socket.emit('voted', game);
+            io.to(roomId).emit('vote update', room.lobbyVotes);
+
+            // [Refinement] 전원 투표 완료 시 즉시 종료
+            const totalPlayers = Object.keys(room.players).length;
+            const votedCount = Object.keys(room.votedUsers).length;
+            if (votedCount >= totalPlayers && room.voteTimer) {
+                clearInterval(room.voteTimer);
+                room.voteTimer = null;
+                
+                let winner = 'tie';
+                if (room.lobbyVotes.bingo > room.lobbyVotes.liar) winner = 'bingo';
+                else if (room.lobbyVotes.liar > room.lobbyVotes.bingo) winner = 'liar';
+
+                io.to(roomId).emit('vote timer', { status: 'ended', winner });
+
+                if (winner !== 'tie') {
+                    const gameName = winner === 'bingo' ? '테마 빙고' : '라이어 게임';
+                    io.to(roomId).emit('system message', `투표 결과, ${gameName}이(가) 선택되었습니다! 게임을 시작하려면 방장이 게임을 선택해 주세요.`);
+                }
+            }
+        }
     });
 
     socket.on('disconnect', () => {
@@ -142,6 +237,7 @@ module.exports = (io, socket, gameRooms) => {
             }
             if (Object.keys(room.players).length === 0) {
                 if (room.numberInterval) clearInterval(room.numberInterval);
+                if (room.voteTimer) clearInterval(room.voteTimer); // [추가] 방 삭제 시 타이머 정리
                 delete gameRooms[roomId];
             }
         }

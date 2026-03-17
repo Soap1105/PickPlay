@@ -71,14 +71,12 @@
     filter: grayscale(100%);
     opacity: 0.6;
     pointer-events: none;
-    transform: scale(0.98);
 }
 
 #bingo-board.active-board {
     border-color: #27ae60;
     box-shadow: 0 0 25px rgba(39, 174, 96, 0.5);
     background-color: #27ae60;
-    transform: scale(1.02);
 }
 
 .board-cell {
@@ -156,6 +154,28 @@
     z-index: 9999;
 }
 
+/* 준비 인원 배지 스타일 - 대기방 단계에서는 절대 숨김 */
+.ready-status-display {
+    display: none; 
+    background: #e74c3c;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    text-align: center;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    align-self: center;
+    border: 2px solid white;
+}
+
+#lobby-container .ready-status-display,
+.setup-area .ready-status-display,
+.waiting-area .ready-status-display {
+    display: none !important;
+}
+
 #theme-buttons {
     display: flex;
     gap: 10px;
@@ -192,6 +212,42 @@
 
 .btn-save:hover {
     background-color: #d35400;
+}
+
+.disabled-dev {
+    cursor: not-allowed !important;
+    opacity: 0.5 !important;
+    pointer-events: none !important;
+}
+
+#host-manual-start-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.2rem;
+    border-radius: 10px;
+    border: none;
+    background-color: #2ecc71;
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+#host-manual-start-btn:not(:disabled) {
+    opacity: 1 !important;
+    cursor: pointer !important;
+    background-color: #2ecc71 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(46, 204, 113, 0.3);
+}
+
+#host-manual-start-btn:disabled {
+    background-color: #bdc3c7 !important;
+    color: #7f8c8d !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 #ready-button {
@@ -241,8 +297,9 @@
 .user-card.current-turn {
     background-color: #3498db;
     color: white;
-    transform: scale(1.02) translateX(5px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    /* Remove scale and translate to fix layout shift */
+    border-left-color: #f1c40f;
 }
 
 .user-card.current-turn .nickname {
@@ -299,7 +356,6 @@
 .progress-dot.filled {
     background-color: #2ecc71;
     border-color: #27ae60;
-    transform: scale(1.2);
 }
 
 .status-divider {
@@ -323,7 +379,6 @@
 .event-star.filled {
     color: #f1c40f;
     text-shadow: 0 0 3px rgba(241, 196, 15, 0.5);
-    transform: scale(1.1);
 }
 
 .kick-btn {

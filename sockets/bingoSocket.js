@@ -26,9 +26,38 @@ module.exports = (io, socket, gameRooms) => {
                 continue;
             }
 
-            io.to(roomId).emit('turn update', { currentTurnId: nextId, currentTurnName: room.players[nextId].name });
+            io.to(roomId).emit('turn update', { 
+                currentTurnId: nextId, 
+                currentTurnName: room.players[nextId].name,
+                turnTimeLimit: room.turnTimeLimit || 0
+            });
+            startTurnTimer(room, roomId, nextId);
             return;
         }
+    }
+
+    function startTurnTimer(room, roomId, playerId) {
+        if (room.turnTimer) clearTimeout(room.turnTimer);
+        if (!room.turnTimeLimit || room.turnTimeLimit <= 0) return;
+
+        room.turnTimer = setTimeout(() => {
+            if (room.mode !== 'bingo' || room.status !== 'PLAYING') return;
+            const currentId = room.turnOrder[room.currentTurnIndex];
+            if (currentId !== playerId) return;
+
+            // Auto-select a word
+            const player = room.players[playerId];
+            const uncalledWords = player.board.filter(w => !room.calledNumbers.includes(w));
+            if (uncalledWords.length > 0) {
+                const randomWord = uncalledWords[Math.floor(Math.random() * uncalledWords.length)];
+                room.calledNumbers.push(randomWord);
+                io.to(roomId).emit('number called', randomWord);
+                io.to(roomId).emit('system message', `⏰ 시간 초과! ${player.name}님의 판에서 무작위로 '${randomWord}'가 선택되었습니다.`);
+
+                broadcastBingoProgress(io, room, roomId);
+                passTurn(room, roomId);
+            }
+        }, room.turnTimeLimit * 1000 + 500); // 0.5s buffer
     }
 
     function checkReadyAndStart(room, roomId) {
@@ -38,30 +67,12 @@ module.exports = (io, socket, gameRooms) => {
 
         updateReadyStatus(io, room, roomId);
 
-        if (totalCount > 0 && readyCount === totalCount) {
-            room.status = 'PLAYING';
-            room.gameStarted = true;
-            io.to(roomId).emit('game status update', { started: true });
-            io.to(roomId).emit('system message', `🚀 빙고 출발! (주제: ${room.topic})`);
-
-            room.turnOrder = sortTurnOrder(room);
-            room.currentTurnIndex = 0;
-
-            room.turnOrder.forEach(socketId => {
-                if (room.players[socketId]) {
-                    io.to(socketId).emit('start theme game', {
-                        board: room.players[socketId].board,
-                        winLines: room.winLines
-                    });
-                }
-            });
-
-            // Emit user list and progress *after* start game event so clients have isGameStarted = true
-            io.to(roomId).emit('update user list', getSortedUserList(room));
-            
-            const firstPlayerId = room.turnOrder[0];
-            io.to(roomId).emit('turn update', { currentTurnId: firstPlayerId, currentTurnName: room.players[firstPlayerId].name });
-            broadcastBingoProgress(io, room, roomId);
+        if (totalCount > 1 && readyCount === totalCount) {
+            io.to(room.hostId).emit('all players ready');
+            io.to(roomId).emit('system message', `✅ 모든 플레이어가 준비되었습니다! 방장이 게임을 시작할 수 있습니다.`);
+        } else {
+            // [Refinement] 전원 준비 상태가 아니면 비활성화 유도
+            io.to(room.hostId).emit('not all players ready');
         }
     }
 
@@ -83,7 +94,9 @@ module.exports = (io, socket, gameRooms) => {
         room.topic = data.topic;
         room.winLines = parseInt(data.winLines) || 3;
         room.turnOrderOption = data.turnOrder || 'host_first';
+        room.turnTimeLimit = parseInt(data.turnTimeLimit) || 0;
         room.calledNumbers = [];
+        room.turnTimer = null;
 
         const presetWords = data.presetWords || [];
         Object.values(room.players).forEach(p => {
@@ -116,6 +129,44 @@ module.exports = (io, socket, gameRooms) => {
         checkReadyAndStart(room, data.roomId);
     });
 
+    socket.on('host manual start bingo', () => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (socket.id !== room.hostId || room.status !== 'INPUTTING') return;
+
+        const playerList = Object.values(room.players);
+        if (playerList.every(p => p.ready)) {
+            room.status = 'PLAYING';
+            room.gameStarted = true;
+            io.to(roomId).emit('game status update', { started: true });
+            io.to(roomId).emit('system message', `🚀 빙고 출발! (주제: ${room.topic})`);
+
+            room.turnOrder = sortTurnOrder(room);
+            room.currentTurnIndex = 0;
+
+            room.turnOrder.forEach(socketId => {
+                if (room.players[socketId]) {
+                    io.to(socketId).emit('start theme game', {
+                        board: room.players[socketId].board,
+                        winLines: room.winLines
+                    });
+                }
+            });
+
+            io.to(roomId).emit('update user list', getSortedUserList(room));
+            
+            const firstPlayerId = room.turnOrder[0];
+            io.to(roomId).emit('turn update', { 
+                currentTurnId: firstPlayerId, 
+                currentTurnName: room.players[firstPlayerId].name,
+                turnTimeLimit: room.turnTimeLimit || 0
+            });
+            startTurnTimer(room, roomId, firstPlayerId);
+            broadcastBingoProgress(io, room, roomId);
+        }
+    });
+
     socket.on('cancel ready', () => {
         const roomId = socket.roomId;
         if (!roomId || !gameRooms[roomId]) return;
@@ -123,7 +174,7 @@ module.exports = (io, socket, gameRooms) => {
         if (room.players[socket.id]) {
             room.players[socket.id].ready = false;
             io.to(roomId).emit('update user list', getSortedUserList(room));
-            updateReadyStatus(io, room, roomId);
+            checkReadyAndStart(room, roomId);
         }
     });
 
@@ -139,6 +190,7 @@ module.exports = (io, socket, gameRooms) => {
         room.calledNumbers.push(data.word);
         io.to(data.roomId).emit('number called', data.word);
 
+        if (room.turnTimer) clearTimeout(room.turnTimer);
         broadcastBingoProgress(io, room, data.roomId);
         passTurn(room, data.roomId);
     });
@@ -173,6 +225,8 @@ module.exports = (io, socket, gameRooms) => {
                 room.players[pId].board = newBoard;
                 io.to(pId).emit('update board', newBoard);
             });
+            io.to(roomId).emit('update user list', getSortedUserList(room));
+            if (room.turnTimer) clearTimeout(room.turnTimer);
             broadcastBingoProgress(io, room, roomId);
             passTurn(room, roomId);
 

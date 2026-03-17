@@ -16,6 +16,9 @@ const guestWaitingMsg = document.getElementById('guest-waiting-msg');
 // Buttons
 const gameSelectBtns = document.querySelectorAll('.game-select-btn');
 const returnLobbyBtns = document.querySelectorAll('.return-lobby-btn');
+const voteBtns = document.querySelectorAll('.vote-btn');
+const startVoteBtn = document.getElementById('start-vote-btn');
+const closeResultBtn = document.getElementById('close-result-btn');
 
 function showContainer(containerId) {
     lobbyContainer.classList.add('hidden-container');
@@ -32,9 +35,11 @@ socket.on('role update', (data) => {
     if (window.gameType === 'lobby') {
         if (isHost) {
             hostGameSelection.style.display = 'block';
+            document.getElementById('host-vote-controls').style.display = 'block';
             guestWaitingMsg.style.display = 'none';
         } else {
             hostGameSelection.style.display = 'none';
+            document.getElementById('host-vote-controls').style.display = 'none';
             guestWaitingMsg.style.display = 'block';
         }
     }
@@ -106,6 +111,89 @@ returnLobbyBtns.forEach(btn => {
     });
 });
 
+// Voting logic
+if (startVoteBtn) {
+    startVoteBtn.addEventListener('click', () => {
+        const time = document.getElementById('vote-time-select').value;
+        socket.emit('host start vote', { duration: parseInt(time) });
+    });
+}
+
+voteBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (btn.classList.contains('voted')) return;
+        const game = btn.getAttribute('data-vote');
+        socket.emit('vote game', game);
+    });
+});
+
+socket.on('vote update', (votes) => {
+    document.getElementById('vote-count-bingo').textContent = votes.bingo || 0;
+    document.getElementById('vote-count-liar').textContent = votes.liar || 0;
+});
+
+socket.on('vote timer', (data) => {
+    const timerDisplay = document.getElementById('vote-timer-display');
+    const timerText = document.getElementById('vote-time-left');
+    const optionsContainer = document.getElementById('vote-options-container');
+    const resultDisplay = document.getElementById('vote-result-display');
+    const resultMsg = document.getElementById('vote-result-msg');
+
+    if (data.status === 'started') {
+        timerDisplay.style.display = 'block';
+        resultDisplay.style.display = 'none';
+        optionsContainer.style.opacity = '1';
+        optionsContainer.style.pointerEvents = 'auto';
+        if (startVoteBtn) startVoteBtn.disabled = true;
+    } else if (data.status === 'ended') {
+        timerDisplay.style.display = 'none';
+        resultDisplay.style.display = 'block';
+        optionsContainer.style.opacity = '0.5';
+        optionsContainer.style.pointerEvents = 'none';
+        if (startVoteBtn) startVoteBtn.disabled = false;
+        
+        const winnerText = data.winner === 'tie' ? '무승부입니다!' : (data.winner === 'bingo' ? '빙고' : '라이어') + ' 게임이 선택되었습니다!';
+        resultMsg.textContent = `📢 투표 결과: ${winnerText}`;
+    }
+    
+    if (data.timeLeft !== undefined) {
+        timerText.textContent = data.timeLeft < 10 ? '0' + data.timeLeft : data.timeLeft;
+    }
+});
+
+socket.on('voted', (game) => {
+    voteBtns.forEach(btn => {
+        if (btn.getAttribute('data-vote') === game) {
+            btn.classList.add('voted');
+            btn.textContent = '완료';
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        }
+    });
+});
+
+function resetVotesUI() {
+    voteBtns.forEach(btn => {
+        btn.classList.remove('voted');
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.textContent = '투표';
+    });
+    document.getElementById('vote-count-bingo').textContent = '0';
+    document.getElementById('vote-count-liar').textContent = '0';
+    document.getElementById('vote-timer-display').style.display = 'none';
+    document.getElementById('vote-result-display').style.display = 'none';
+    document.getElementById('vote-options-container').style.opacity = '0.5';
+    document.getElementById('vote-options-container').style.pointerEvents = 'none';
+}
+
+if (closeResultBtn) {
+    closeResultBtn.addEventListener('click', () => {
+        document.getElementById('result-modal').style.display = 'none';
+    });
+}
+
 // Server notifies that the game mode has changed
 socket.on('game changed', (newGameType) => {
     window.gameType = newGameType;
@@ -114,12 +202,15 @@ socket.on('game changed', (newGameType) => {
         stylesheetLink.href = ""; 
         document.getElementById('game-title').textContent = "PickPlay 대기실";
         showContainer('lobby-container');
+        resetVotesUI(); // Reset votes UI when back to lobby
         
         if (isHost) {
             hostGameSelection.style.display = 'block';
+            document.getElementById('host-vote-controls').style.display = 'block';
             guestWaitingMsg.style.display = 'none';
         } else {
             hostGameSelection.style.display = 'none';
+            document.getElementById('host-vote-controls').style.display = 'none';
             guestWaitingMsg.style.display = 'block';
         }
     } else if (newGameType === 'bingo') {

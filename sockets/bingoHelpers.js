@@ -22,13 +22,23 @@ function broadcastBingoProgress(io, room, roomId) {
 
 function endGame(io, room, roomId, winnerName) {
     if (room.numberInterval) clearInterval(room.numberInterval);
-    io.to(roomId).emit('game over', { winner: winnerName });
+    if (room.turnTimer) clearTimeout(room.turnTimer);
+
+    // Collect stats
+    const stats = Object.values(room.players).map(p => ({
+        name: p.name,
+        bingoCount: checkBingoLines(p.board, room.calledNumbers),
+        eventUsed: p.usedEventCount || 0
+    }));
+
+    io.to(roomId).emit('game over', { winner: winnerName, stats });
     io.to(roomId).emit('system message', `🏆 게임 종료! 승자는 ${winnerName}님입니다!`);
 
     room.gameStarted = false;
     room.status = 'WAITING';
     room.readyCount = 0;
     room.calledNumbers = [];
+    room.turnTimer = null;
 
     Object.values(room.players).forEach(p => {
         p.ready = false;
