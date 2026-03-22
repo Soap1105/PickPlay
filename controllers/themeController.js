@@ -1,4 +1,5 @@
 const ThemeModel = require('../models/themeModel');
+const geminiService = require('./geminiService');
 
 exports.getThemes = async (req, res) => {
     try {
@@ -40,6 +41,55 @@ exports.createTheme = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: '저장 실패' });
+    }
+};
+
+// [NEW] AI 빙고 주제 자동 생성 (DB 캐싱)
+exports.generateThemeWords = async (req, res) => {
+    const { title, userId } = req.body;
+    
+    if (!title) return res.status(400).json({ error: '주제가 필요합니다.' });
+    if (!userId) return res.status(400).json({ error: '사용자 식별자가 없습니다.' });
+
+    try {
+        // 1. DB 캐싱 확인 (이미 만들어진 주제인지)
+        const cachedTheme = await ThemeModel.getThemeByTitle(title);
+        if (cachedTheme) {
+            console.log(`[Cache Hit] '${title}' - DB에서 바로 가져옵니다.`);
+            // words가 문자열이면 파싱
+            if (typeof cachedTheme.words === 'string') {
+                cachedTheme.words = JSON.parse(cachedTheme.words);
+            }
+            return res.json({ success: true, themeId: cachedTheme.id, words: cachedTheme.words, source: 'cache' });
+        }
+
+        console.log(`[Cache Miss] '${title}' - AI에게 생성을 요청합니다.`);
+        // 2. DB에 없으면 Gemini 호출
+        const aiResult = await geminiService.generateBingoWords(title);
+
+        if (aiResult.status === "error") {
+            // 주제가 너무 좁거나 부적절할 경우 실패 응답
+            return res.status(400).json({ error: aiResult.message });
+        }
+
+        if (aiResult.status === "success" && aiResult.words && aiResult.words.length >= 25) {
+            // 중복 제거 (Grounding 시 두 번 나오는 경우 대비)
+            aiResult.words = [...new Set(aiResult.words)];
+            
+            if (aiResult.words.length < 25) {
+                return res.status(500).json({ error: "중복 제거 후 25개 이하로 남았습니다. 다시 시도해주세요." });
+            }
+            
+            // 3. AI가 생성 성공 시 -> 학교 DB에 시스템 작성자로 추가
+            const themeId = await ThemeModel.createTheme(userId, title, aiResult.words, 'System-GeminiAI');
+            return res.json({ success: true, themeId, words: aiResult.words, source: 'ai' });
+        } else {
+            return res.status(500).json({ error: 'AI가 단어 풀을 충분히 생성하지 못했습니다.' });
+        }
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: '주제 생성 및 저장 실패' });
     }
 };
 

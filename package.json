@@ -8,6 +8,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "dotenv": "^17.2.3",
     "express": "^4.19.2",
     "mysql2": "^3.15.3",

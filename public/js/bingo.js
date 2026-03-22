@@ -519,7 +519,7 @@ async function selectTheme(id) {
     } catch (e) { alert("실패"); }
 }
 
-startGameBtn.addEventListener('click', () => {
+startGameBtn.addEventListener('click', async () => {
     const playersCount = document.querySelectorAll('.user-card').length;
     if (playersCount < 2) return alert("🚫 최소 2명이 모여야 합니다.");
     if (!confirm("게임을 시작하시겠습니까?")) return;
@@ -527,10 +527,51 @@ startGameBtn.addEventListener('click', () => {
     let selectedLines = 3;
     for (const radio of winLinesRadios) { if (radio.checked) selectedLines = parseInt(radio.value); }
     const selectedOrder = turnOrderSelect.value;
-
-    const topic = themeTopicInput.value.trim() || "자유 주제";
     const turnTime = parseInt(turnTimeLimitSelect.value);
-    socket.emit('init theme mode', { roomId: window.roomId, topic, winLines: selectedLines, turnOrder: selectedOrder, turnTimeLimit: turnTime });
+
+    let topic = themeTopicInput.value.trim() || "자유 주제";
+    let presetWords = [];
+
+    // [AI 빙고 주제 구동부]
+    if (topic !== "자유 주제") {
+        const originalText = startGameBtn.textContent;
+        startGameBtn.textContent = "AI가 단어를 고르는 중입니다...⏳";
+        startGameBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/themes/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: topic, userId: myUserId })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                presetWords = data.words;
+            } else {
+                alert("AI 생성 실패: " + (data.error || "알 수 없는 오류"));
+                startGameBtn.textContent = originalText;
+                startGameBtn.disabled = false;
+                return; // 에러 시 진행 중단!
+            }
+        } catch (e) {
+            alert("서버 연결 오류가 발생했습니다.");
+            startGameBtn.textContent = originalText;
+            startGameBtn.disabled = false;
+            return;
+        }
+        startGameBtn.textContent = originalText;
+        startGameBtn.disabled = false;
+    }
+
+    socket.emit('init theme mode', { 
+        roomId: window.roomId, 
+        topic, 
+        winLines: selectedLines, 
+        turnOrder: selectedOrder, 
+        turnTimeLimit: turnTime,
+        presetWords: presetWords
+    });
 
     setupArea.style.display = 'none';
 });
@@ -697,7 +738,12 @@ socket.on('setup theme input', (data) => {
     inputControls.style.position = 'relative';
     inputControls.style.zIndex = '9999';
 
-    const preset = data.presetWords || [];
+    // [AI 단어 자동 채우기 및 랜덤 셔플 적용 (40단어 이상 지원)]
+    let preset = data.presetWords || [];
+    if (preset.length >= 25) {
+        preset = preset.sort(() => Math.random() - 0.5); // 40~50개를 섞은 뒤 앞의 25개만 사용됨
+    }
+
     for (let i = 0; i < 25; i++) {
         const inputCell = document.createElement('input');
         inputCell.classList.add('board-input');

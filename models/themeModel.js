@@ -15,11 +15,17 @@ class ThemeModel {
         return rows[0];
     }
 
+    // 테마 제목으로 찾기 (DB 캐싱용)
+    static async getThemeByTitle(title) {
+        const [rows] = await db.query('SELECT * FROM themes WHERE title = ?', [title]);
+        return rows[0];
+    }
+
     // 테마 저장
-    static async createTheme(userId, title, words) {
+    static async createTheme(userId, title, words, creatorName = '익명') {
         const [result] = await db.query(
             'INSERT INTO themes (title, creator, words, user_id) VALUES (?, ?, ?, ?)',
-            [title, '익명', JSON.stringify(words), userId]
+            [title, creatorName, JSON.stringify(words), userId]
         );
         return result.insertId;
     }
