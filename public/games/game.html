@@ -272,6 +272,16 @@
 
         <div id="right-sidebar">
             <button id="invite-btn"><i class="fas fa-link"></i> 초대 링크 복사</button>
+
+            <!-- 이모지 폭죽 ON/OFF 토글 -->
+            <div id="emoji-toggle-row">
+                <span id="emoji-toggle-label">🎆 폭죽 효과</span>
+                <label class="toggle-switch" title="내 화면에서 폭죽 효과를 켜고 끕니다">
+                    <input type="checkbox" id="emoji-toggle-checkbox" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
             <div id="user-section">
                 <h3>참여자 목록</h3>
                 <div id="user-grid"></div>
@@ -281,6 +291,20 @@
                 <div id="chat-history"></div>
             </div>
         </div>
+    </div>
+
+    <!-- 이모지 폭죽 팔레트 바 (대기실 전용) -->
+    <div id="emoji-palette-bar" class="emoji-hidden">
+        <span id="emoji-palette-label">🎆 폭죽</span>
+        <button class="emoji-fire-btn" data-emoji="🎉" title="파티">🎉</button>
+        <button class="emoji-fire-btn" data-emoji="🔥" title="불꽃">🔥</button>
+        <button class="emoji-fire-btn" data-emoji="❤️" title="하트">❤️</button>
+        <button class="emoji-fire-btn" data-emoji="😂" title="웃음">😂</button>
+        <button class="emoji-fire-btn" data-emoji="👏" title="박수">👏</button>
+        <button class="emoji-fire-btn" data-emoji="💀" title="해골">💀</button>
+        <button class="emoji-fire-btn" data-emoji="🎮" title="게임">🎮</button>
+        <button class="emoji-fire-btn" data-emoji="⭐" title="별">⭐</button>
+        <div id="emoji-palette-spacer"></div>
     </div>
 
     <form id="chat-form" action="">

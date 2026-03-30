@@ -32,7 +32,11 @@ function endGame(io, room, roomId, winnerName) {
     }));
 
     io.to(roomId).emit('game over', { winner: winnerName, stats });
-    io.to(roomId).emit('system message', `🏆 게임 종료! 승자는 ${winnerName}님입니다!`);
+    if (winnerName === '무승부') {
+        io.to(roomId).emit('system message', `🤝 게임 종료! 모든 칸이 채워져 무승부로 처리되었습니다.`);
+    } else {
+        io.to(roomId).emit('system message', `🏆 게임 종료! 승자는 ${winnerName}님입니다!`);
+    }
 
     room.gameStarted = false;
     room.status = 'WAITING';
@@ -53,8 +57,29 @@ function endGame(io, room, roomId, winnerName) {
     updateReadyStatus(io, room, roomId);
 }
 
+function resolveFullBoardWinner(room) {
+    let maxLines = -1;
+    let leaders = [];
+
+    Object.values(room.players).forEach(p => {
+        const lines = checkBingoLines(p.board, room.calledNumbers);
+        if (lines > maxLines) {
+            maxLines = lines;
+            leaders = [p.name];
+        } else if (lines === maxLines) {
+            leaders.push(p.name);
+        }
+    });
+
+    if (leaders.length === 1) {
+        return leaders[0]; // 빙고 줄 수가 가장 많은 단독 1등 승리
+    }
+    return '무승부'; // 빙고 줄 수가 같은 공동 1등이면 무승부
+}
+
 module.exports = {
     checkBingoLines,
     broadcastBingoProgress,
-    endGame
+    endGame,
+    resolveFullBoardWinner
 };

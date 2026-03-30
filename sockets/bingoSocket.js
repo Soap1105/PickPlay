@@ -1,5 +1,5 @@
 const { shuffleArray, sortTurnOrder, getSortedUserList, updateReadyStatus } = require('./utils');
-const { checkBingoLines, broadcastBingoProgress, endGame } = require('./bingoHelpers');
+const { checkBingoLines, broadcastBingoProgress, endGame, resolveFullBoardWinner } = require('./bingoHelpers');
 
 module.exports = (io, socket, gameRooms) => {
 
@@ -38,6 +38,17 @@ module.exports = (io, socket, gameRooms) => {
 
     function startTurnTimer(room, roomId, playerId) {
         if (room.turnTimer) clearTimeout(room.turnTimer);
+
+        // 유저 요청 반영: 차례가 와도 누를 단어가 전혀 없다면(25칸 이미 다 참) 
+        // 바보같이 타이머를 돌리지 말고 그 자리에서 즉시 게임을 종료시킵니다.
+        const player = room.players[playerId];
+        const uncalledWords = player.board.filter(w => !room.calledNumbers.includes(w));
+        if (uncalledWords.length === 0) {
+            io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다! 빙고판 완료!`);
+            endGame(io, room, roomId, resolveFullBoardWinner(room));
+            return;
+        }
+
         if (!room.turnTimeLimit || room.turnTimeLimit <= 0) return;
 
         room.turnTimer = setTimeout(() => {
@@ -55,7 +66,21 @@ module.exports = (io, socket, gameRooms) => {
                 io.to(roomId).emit('system message', `⏰ 시간 초과! ${player.name}님의 판에서 무작위로 '${randomWord}'가 선택되었습니다.`);
 
                 broadcastBingoProgress(io, room, roomId);
+
+                // [Full Board Winner Check]
+                let anyBoardFull = false;
+                Object.values(room.players).forEach(p => { if (checkBingoLines(p.board, room.calledNumbers) === 12) anyBoardFull = true; });
+                const maxTurns = new Set(Object.values(room.players).map(p => p.board).flat()).size;
+                if (anyBoardFull || room.calledNumbers.length >= maxTurns) {
+                    endGame(io, room, roomId, resolveFullBoardWinner(room));
+                    return;
+                }
+
                 passTurn(room, roomId);
+            } else {
+                // 선택할 단어가 없는 상태로 여기까지 왔다면 절대 턴을 넘기지 않고 즉시 게임 종료
+                io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다! 빙고판 완료!`);
+                endGame(io, room, roomId, resolveFullBoardWinner(room));
             }
         }, room.turnTimeLimit * 1000 + 500); // 0.5s buffer
     }
@@ -192,6 +217,16 @@ module.exports = (io, socket, gameRooms) => {
 
         if (room.turnTimer) clearTimeout(room.turnTimer);
         broadcastBingoProgress(io, room, data.roomId);
+
+        // [Full Board Winner Check]
+        let anyBoardFull = false;
+        Object.values(room.players).forEach(p => { if (checkBingoLines(p.board, room.calledNumbers) === 12) anyBoardFull = true; });
+        const maxTurns = new Set(Object.values(room.players).map(p => p.board).flat()).size;
+        if (anyBoardFull || room.calledNumbers.length >= maxTurns) {
+            endGame(io, room, data.roomId, resolveFullBoardWinner(room));
+            return;
+        }
+
         passTurn(room, data.roomId);
     });
 
@@ -245,6 +280,16 @@ module.exports = (io, socket, gameRooms) => {
                 io.to(roomId).emit('system message', `🎲 [이벤트] ${playerName}님이 운명의 단어 '${luckyWord}'를 뽑았습니다!`);
                 io.to(roomId).emit('number called', luckyWord);
                 broadcastBingoProgress(io, room, roomId);
+
+                // [Full Board Winner Check]
+                let anyBoardFull = false;
+                Object.values(room.players).forEach(p => { if (checkBingoLines(p.board, room.calledNumbers) === 12) anyBoardFull = true; });
+                const maxTurns = new Set(Object.values(room.players).map(p => p.board).flat()).size;
+                if (anyBoardFull || room.calledNumbers.length >= maxTurns) {
+                    endGame(io, room, roomId, resolveFullBoardWinner(room));
+                    return;
+                }
+
                 passTurn(room, roomId);
             } else {
                 io.to(roomId).emit('event happened', { type: 'none', icon: '😅', title: '꽝!', msg: '빈 칸이 없네요.' });

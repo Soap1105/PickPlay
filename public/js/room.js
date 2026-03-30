@@ -213,15 +213,121 @@ socket.on('game changed', (newGameType) => {
             document.getElementById('host-vote-controls').style.display = 'none';
             guestWaitingMsg.style.display = 'block';
         }
+        // 대기실 진입 시 이모지 팔레트 표시
+        emojiSetLobbyMode(true);
     } else if (newGameType === 'bingo') {
         stylesheetLink.href = "/css/bingo.css";
         document.getElementById('game-title').textContent = "테마 빙고";
         showContainer('bingo-container');
         if (window.initBingoUI) window.initBingoUI(isHost);
+        // 게임 시작 시 팔레트 숨김
+        emojiSetLobbyMode(false);
     } else if (newGameType === 'liar') {
         stylesheetLink.href = "/css/liar.css";
         document.getElementById('game-title').textContent = "라이어 게임";
         showContainer('liar-container');
         if (window.initLiarUI) window.initLiarUI(isHost);
+        // 게임 시작 시 팔레트 숨김
+        emojiSetLobbyMode(false);
     }
 });
+
+// =============================================
+//  이모지 폭죽 시스템
+// =============================================
+
+const EMOJI_PALETTE_BAR = document.getElementById('emoji-palette-bar');
+const EMOJI_TOGGLE_CHECKBOX = document.getElementById('emoji-toggle-checkbox');
+const EMOJI_FIRE_BTNS = document.querySelectorAll('.emoji-fire-btn');
+
+// localStorage에서 ON/OFF 상태 복원
+let emojiEffectEnabled = localStorage.getItem('emojiEffectEnabled') !== 'false';
+EMOJI_TOGGLE_CHECKBOX.checked = emojiEffectEnabled;
+
+// 팔레트 바 표시/숨기기 (대기실 여부에 따라)
+function emojiSetLobbyMode(isLobby) {
+    if (isLobby) {
+        EMOJI_PALETTE_BAR.classList.remove('emoji-hidden');
+    } else {
+        EMOJI_PALETTE_BAR.classList.add('emoji-hidden');
+    }
+}
+
+// ON/OFF 토글
+EMOJI_TOGGLE_CHECKBOX.addEventListener('change', () => {
+    emojiEffectEnabled = EMOJI_TOGGLE_CHECKBOX.checked;
+    localStorage.setItem('emojiEffectEnabled', emojiEffectEnabled);
+});
+
+// 이모지 버튼 클릭 → 쿨다운 처리 + 서버로 emit
+let emojiLocalCooldown = false;
+
+EMOJI_FIRE_BTNS.forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (emojiLocalCooldown) return;
+        if (window.gameType !== 'lobby') return;
+
+        const emoji = btn.getAttribute('data-emoji');
+        socket.emit('emoji reaction', emoji);
+
+        // 클라이언트 쿨다운 UI (2.5초)
+        emojiLocalCooldown = true;
+        EMOJI_FIRE_BTNS.forEach(b => b.classList.add('on-cooldown'));
+        setTimeout(() => {
+            emojiLocalCooldown = false;
+            EMOJI_FIRE_BTNS.forEach(b => b.classList.remove('on-cooldown'));
+        }, 2500);
+    });
+});
+
+// 서버로부터 이모지 수신 → 파티클 발사
+socket.on('emoji reaction', ({ emoji, sender }) => {
+    if (!emojiEffectEnabled) return;
+    launchEmojiFireworks(emoji, sender);
+});
+
+/**
+ * 이모지 파티클을 화면 하단에서 여러 개 분산 발사
+ */
+function launchEmojiFireworks(emoji, sender) {
+    const COUNT = 7; // 한 번에 발사할 파티클 수
+    const windowW = window.innerWidth;
+    const windowH = window.innerHeight;
+
+    for (let i = 0; i < COUNT; i++) {
+        // 화면 하단 40% 구간에서 랜덤 x 위치
+        const startX = windowW * (0.1 + Math.random() * 0.8);
+        const startY = windowH * (0.75 + Math.random() * 0.2);
+
+        const duration = 2.2 + Math.random() * 1.2; // 2.2~3.4s
+        const flyHeight = -(55 + Math.random() * 35); // -55vh ~ -90vh
+        const rotate = (Math.random() > 0.5 ? 1 : -1) * (180 + Math.random() * 360);
+        const delay = i * 80; // 80ms 간격으로 순차 발사
+
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'emoji-particle';
+            el.textContent = emoji;
+            el.style.setProperty('--duration', `${duration}s`);
+            el.style.setProperty('--fly-height', `${flyHeight}vh`);
+            el.style.setProperty('--rotate', `${rotate}deg`);
+            el.style.left = `${startX}px`;
+            el.style.top = `${startY}px`;
+            document.body.appendChild(el);
+
+            // 첫 번째 파티클에만 이름 라벨 붙이기
+            if (i === 0 && sender) {
+                const label = document.createElement('div');
+                label.className = 'emoji-sender-label';
+                label.textContent = sender;
+                label.style.left = `${startX + 30}px`;
+                label.style.top = `${startY - 18}px`;
+                document.body.appendChild(label);
+                setTimeout(() => label.remove(), 2300);
+            }
+
+            setTimeout(() => el.remove(), duration * 1000 + 100);
+        }, delay);
+    }
+}
+

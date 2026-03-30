@@ -106,3 +106,169 @@ h1#game-title {
 .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); color: #333; max-height: 80vh; overflow-y: auto; }
 .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
 .close-modal:hover { color: black; }
+
+/* =========================================
+   이모지 폭죽 시스템
+   ========================================= */
+
+/* 이모지 파티클 */
+.emoji-particle {
+    position: fixed;
+    font-size: 2rem;
+    pointer-events: none;
+    z-index: 9000;
+    user-select: none;
+    animation: emoji-fly var(--duration, 2.8s) ease-out forwards;
+    will-change: transform, opacity;
+}
+
+@keyframes emoji-fly {
+    0% {
+        transform: translateY(0) rotate(0deg) scale(1);
+        opacity: 1;
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(var(--fly-height, -70vh)) rotate(var(--rotate, 360deg)) scale(0.5);
+        opacity: 0;
+    }
+}
+
+/* 발사자 라벨 (파티클 위에 뜨는 이름) */
+.emoji-sender-label {
+    position: fixed;
+    font-size: 0.72rem;
+    font-weight: bold;
+    color: #fff;
+    background: rgba(0,0,0,0.55);
+    border-radius: 8px;
+    padding: 2px 7px;
+    pointer-events: none;
+    z-index: 9001;
+    animation: emoji-label-fade 2.2s ease-out forwards;
+    white-space: nowrap;
+}
+
+@keyframes emoji-label-fade {
+    0%   { opacity: 1; transform: translateY(0); }
+    60%  { opacity: 0.9; }
+    100% { opacity: 0; transform: translateY(-30px); }
+}
+
+/* 하단 이모지 팔레트 바 */
+#emoji-palette-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 15px;
+    background-color: #1a252f;
+    flex-shrink: 0;
+    height: 44px;
+    box-shadow: 0 -1px 6px rgba(0,0,0,0.2);
+}
+
+#emoji-palette-bar.emoji-hidden {
+    display: none;
+}
+
+.emoji-fire-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 8px;
+    transition: transform 0.15s, background 0.15s;
+    line-height: 1;
+}
+
+.emoji-fire-btn:hover {
+    transform: scale(1.25);
+    background: rgba(255,255,255,0.12);
+}
+
+.emoji-fire-btn:active {
+    transform: scale(0.95);
+}
+
+.emoji-fire-btn.on-cooldown {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#emoji-palette-label {
+    color: #95a5a6;
+    font-size: 0.78rem;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+#emoji-palette-spacer {
+    flex: 1;
+}
+
+/* 우측 사이드바 — 폭죽 ON/OFF 토글 */
+#emoji-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+    color: #bdc3c7;
+    flex-shrink: 0;
+}
+
+#emoji-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* 슬라이드 토글 스위치 */
+.toggle-switch {
+    position: relative;
+    width: 38px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: #555;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.25s;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.25s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: #2ecc71;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(18px);
+}

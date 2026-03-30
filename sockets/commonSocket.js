@@ -15,7 +15,8 @@ module.exports = (io, socket, gameRooms) => {
                 winLines: 3, turnOrderOption: 'host_first', calledNumbers: [], allNumbers: [],
                 numberInterval: null, turnOrder: [], currentTurnIndex: 0, joinOrder: [],
                 liarGame: { scores: {}, votes: {}, submissions: {} }, // 라이어 게임용 초기화
-                lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {} // 로비 투표 초기화
+                lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {}, // 로비 투표 초기화
+                emojiCooldowns: {} // 이모지 폭죽 쿨다운
             };
         }
 
@@ -162,6 +163,25 @@ module.exports = (io, socket, gameRooms) => {
                 io.to(roomId).emit('vote timer', { status: 'running', timeLeft: room.voteTimeLeft });
             }
         }, 1000);
+    });
+
+    // 이모지 폭죽 이벤트 (대기실 전용)
+    socket.on('emoji reaction', (emoji) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (room.status !== 'WAITING') return; // 게임 중 비활성
+
+        const ALLOWED = ['🎉', '🔥', '❤️', '😂', '👏', '💀', '🎮', '⭐'];
+        if (!ALLOWED.includes(emoji)) return;
+
+        const now = Date.now();
+        const cooldowns = room.emojiCooldowns;
+        if (cooldowns[socket.id] && now - cooldowns[socket.id] < 2500) return; // 2.5초 쿨다운
+        cooldowns[socket.id] = now;
+
+        const sender = room.players[socket.id]?.name || '익명';
+        io.to(roomId).emit('emoji reaction', { emoji, sender });
     });
 
     socket.on('vote game', (game) => {
