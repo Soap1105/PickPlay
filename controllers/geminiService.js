@@ -7,7 +7,7 @@ const geminiService = {
     async generateBingoWords(topic) {
         try {
             // Google Search Grounding 사용: AI의 기억이 아닌 검색 결과에서 직접 추출
-            const model = genAI.getGenerativeModel({ 
+            const model = genAI.getGenerativeModel({
                 model: "gemini-2.5-flash",
                 tools: [{ googleSearch: {} }]
             });
@@ -32,7 +32,7 @@ const geminiService = {
 
 ### [단어 품질 규칙]
 1. **중복 금지**: words 배열 안에 동일하거나 의미상 같은 단어를 중복으로 넣지 마. (예: "나루토"와 "우즈마키 나루토"를 동시에 넣는 것 금지)
-2. **길이 제한**: 각 단어는 최대 12글자 이내로 작성해. 초과하는 경우 널리 통용되는 줄임말이나 통칭을 사용해. 줄임말도 없으면 해당 단어는 제외해.
+2. **길이 제한**: 각 단어는 최대 12글자 이내여야 해. 12글자를 초과하는데 널리 쓰이는 공식 줄임말조차 없다면, **억지로 뎅강 자르지 말고 아예 그 단어는 목록에서 빼(탈락시켜).** 다른 짧은 단어로 대체할 것.
 
 ### [Self-Correction 최종 검토]
 결과를 출력하기 직전에 모든 단어를 훑어보고, "이 단어가 주제에 맞는 진짜 이름이 맞는가?", "중복은 없는가?", "12글자를 초과하는 단어는 없는가?"를 자문해라. 40개를 채우려고 '이상한 단어'를 넣었다면 즉시 삭제하고 정답으로 교체하거나, 정답이 없으면 실패를 반환해.
@@ -44,14 +44,14 @@ const geminiService = {
 
             const result = await model.generateContent(prompt);
             let responseText = result.response.text();
-            
+
             // 마크다운 코드블럭 제거
             responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-            
+
             // 괄호 짝애기로 정확한 JSON 합체만 추출 (Grounding 시 뽙는 URL/각주 텍스트 제거)
             const startIdx = responseText.indexOf('{');
             if (startIdx === -1) throw new Error("No JSON found in response");
-            
+
             let depth = 0;
             let endIdx = -1;
             for (let i = startIdx; i < responseText.length; i++) {
@@ -61,20 +61,20 @@ const geminiService = {
                     if (depth === 0) { endIdx = i; break; }
                 }
             }
-            
+
             if (endIdx === -1) throw new Error("Malformed JSON: no closing brace");
-            
+
             return JSON.parse(responseText.substring(startIdx, endIdx + 1));
 
         } catch (error) {
             console.error("Gemini API Error:", error);
-            
+
             // Google Search Grounding이 무료 티어에서 지원 안 될 경우 폴백
             if (error.status === 400 || (error.message && error.message.includes('googleSearch'))) {
                 console.log("[Grounding 미지원] 일반 모드로 폴백합니다.");
                 return geminiService.generateBingoWordsNoGrounding(topic);
             }
-            
+
             if (error.status === 429) {
                 return { status: "error", message: "무료 API 일일/분당 제공량을 초과했습니다. 약 1분 뒤에 다시 시도해주세요 ⏳" };
             }
@@ -82,7 +82,7 @@ const geminiService = {
             if (error.message === "TIMEOUT") {
                 return { status: "error", message: "AI 응답 시간이 초과되었습니다. 주제가 너무 모호하거나 오타가 있는지 확인해주세요." };
             }
-            
+
             return { status: "error", message: "AI 서버 응답이 지연되거나 형식이 깨졌습니다. 다시 한 번 생성 버튼을 눌러주세요!" };
         }
     },
@@ -90,7 +90,7 @@ const geminiService = {
     // Google Search Grounding 미지원 시 폴백용 (일반 주제용)
     async generateBingoWordsNoGrounding(topic) {
         try {
-            const model = genAI.getGenerativeModel({ 
+            const model = genAI.getGenerativeModel({
                 model: "gemini-2.5-flash",
                 generationConfig: { responseMimeType: "application/json" }
             });
@@ -101,7 +101,7 @@ const geminiService = {
 ### [필수 지침]
 - **Entity Purity**: 주제 "${topic}"에 완벽히 부합하는 **고유 명칭**만 추출. 설명, 관계 묘사, 시스템 용어 절대 금지.
 - **네이밍 규칙**: 각 문화권 표준 풀네임 준수, '성 이름' 순서 준수.
-- **범용 필터링**: 등급(3성/엘다인), 스토리구분(메인/서브), 아이템/음식 명칭 절대 배제.
+- **범용 필터링**: 등급(3성/엘다인), 스토리구분(메인/서브), 아이템/음식 명칭 절대 배제. (12글자 초과 시 억지로 자르지 말고 그냥 그 단어는 통째로 배제할 것)
 - **Self-Correction**: 출력 전 스스로 블랙리스트 및 명칭 순서를 검토하여 부적절한 단어는 수정할 것.
 - 40개 채우기 불가능하거나 부적절한 주제면 error 반환.
 
@@ -111,7 +111,7 @@ const geminiService = {
 
             // 타임아웃 래퍼 함수 (90초 제한 - gemini-2.5-flash thinking 감안)
             const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("AI 응답 시간 초과 (90초 제한). 주제가 너무 모호하거나 네트워크가 불안정합니다. 잠시 후 다시 시도해주세요.")), 90000)
+                setTimeout(() => reject(new Error("AI 응답 시간 초과 (90초 제한). 주제가 너무 모호하거나 네트워크가 불안정합니다. 잠시 후 다시 시도해주세요.")), 90000)
             );
             const result = await Promise.race([model.generateContent(prompt), timeoutPromise]);
             let responseText = result.response.text();

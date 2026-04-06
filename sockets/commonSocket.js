@@ -243,7 +243,26 @@ module.exports = (io, socket, gameRooms) => {
                     updateReadyStatus(io, room, roomId);
                 }
             } else if (room.mode === 'liar') {
-                // handle liar specific disconnect later
+                const remainingPlayers = Object.keys(room.players);
+                // 진행 중이거나 결과창 대기 중일 때 인원이 2명 이하가 되면 강제 종료
+                if (room.status !== 'WAITING' && remainingPlayers.length < 3) {
+                    if (room.liarGame && room.liarGame.timerInterval) {
+                        clearInterval(room.liarGame.timerInterval);
+                        room.liarGame.timerInterval = null;
+                    }
+                    io.to(roomId).emit('liar timer clear'); // 프론트엔드 UI 타이머 숨김
+                    
+                    room.status = 'WAITING';
+                    
+                    io.to(roomId).emit('round over', {
+                        isFinalGameOver: true,
+                        message: "인원수 부족 (강제 종료)",
+                        finalMessage: "게임 진행 최소 인원(3명)에 미달하여 대기실 상태로 롤백됩니다.",
+                        liarName: "-",
+                        word: "-",
+                        citizensWon: false
+                    });
+                }
             }
 
             io.to(roomId).emit('update user list', getSortedUserList(room));

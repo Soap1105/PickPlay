@@ -103,8 +103,53 @@ function addSystemMessage(message) {
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
+// --- 토스트 알림 기능 ---
+function showToast(message, type = 'info') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // 타입별 아이콘 설정 (FontAwesome 활용)
+    let iconClass = 'fa-info-circle';
+    if (type === 'warning') iconClass = 'fa-exclamation-triangle';
+    if (type === 'error') iconClass = 'fa-times-circle';
+    if (type === 'success') iconClass = 'fa-check-circle';
+
+    toast.innerHTML = `
+        <i class="fas ${iconClass} toast-icon"></i>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    // 상호작용성: 클릭 시 바로 제거
+    toast.onclick = () => { toast.remove(); };
+
+    // 4초 후 자동 제거 (애니메이션 시간 포함)
+    setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+    }, 4500);
+}
+
 socket.on('chat message', (data) => addChatMessage(data.sender, data.message));
-socket.on('system message', (msg) => addSystemMessage(msg));
+socket.on('system message', (msg) => {
+    addSystemMessage(msg);
+    // 중요한 시스템 메시지는 토스트로도 띄움
+    if (msg.includes('!') || msg.includes('최소') || msg.includes('종료') || msg.includes('승리')) {
+        let type = 'info';
+        if (msg.includes('!')) type = 'warning';
+        if (msg.includes('최소')) type = 'error';
+        if (msg.includes('승리')) type = 'success';
+        showToast(msg, type);
+    }
+});
 
 window.addChatMessage = addChatMessage;
 window.addSystemMessage = addSystemMessage;
+window.showToast = showToast;

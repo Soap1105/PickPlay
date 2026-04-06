@@ -7,8 +7,74 @@ const waitingArea = document.querySelector('#liar-container .waiting-area');
 const playerUI = document.querySelector('#liar-container .player-ui');
 const startGameBtn = document.getElementById('start-liar-btn');
 
+// --- 타이머 UI 생성 ---
+let liarTimerUI = document.getElementById('liar-timer-ui');
+if (!liarTimerUI) {
+    liarTimerUI = document.createElement('div');
+    liarTimerUI.id = 'liar-timer-ui';
+    liarTimerUI.style.cssText = 'background: #fff3cd; color: #856404; padding: 15px; border-radius: 10px; font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px; display: none; border: 2px solid #ffeeba; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: color 0.3s, border-color 0.3s;';
+    const liarContainer = document.getElementById('liar-container');
+    if (liarContainer) {
+        liarContainer.insertBefore(liarTimerUI, playerUI);
+    }
+}
+// -----------------------
+
 let amIHost = false;
 let currentUsers = [];
+let allLiarCategories = [];
+let selectedLiarCategories = [];
+
+// 체크박스 렌더링 함수
+function renderCategoryCheckboxes() {
+    if (!amIHost) return;
+    
+    let catArea = document.getElementById('liar-category-area');
+    if (!catArea) {
+        catArea = document.createElement('div');
+        catArea.id = 'liar-category-area';
+        catArea.style.cssText = 'margin-top:10px; margin-bottom:15px; text-align:left; background:#f9f9f9; padding: 15px; border-radius:10px; border:1px solid #ddd; max-height: 200px; overflow-y: auto;';
+        startGameBtn.parentNode.insertBefore(catArea, startGameBtn);
+    }
+    
+    let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <strong style="color:#2c3e50;"><i class="fas fa-list"></i> 카테고리 선택 (체크박스)</strong>
+            <div>
+                <button id="liar-cat-all-btn" style="cursor:pointer; padding:5px 10px; background:#3498db; color:white; border:none; border-radius:5px; font-weight:bold; font-size: 0.8rem;">모두 선택</button>
+                <button id="liar-cat-none-btn" style="cursor:pointer; padding:5px 10px; background:#e74c3c; color:white; border:none; border-radius:5px; font-weight:bold; font-size: 0.8rem; margin-left:5px;">모두 해제</button>
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px;">
+    `;
+    
+    allLiarCategories.forEach((cat) => {
+        const isChecked = selectedLiarCategories.includes(cat) ? 'checked' : '';
+        html += `
+            <label style="font-size: 0.9rem; cursor:pointer; display:flex; align-items:center; color:#333;">
+                <input type="checkbox" class="liar-cat-cb" value="${cat}" ${isChecked} style="margin-right:5px; width:16px; height:16px;"> ${cat}
+            </label>
+        `;
+    });
+    html += `</div>`;
+    catArea.innerHTML = html;
+    
+    document.getElementById('liar-cat-all-btn').onclick = () => {
+        document.querySelectorAll('.liar-cat-cb').forEach(cb => cb.checked = true);
+    };
+    document.getElementById('liar-cat-none-btn').onclick = () => {
+        document.querySelectorAll('.liar-cat-cb').forEach(cb => cb.checked = false);
+    };
+}
+
+// 서버로부터 카테고리 리스트 수신
+socket.on('liar categories', (cats) => {
+    allLiarCategories = cats;
+    if (selectedLiarCategories.length === 0) {
+        selectedLiarCategories = [...cats]; // 맨 처음은 무조건 전체 선택 상태
+    }
+    renderCategoryCheckboxes();
+});
 
 window.renderLiarUsers = function(users, hostStatus) {
     currentUsers = users;
@@ -88,8 +154,17 @@ window.updateLiarRoleUI = function(isHostStatus) {
 
     if (amIHost) {
         setupArea.style.display = 'block';
+        socket.emit('request liar categories'); // 방장이 되면 최신 카테고리 요청
     } else {
         waitingArea.style.display = 'block';
+    }
+    
+    // 결과창 방장 위임 반응형 로직
+    const hostBtns = document.getElementById('host-buttons');
+    const guestTxt = document.getElementById('guest-text');
+    if (hostBtns && guestTxt) {
+        hostBtns.style.display = amIHost ? 'block' : 'none';
+        guestTxt.style.display = amIHost ? 'none' : 'block';
     }
 };
 
@@ -101,8 +176,30 @@ window.initLiarUI = function(isHostStatus) {
 window.isGamePlaying = false;
 
 startGameBtn.addEventListener('click', () => {
+    // [UX 개선] 시작 전 인원 체크 (최소 3명)
+    if (currentUsers.length < 3) {
+        if (window.showToast) {
+            window.showToast('라이어 게임은 최소 3명 이상이어야 시작할 수 있습니다!', 'error');
+        } else {
+            alert('라이어 게임은 최소 3명 이상이어야 시작할 수 있습니다!');
+        }
+        return;
+    }
+
     const target = document.getElementById('win-target-select') ? parseInt(document.getElementById('win-target-select').value) : 3;
-    socket.emit('setup liar game', { winTarget: target });
+    
+    // 카테고리 체크박스 순회
+    const checkedCbs = document.querySelectorAll('.liar-cat-cb:checked');
+    const selectedCats = Array.from(checkedCbs).map(cb => cb.value);
+    
+    if (selectedCats.length === 0 && allLiarCategories.length > 0) {
+        alert("최소 1개 이상의 카테고리를 선택해야 합니다!");
+        return;
+    }
+    
+    selectedLiarCategories = selectedCats; // 세팅 저장
+    
+    socket.emit('setup liar game', { winTarget: target, categories: selectedCats });
 });
 
 // 점수 업데이트
@@ -117,36 +214,137 @@ socket.on('update scores', (scores, target) => {
 socket.on('liar role assigned', (data) => {
     playerUI.innerHTML = `
         <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-align: center;">
-            <h2 style="color: #2c3e50; font-size: 2rem;">당신의 역할: <span style="color: ${data.isLiar ? '#e74c3c' : '#27ae60'}">${data.isLiar ? '라이어 🕵️‍♂️' : '시민 🧑‍🌾'}</span></h2>
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-            <p style="font-size: 1.2rem; color: #7f8c8d; margin-bottom: 10px;">카테고리</p>
-            <h3 style="font-size: 2.5rem; margin: 0; color: #34495e;">${data.category}</h3>
-            
-            <p style="font-size: 1.2rem; color: #7f8c8d; margin-top: 20px; margin-bottom: 10px;">제시어</p>
-            <h1 style="font-size: 3.5rem; margin: 0; color: ${data.isLiar ? '#e74c3c' : '#2980b9'}; letter-spacing: 5px;">${data.word}</h1>
-            
-            <div id="submission-area" style="margin-top: 30px; padding: 20px; background: #ecf0f1; border-radius: 10px;">
-                <p style="font-weight: bold; margin-bottom: 10px; color: #2c3e50;">이 단어를 설명하는 짧은 문장을 하나 써주세요!</p>
-                <input type="text" id="desc-input" placeholder="예: 이건 주로 여름에 먹어요." style="width: 80%; padding: 10px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc; outline: none; margin-bottom: 10px;">
-                <br>
-                <button id="submit-desc-btn" class="start-btn" style="width: 80%; padding: 10px;">제출하기</button>
+            <div id="role-info-area">
+                <h2 style="color: #2c3e50; font-size: 2rem;">당신의 역할: <span style="color: ${data.isLiar ? '#e74c3c' : '#27ae60'}">${data.isLiar ? '라이어 🕵️‍♂️' : '시민 🧑‍🌾'}</span></h2>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                <p style="font-size: 1.2rem; color: #7f8c8d; margin-bottom: 10px;">카테고리</p>
+                <h3 style="font-size: 2.5rem; margin: 0; color: #34495e;">${data.category}</h3>
+                
+                <p style="font-size: 1.2rem; color: #7f8c8d; margin-top: 20px; margin-bottom: 10px;">제시어</p>
+                <h1 style="font-size: 3.5rem; margin: 0; color: ${data.isLiar ? '#e74c3c' : '#2980b9'}; letter-spacing: 5px;">${data.word}</h1>
             </div>
             
-            <div id="waiting-submit-area" style="display: none; margin-top: 30px; padding: 15px; background: #fff3cd; color: #856404; border-radius: 10px; font-weight: bold;">
-               ⏳ 다른 플레이어를 기다리는 중... ⏳
+            <!-- 실시간 힌트 리스트 영역 -->
+            <div id="live-hint-container" style="margin-top: 30px; text-align: left; display: none;">
+                <h3 style="color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">실시간 힌트 목록</h3>
+                <ul id="live-hint-list" style="list-style-type: none; padding: 0; font-size: 1.1rem; line-height: 1.6;"></ul>
+            </div>
+
+            <div id="turn-display-area" style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; border: 1px solid #ddd;">
+                <p id="turn-message" style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">순번을 정하는 중입니다...</p>
+                <div id="turn-input-area" style="display: none; margin-top: 15px;">
+                    <input type="text" id="desc-input" placeholder="이 단어를 설명하는 한 문장 입력" style="width: 80%; padding: 12px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc; outline: none; margin-bottom: 10px;">
+                    <br>
+                    <button id="submit-desc-btn" class="start-btn" style="width: 80%; padding: 10px;">설명 제출하기</button>
+                </div>
             </div>
         </div>
     `;
     setupArea.style.display = 'none';
     waitingArea.style.display = 'none';
 
-    document.getElementById('submit-desc-btn').onclick = () => {
-        const desc = document.getElementById('desc-input').value.trim();
-        if (!desc) { alert("설명을 입력해주세요!"); return; }
-        socket.emit('submit description', desc);
-        document.getElementById('submission-area').style.display = 'none';
-        document.getElementById('waiting-submit-area').style.display = 'block';
-    };
+    // 나중에 생성될 버튼을 위해 전역 핸들러 대신 여기서 로직 처리
+    const inputArea = document.getElementById('turn-input-area');
+    const submitBtn = document.getElementById('submit-desc-btn');
+    const inputField = document.getElementById('desc-input');
+
+    if (submitBtn) {
+        submitBtn.onclick = () => {
+            const desc = inputField.value.trim();
+            if (!desc) { alert("설명을 입력해주세요!"); return; }
+            socket.emit('submit description', desc);
+            inputArea.style.display = 'none';
+            document.getElementById('turn-message').textContent = "제출 완료! 다음 순서를 기다립니다.";
+        };
+    }
+});
+
+// 순차 턴 알림 수신
+let myLabel = null; // 본인의 익명 라벨 저장
+socket.on('liar next turn', (data) => {
+    const turnMsg = document.getElementById('turn-message');
+    const inputArea = document.getElementById('turn-input-area');
+    const liveHintContainer = document.getElementById('live-hint-container');
+
+    if (liveHintContainer) liveHintContainer.style.display = 'block';
+
+    if (data.isMyTurn) {
+        myLabel = data.label; // 본인 라벨 저장
+        turnMsg.innerHTML = `<span style="color: #e74c3c;">⭐ 당신의 차례입니다! (익명 ${data.label})</span>`;
+        if (inputArea) inputArea.style.display = 'block';
+    } else {
+        turnMsg.textContent = `익명 ${data.label}가 설명 중입니다...`;
+        if (inputArea) inputArea.style.display = 'none';
+    }
+});
+
+// 실시간 힌트 수신
+socket.on('liar hint received', (data) => {
+    const hintList = document.getElementById('live-hint-list');
+    const liveHintContainer = document.getElementById('live-hint-container');
+
+    if (liveHintContainer) liveHintContainer.style.display = 'block';
+    
+    if (hintList) {
+        const li = document.createElement('li');
+        li.style.cssText = 'margin-bottom: 10px; padding: 12px; background: #fff; border-radius: 8px; border-left: 5px solid #3498db; box-shadow: 0 2px 4px rgba(0,0,0,0.05);';
+        li.innerHTML = `<strong style="color: #3498db;">[힌트 ${data.label}]</strong> <span style="color: #555;">"${data.desc}"</span>`;
+        hintList.appendChild(li);
+    }
+});
+
+// 투표 단계 진입 (턴제 종료 시)
+socket.on('liar voting phase start', () => {
+    const hintList = document.getElementById('live-hint-list');
+    const turnDisplay = document.getElementById('turn-display-area');
+    
+    if (turnDisplay) turnDisplay.style.display = 'none';
+
+    // 투표 버튼 생성 (이미 수집된 힌트 목록 기반)
+    const hints = Array.from(hintList.querySelectorAll('li'));
+    let voteButtonsHTML = '<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px;">';
+    
+    hints.forEach((hint, idx) => {
+        const label = String.fromCharCode(65 + idx);
+        // 본인 힌트 버튼은 생성하지 않음 (자폭 방지)
+        if (label === myLabel) return;
+        voteButtonsHTML += `<button class="vote-target-btn" data-target-label="${label}" style="padding: 15px 30px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #3498db; background: white; color: #2c3e50; font-weight: bold; cursor: pointer; transition: 0.2s;">🕵️‍♂️ 힌트 ${label} 지목</button>`;
+    });
+    voteButtonsHTML += '</div>';
+
+    const votingHtml = `
+        <div id="voting-section" style="margin-top: 30px; padding: 30px; background: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-align: center;">
+            <h2 style="color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">🕵️‍♂️ 라이어 지목하기</h2>
+            <p style="color: #7f8c8d; margin-bottom: 25px;">힌트 내용을 보고 라이어로 의심되는 번호를 클릭하세요!</p>
+            ${voteButtonsHTML}
+            <div id="waiting-vote-area" style="display: none; margin-top: 20px; padding: 15px; background: #fff3cd; color: #856404; border-radius: 10px; font-weight: bold;">
+                ⏳ 다른 플레이어를 기다리는 중... ⏳
+            </div>
+        </div>
+    `;
+
+    // 롤 가이드 아래에 투표창 붙이기
+    const card = playerUI.querySelector('div');
+    if (card) {
+        // 기존 턴 표시 영역 등 제거하고 투표 영역 삽입
+        const existingVoting = document.getElementById('voting-section');
+        if (existingVoting) existingVoting.remove();
+        card.insertAdjacentHTML('beforeend', votingHtml);
+    }
+
+    // 버튼 이벤트 연결
+    document.querySelectorAll('.vote-target-btn').forEach(btn => {
+        btn.onmouseover = () => { btn.style.background = '#3498db'; btn.style.color = 'white'; };
+        btn.onmouseout = () => { btn.style.background = 'white'; btn.style.color = '#2c3e50'; };
+        btn.onclick = () => {
+            const label = btn.getAttribute('data-target-label');
+            if (confirm(`정말 "힌트 ${label}" 제출자를 라이어로 지목하시겠습니까?`)) {
+                socket.emit('vote liar', label);
+                btn.parentElement.style.display = 'none';
+                document.getElementById('waiting-vote-area').style.display = 'block';
+            }
+        };
+    });
 });
 
 socket.on('game started', () => {
@@ -154,64 +352,8 @@ socket.on('game started', () => {
 });
 
 socket.on('all submissions received', (submissions) => {
-    window.isGamePlaying = true; // 이제 교차 투표 가능
-    let html = `
-        <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-align: left;">
-            <h2 style="color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">참가자들의 힌트</h2>
-            <ul style="list-style-type: none; padding: 0; font-size: 1.2rem; line-height: 1.8;">
-    `;
-
-    // 배열 섞기 (누가 먼저 냈는지 유추하기 힘들게)
-    submissions.sort(() => Math.random() - 0.5);
-
-    submissions.forEach(sub => {
-        html += `<li style="margin-bottom: 10px; padding: 15px; background: #f8f9fa; border-radius: 10px; border-left: 5px solid #3498db;">
-            <strong>${sub.name}</strong> 님의 설명:<br>
-            <span style="color: #555;">"${sub.desc}"</span>
-        </li>`;
-    });
-
-    // 투표 UI 추가 (본인 제외)
-    let voteButtonsHTML = '<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px;">';
-    currentUsers.forEach(u => {
-        if (u.id !== socket.id) {
-            voteButtonsHTML += `<button class="vote-target-btn" data-target-id="${u.id}" data-target-name="${u.name}" style="padding: 15px 30px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #3498db; background: white; color: #2c3e50; font-weight: bold; cursor: pointer; transition: 0.2s;">🙋‍♂️ ${u.name}</button>`;
-        }
-    });
-    voteButtonsHTML += '</div>';
-
-    html += `
-            </ul>
-            
-            <div id="voting-area" style="margin-top: 30px; padding: 20px; background: #e8f4f8; border-radius: 10px; text-align: center; border: 2px solid #bce8f1;">
-                <h3 style="color: #31708f; margin-top: 0;">🕵️‍♂️ 라이어 투표하기</h3>
-                <p style="color: #5bc0de; margin-bottom: 20px;">채팅으로 충분히 토론한 뒤, 의심되는 사람의 닉네임을 클릭해 지목하세요!</p>
-                
-                ${voteButtonsHTML}
-            </div>
-            
-            <div id="waiting-vote-area" style="display: none; margin-top: 20px; padding: 15px; background: #fff3cd; color: #856404; border-radius: 10px; font-weight: bold; text-align: center;">
-                ⏳ 다른 플레이어를 기다리는 중... ⏳
-            </div>
-        </div>
-    `;
-    playerUI.innerHTML = html;
-
-    // 호버 효과 및 클릭 이벤트 추가
-    document.querySelectorAll('.vote-target-btn').forEach(btn => {
-        btn.onmouseover = () => { btn.style.background = '#3498db'; btn.style.color = 'white'; };
-        btn.onmouseout = () => { btn.style.background = 'white'; btn.style.color = '#2c3e50'; };
-
-        btn.onclick = () => {
-            const targetId = btn.getAttribute('data-target-id');
-            const targetName = btn.getAttribute('data-target-name');
-            if (confirm(`정말 ${targetName}님을 라이어로 지목하시겠습니까?`)) {
-                socket.emit('vote liar', targetId);
-                document.getElementById('voting-area').style.display = 'none';
-                document.getElementById('waiting-vote-area').style.display = 'block';
-            }
-        };
-    });
+    // 순차 턴제로 변경되어 이 이벤트는 더 이상 메인 흐름에서 사용되지 않거나
+    // 투표 시작 시점에 전체 목록을 보정하는 용도로 남겨둡니다.
 });
 
 // 투표 진행 현황 표시 (간단히)
@@ -259,18 +401,43 @@ socket.on('final guess phase', (data) => {
 socket.on('round over', (result) => {
     window.isGamePlaying = false;
 
-    let btnHtml = "";
-    if (result.isFinalGameOver) {
-        btnHtml = amIHost ? '<button id="restart-liar-btn" class="start-btn" style="margin-top: 30px; width: auto; padding: 15px 40px;">게임 초기화</button>' : '<p style="margin-top:20px; color:#555;">방장이 게임을 무효화할 때까지 대기해주세요.</p>';
-    } else {
-        btnHtml = amIHost ? '<button id="next-round-btn" class="start-btn" style="background:#3498db; margin-top: 30px; width: auto; padding: 15px 40px;">다음 라운드 시작</button>' : '<p style="margin-top:20px; color:#555;">방장이 다음 라운드를 준비 중입니다...</p>';
-    }
+    const hostBtnId = result.isFinalGameOver ? 'restart-liar-btn' : 'next-round-btn';
+    const hostBtnText = result.isFinalGameOver ? '게임 초기화' : '다음 라운드 시작';
+    const hostBtnColor = result.isFinalGameOver ? '' : 'background:#3498db;';
+    
+    const hostBtnHtml = `<button id="${hostBtnId}" class="start-btn" style="${hostBtnColor} margin-top: 30px; width: auto; padding: 15px 40px;">${hostBtnText}</button>`;
+    const guestText = result.isFinalGameOver ? '방장이 게임을 무효화할 때까지 대기해주세요.' : '방장이 다음 라운드를 준비 중입니다...';
+
+    const hostDisplay = amIHost ? 'block' : 'none';
+    const guestDisplay = amIHost ? 'none' : 'block';
+
+    const btnHtml = `
+        <div id="host-buttons" style="display: ${hostDisplay};">
+            ${hostBtnHtml}
+        </div>
+        <div id="guest-text" style="display: ${guestDisplay};">
+            <p style="margin-top:20px; color:#555;">${guestText}</p>
+        </div>
+    `;
 
     playerUI.innerHTML = `
         <div style="background: ${result.citizensWon ? '#d4edda' : '#f8d7da'}; padding: 40px; border-radius: 15px; text-align: center; border: 2px solid ${result.citizensWon ? '#c3e6cb' : '#f5c6cb'}; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
             <h1 style="font-size: 2.5rem; color: ${result.citizensWon ? '#155724' : '#721c24'}; margin-top:0;">${result.isFinalGameOver ? '게임 완전 종료!' : '라운드 종료'}</h1>
             <h2 style="font-size: 1.8rem; line-height: 1.5;">${result.message}</h2>
             ${result.isFinalGameOver ? `<h1 style="font-size: 3rem; color: #f39c12; margin: 20px 0;">${result.finalMessage}</h1>` : ''}
+            
+            <div style="margin: 20px auto; padding: 15px; background: #fff; border-radius: 10px; display: inline-block; text-align: left; border: 1px solid #ddd;">
+                <h4 style="margin-top: 0; color: #7f8c8d; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧐 힌트 정체 공개</h4>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.9rem;">
+                    ${result.anonymousMapping ? result.anonymousMapping.map((pid, idx) => {
+                        const label = String.fromCharCode(65 + idx);
+                        const name = result.playerNames[pid] || '알수없음';
+                        const desc = result.submissions[pid] || '';
+                        return `<li style="margin-bottom: 5px;"><strong>[힌트 ${label}]</strong> ${name}: "${desc}"</li>`;
+                    }).join('') : ''}
+                </ul>
+            </div>
+
             <hr style="margin: 30px 0;">
             <h3 style="font-size: 1.5rem; color: #333;">이번 판 진짜 라이어: <span style="color: #e74c3c; font-size: 2rem;">${result.liarName}</span></h3>
             <h3 style="font-size: 1.5rem; color: #333;">정답 단어: <span style="color: #2980b9; font-size: 2rem;">${result.word}</span></h3>
@@ -301,4 +468,32 @@ socket.on('game restarted', () => {
         window.updateLiarRoleUI(amIHost);
     }
 });
+
+// 타이머 이벤트 리스너 추가
+socket.on('liar timer tick', (data) => {
+    if (!liarTimerUI) return;
+    liarTimerUI.style.display = 'block';
+    
+    // 남은 시간에 따른 색상 변화 (10초 이하일 때 붉은색)
+    if (data.timeLeft <= 10) {
+        liarTimerUI.style.color = '#721c24';
+        liarTimerUI.style.background = '#f8d7da';
+        liarTimerUI.style.borderColor = '#f5c6cb';
+    } else if (data.timeLeft <= 20) {
+        liarTimerUI.style.color = '#856404';
+        liarTimerUI.style.background = '#fff3cd';
+        liarTimerUI.style.borderColor = '#ffeeba';
+    } else {
+        liarTimerUI.style.color = '#155724';
+        liarTimerUI.style.background = '#d4edda';
+        liarTimerUI.style.borderColor = '#c3e6cb';
+    }
+    
+    liarTimerUI.innerHTML = `⏳ [${data.phase}] 진행 중... 남은 시간: <span style="font-size:2rem; margin: 0 10px;">${data.timeLeft}</span>초`;
+});
+
+socket.on('liar timer clear', () => {
+    if (liarTimerUI) liarTimerUI.style.display = 'none';
+});
+
 })();

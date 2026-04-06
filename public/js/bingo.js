@@ -538,26 +538,43 @@ startGameBtn.addEventListener('click', async () => {
         startGameBtn.textContent = "AI가 단어를 고르는 중입니다...⏳";
         startGameBtn.disabled = true;
 
+        // 진행률 UI 초기화 및 노출
+        const progressContainer = document.getElementById('ai-progress-container');
+        const progressBar = document.getElementById('ai-progress-bar');
+        const progressStep = document.getElementById('ai-progress-step');
+        const progressPercent = document.getElementById('ai-progress-percent');
+
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            progressStep.innerHTML = '<i class="fas fa-robot" style="margin-right: 8px;"></i> AI 가동 중...';
+        }
+
         try {
             const res = await fetch('/api/themes/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: topic, userId: myUserId })
+                body: JSON.stringify({ title: topic, userId: myUserId, roomId: window.roomId })
             });
             const data = await res.json();
             
             if (res.ok && data.success) {
                 presetWords = data.words;
+                // 성공 시에도 잠시 대기 후 초기화 (UX)
+                setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 1000);
             } else {
                 alert("AI 생성 실패: " + (data.error || "알 수 없는 오류"));
                 startGameBtn.textContent = originalText;
                 startGameBtn.disabled = false;
+                if (progressContainer) progressContainer.style.display = 'none';
                 return; // 에러 시 진행 중단!
             }
         } catch (e) {
             alert("서버 연결 오류가 발생했습니다.");
             startGameBtn.textContent = originalText;
             startGameBtn.disabled = false;
+            if (progressContainer) progressContainer.style.display = 'none';
             return;
         }
         startGameBtn.textContent = originalText;
@@ -613,6 +630,21 @@ socket.on('bingo progress update', (progressMap) => {
     currentProgressMap = progressMap;
     if (window.gameType === 'bingo') {
         window.renderBingoUsers(currentUsers, amIHost);
+    }
+});
+
+// AI 생성 진행률 수신
+socket.on('theme progress', (data) => {
+    const progressContainer = document.getElementById('ai-progress-container');
+    const progressBar = document.getElementById('ai-progress-bar');
+    const progressStep = document.getElementById('ai-progress-step');
+    const progressPercent = document.getElementById('ai-progress-percent');
+
+    if (progressContainer && progressBar) {
+        progressContainer.style.display = 'block';
+        progressBar.style.width = `${data.percent}%`;
+        if (progressPercent) progressPercent.textContent = `${data.percent}%`;
+        if (progressStep) progressStep.innerHTML = `<i class="fas fa-microchip" style="margin-right: 8px;"></i> ${data.step}`;
     }
 });
 

@@ -7,7 +7,7 @@ module.exports = (io, socket, gameRooms) => {
         if (room.mode !== 'bingo') return;
 
         let loopCount = 0;
-        const maxLoops = room.turnOrder.length + 5;
+        const maxLoops = 500; // 스킵 중첩으로 인한 무한 루프 탈출(Halt) 방지
 
         while (loopCount < maxLoops) {
             room.currentTurnIndex = (room.currentTurnIndex + 1) % room.turnOrder.length;
@@ -26,8 +26,8 @@ module.exports = (io, socket, gameRooms) => {
                 continue;
             }
 
-            io.to(roomId).emit('turn update', { 
-                currentTurnId: nextId, 
+            io.to(roomId).emit('turn update', {
+                currentTurnId: nextId,
                 currentTurnName: room.players[nextId].name,
                 turnTimeLimit: room.turnTimeLimit || 0
             });
@@ -180,10 +180,10 @@ module.exports = (io, socket, gameRooms) => {
             });
 
             io.to(roomId).emit('update user list', getSortedUserList(room));
-            
+
             const firstPlayerId = room.turnOrder[0];
-            io.to(roomId).emit('turn update', { 
-                currentTurnId: firstPlayerId, 
+            io.to(roomId).emit('turn update', {
+                currentTurnId: firstPlayerId,
                 currentTurnName: room.players[firstPlayerId].name,
                 turnTimeLimit: room.turnTimeLimit || 0
             });
@@ -211,6 +211,12 @@ module.exports = (io, socket, gameRooms) => {
         if (!room || room.status !== 'PLAYING' || room.mode !== 'bingo') return;
         const currentTurnId = room.turnOrder[room.currentTurnIndex];
         if (socket.id !== currentTurnId) return;
+
+        // [버그 방지] 통신 지연이나 더블 클릭으로 인한 중복 단어 방어
+        if (room.calledNumbers.includes(data.word)) {
+            socket.emit('action failed', '이미 선택된 단어입니다.');
+            return;
+        }
 
         room.calledNumbers.push(data.word);
         io.to(data.roomId).emit('number called', data.word);

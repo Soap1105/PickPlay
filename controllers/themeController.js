@@ -44,51 +44,72 @@ exports.createTheme = async (req, res) => {
     }
 };
 
-// [NEW] AI 빙고 주제 자동 생성 (DB 캐싱)
+// [NEW] AI 빙고 주제 자동 생성 (DB 캐싱 + 실시간 진행률 중계)
 exports.generateThemeWords = async (req, res) => {
-    const { title, userId } = req.body;
+    const { title, userId, roomId } = req.body;
+    const io = req.io;
     
     if (!title) return res.status(400).json({ error: '주제가 필요합니다.' });
     if (!userId) return res.status(400).json({ error: '사용자 식별자가 없습니다.' });
 
+    // 진행률 중계 헬퍼 함수
+    const reportProgress = (step, percent) => {
+        if (io && roomId) {
+            io.to(roomId).emit('theme progress', { step, percent });
+        }
+    };
+
     try {
+        reportProgress("데이터베이스 캐시 확인 중...", 10);
+        
         // 1. DB 캐싱 확인 (이미 만들어진 주제인지)
         const cachedTheme = await ThemeModel.getThemeByTitle(title);
         if (cachedTheme) {
             console.log(`[Cache Hit] '${title}' - DB에서 바로 가져옵니다.`);
-            // words가 문자열이면 파싱
+            reportProgress("기존 테마 발견! 즉시 로드 중...", 100);
+            
             if (typeof cachedTheme.words === 'string') {
                 cachedTheme.words = JSON.parse(cachedTheme.words);
             }
             return res.json({ success: true, themeId: cachedTheme.id, words: cachedTheme.words, source: 'cache' });
         }
 
+        reportProgress("AI 모델 호출 및 데이터 수집 중 (약 10~20초)...", 30);
         console.log(`[Cache Miss] '${title}' - AI에게 생성을 요청합니다.`);
+        
         // 2. DB에 없으면 Gemini 호출
         const aiResult = await geminiService.generateBingoWords(title);
 
         if (aiResult.status === "error") {
-            // 주제가 너무 좁거나 부적절할 경우 실패 응답
+            reportProgress("주제 생성 실패: 부적절하거나 너무 좁은 주제입니다.", 0);
             return res.status(400).json({ error: aiResult.message });
         }
 
         if (aiResult.status === "success" && aiResult.words && aiResult.words.length >= 25) {
-            // 중복 제거 (Grounding 시 두 번 나오는 경우 대비)
+            reportProgress("단어 품질 검수 및 고유 명칭 필터링 중...", 70);
+            
+            // 중복 제거
             aiResult.words = [...new Set(aiResult.words)];
             
             if (aiResult.words.length < 25) {
+                reportProgress("필터링 후 단어 수 부족으로 재생성이 필요합니다.", 0);
                 return res.status(500).json({ error: "중복 제거 후 25개 이하로 남았습니다. 다시 시도해주세요." });
             }
             
-            // 3. AI가 생성 성공 시 -> 학교 DB에 시스템 작성자로 추가
+            reportProgress("최종 결과 저장 중...", 90);
+            // 3. AI가 생성 성공 시 -> DB 저장
             const themeId = await ThemeModel.createTheme(userId, title, aiResult.words, 'System-GeminiAI');
+            
+            reportProgress("완료! 테마를 적용합니다.", 100);
             return res.json({ success: true, themeId, words: aiResult.words, source: 'ai' });
         } else {
+            reportProgress("AI 엔진에서 단어를 충분히 찾지 못했습니다.", 0);
             return res.status(500).json({ error: 'AI가 단어 풀을 충분히 생성하지 못했습니다.' });
         }
 
     } catch (err) {
         console.error(err);
+        reportProgress("오류 발생으로 중단되었습니다.", 0);
         res.status(500).json({ error: '주제 생성 및 저장 실패' });
     }
 };
