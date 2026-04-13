@@ -5,6 +5,7 @@
     <title>PickPlay</title>
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" id="game-stylesheet" href=""> <!-- Dynamically loaded css -->
+    <link rel="stylesheet" href="/css/bomb.css"> <!-- Bomb specific styles (static for now or handled by room.js) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .hidden-container {
@@ -143,6 +144,7 @@
                     <h3>어떤 게임을 할까요?</h3>
                     <button class="game-select-btn" data-game="bingo">빙고 게임 시작하기</button>
                     <button class="game-select-btn" data-game="liar">라이어 게임 시작하기</button>
+                    <button class="game-select-btn" data-game="bomb" style="background-color: #e67e22;">폭탄 돌리기 시작하기</button>
                     <button class="game-select-btn" data-game="Coming soon" disabled>개발 중...</button>
                 </div>
                 <div id="guest-waiting-msg" style="margin-top: 30px;">
@@ -280,6 +282,70 @@
                 </div>
             </div>
 
+            <!-- ================= BOMB CONTAINER ================= -->
+            <div id="bomb-container" class="hidden-container">
+                <div id="bomb-scores-display" class="ready-status-display">기다리는 중...</div>
+
+                <div class="setup-area bomb-setup" style="display: none;">
+                    <h3>👑 폭탄 돌리기 방장 설정</h3>
+                    <div class="setting-group">
+                        <label class="setting-title">🏆 목표 승수</label>
+                        <select id="bomb-win-target" style="padding: 8px; font-size: 1rem; border-radius: 5px;">
+                            <option value="2">2승</option>
+                            <option value="3" selected>3승</option>
+                            <option value="4">4승</option>
+                            <option value="5">5승</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-title">⏱️ 폭탄 타이머 노출</label>
+                        <label style="cursor:pointer;"><input type="checkbox" id="bomb-show-timer" checked> 타이머를 화면에 표시함</label>
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-title">🔥 폭탄 유지 시간 범위</label>
+                        <select id="bomb-timer-range" style="padding: 8px; font-size: 1rem; border-radius: 5px;">
+                            <option value="short">짧게 (15~30초)</option>
+                            <option value="medium" selected>보통 (30~55초)</option>
+                            <option value="long">길게 (50~80초)</option>
+                        </select>
+                    </div>
+                    <button id="start-bomb-btn" class="start-btn">게임 시작!</button>
+                    <button class="return-lobby-btn" style="margin-top: 10px;">대기실로 돌아가기</button>
+                </div>
+
+                <div class="waiting-area bomb-waiting" style="display: none;">
+                    <h3>💣 폭탄 준비 중...</h3>
+                    <p>방장이 게임을 설정하고 있습니다.</p>
+                </div>
+
+                <div class="player-ui bomb-player-ui" style="display: none; width: 100%; text-align: center;">
+                    <div id="bomb-theme-display" style="font-size: 1.5rem; font-weight: bold; color: #e67e22; margin-bottom: 20px; background: #fff3e0; padding: 10px; border-radius: 10px;">주제: </div>
+                    
+                    <div id="bomb-timer-area" style="height: 40px; margin-bottom: 10px;">
+                        <span id="bomb-timer-text" style="font-size: 1.8rem; font-weight: bold; color: #e74c3c; background: white; padding: 5px 20px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none;">00:00</span>
+                    </div>
+
+                    <div id="bomb-visual-area" style="position: relative; height: 180px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: radial-gradient(circle, #f9f9f9 0%, #e0e0e0 100%); border-radius: 50%; width: 180px; margin: 0 auto 20px auto;">
+                        <div id="bomb-graphic" class="bomb-idle">💣</div>
+                    </div>
+
+                    <div id="bomb-current-turn" style="font-size: 1.2rem; margin-bottom: 15px; font-weight: bold;"></div>
+
+                    <div id="bomb-input-area" style="display: none;">
+                        <input type="text" id="bomb-word-input" placeholder="정답 입력 후 엔터!" 
+                               style="width: 80%; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #e67e22; outline: none; text-align: center;">
+                    </div>
+                    <div id="bomb-used-words-preview" style="margin-top: 20px; font-size: 0.9rem; color: #7f8c8d; height: 60px; overflow-y: auto; border-top: 1px dashed #ccc; padding-top: 10px;">
+                        최근 사용 단어: <span id="bomb-words-list"></span>
+                    </div>
+                </div>
+
+                <div id="bomb-round-result" style="display: none; margin-top: 20px; padding: 20px; background: #ffebee; border-radius: 10px; border: 2px solid #ef5350;">
+                    <h3 id="bomb-result-msg" style="color: #c62828; margin: 0 0 10px 0;"></h3>
+                    <button id="next-bomb-round-btn" class="start-btn" style="display: none;">다음 라운드 시작</button>
+                </div>
+            </div>
+
         </div>
 
         <div id="right-sidebar">
@@ -336,8 +402,8 @@
                     <thead>
                         <tr style="background: #f8f9fa; border-bottom: 2px solid #eee;">
                             <th style="padding: 10px;">플레이어</th>
-                            <th style="padding: 10px;">빙고 수</th>
-                            <th style="padding: 10px;">이벤트 사용</th>
+                            <th id="result-stat-header-1" style="padding: 10px;">기록 1</th>
+                            <th id="result-stat-header-2" style="padding: 10px;">기록 2</th>
                         </tr>
                     </thead>
                     <tbody id="result-stats-body">
@@ -356,6 +422,7 @@
     <script src="/js/room.js"></script>
     <script src="/js/bingo.js"></script>
     <script src="/js/liar.js"></script>
+    <script src="/js/bomb.js"></script>
 </body>
 
 </html>

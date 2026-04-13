@@ -1,0 +1,103 @@
+/* public/css/bomb.css */
+
+.bomb-idle {
+    font-size: 80px;
+    transition: transform 0.3s;
+}
+
+.bomb-ticking {
+    font-size: 100px;
+    animation: bomb-shake 0.5s infinite alternate;
+}
+
+@keyframes bomb-shake {
+    0% { transform: scale(1) rotate(-5deg); }
+    100% { transform: scale(1.1) rotate(5deg); }
+}
+
+.bomb-fast-ticking {
+    font-size: 120px;
+    animation: bomb-shake-fast 0.2s infinite alternate;
+    color: #e74c3c;
+}
+
+@keyframes bomb-shake-fast {
+    0% { transform: scale(1.1) rotate(-10deg); }
+    100% { transform: scale(1.3) rotate(10deg); }
+}
+
+/* 점수 표시 (Dots) 스타일 - 빙고/라이어와 통일 */
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.bomb-progress {
+    display: flex;
+    gap: 3px;
+}
+
+.progress-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ddd;
+    border: 1px solid #ccc;
+}
+
+.progress-dot.filled {
+    background-color: #e67e22; /* 폭탄 게임 테마색 */
+    border-color: #d35400;
+    box-shadow: 0 0 5px rgba(230, 126, 34, 0.5);
+}
+
+#bomb-timer-text {
+    /* position removed */
+    background: white;
+    padding: 5px 20px;
+    border-radius: 20px;
+    font-size: 1.8rem !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    z-index: 10;
+}
+#bomb-word-input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
+.player-card.is-turn {
+    border: 3px solid #e67e22;
+    background-color: #fff3e0;
+    box-shadow: 0 0 15px rgba(230, 126, 34, 0.5);
+    transform: scale(1.05);
+}
+
+.player-card.is-loser {
+    background-color: #ffebee;
+    border: 3px solid #e74c3c;
+    animation: bomb-flash 0.5s 3;
+}
+
+@keyframes bomb-flash {
+    0% { background-color: #ffebee; }
+    50% { background-color: #ef5350; }
+    100% { background-color: #ffebee; }
+}
+
+#bomb-visual-area {
+    background: radial-gradient(circle, #f9f9f9 0%, #e0e0e0 100%);
+    border-radius: 50%;
+    width: 250px;
+    height: 250px;
+}
+
+#bomb-words-list span {
+    display: inline-block;
+    background: #eee;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin: 2px;
+    font-size: 0.8rem;
+}

@@ -24,6 +24,7 @@ function showContainer(containerId) {
     lobbyContainer.classList.add('hidden-container');
     bingoContainer.classList.add('hidden-container');
     liarContainer.classList.add('hidden-container');
+    document.getElementById('bomb-container').classList.add('hidden-container');
 
     document.getElementById(containerId).classList.remove('hidden-container');
 }
@@ -51,6 +52,9 @@ socket.on('role update', (data) => {
     if (window.gameType === 'liar' && window.updateLiarRoleUI) {
         window.updateLiarRoleUI(isHost);
     }
+    if (window.gameType === 'bomb' && window.updateBombRoleUI) {
+        window.updateBombRoleUI(isHost);
+    }
 });
 
 socket.on('update user list', (users) => {
@@ -60,6 +64,10 @@ socket.on('update user list', (users) => {
     }
     if (window.gameType === 'liar' && window.renderLiarUsers) {
         window.renderLiarUsers(users, isHost);
+        return;
+    }
+    if (window.gameType === 'bomb' && window.renderBombUsers) {
+        window.renderBombUsers(users, isHost);
         return;
     }
 
@@ -227,6 +235,13 @@ socket.on('game changed', (newGameType) => {
         document.getElementById('game-title').textContent = "라이어 게임";
         showContainer('liar-container');
         if (window.initLiarUI) window.initLiarUI(isHost);
+        // 게임 시작 시 팔레트 숨김
+        emojiSetLobbyMode(false);
+    } else if (newGameType === 'bomb') {
+        stylesheetLink.href = ""; // bomb uses static bomb.css (or we can move it here)
+        document.getElementById('game-title').textContent = "주제 폭탄돌리기";
+        showContainer('bomb-container');
+        if (window.initBombUI) window.initBombUI(isHost);
         // 게임 시작 시 팔레트 숨김
         emojiSetLobbyMode(false);
     }

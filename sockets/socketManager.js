@@ -1,6 +1,7 @@
 const commonSocket = require('./commonSocket');
 const bingoSocket = require('./bingoSocket');
 const liarSocket = require('./liarSocket');
+const bombSocket = require('./bombSocket');
 
 // 메모리에 유지되는 전역 게임 방 저장소
 const gameRooms = {};
@@ -17,5 +18,8 @@ module.exports = (io) => {
 
         // 라이어 전용 소켓 이벤트
         liarSocket(io, socket, gameRooms);
+
+        // 폭탄돌리기 전용 소켓 이벤트
+        bombSocket(io, socket, gameRooms);
     });
 };

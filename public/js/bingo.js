@@ -345,8 +345,16 @@ function renderBoard(boardData) {
         cell.addEventListener('click', () => {
             if (setupArea.style.display !== 'none' || waitingArea.style.display !== 'none') return;
             if (turnDisplay.style.display === 'none') return;
-            if (!isMyTurn) return alert("당신의 차례가 아닙니다!");
-            if (calledNumbers.includes(word)) return alert("이미 선택된 단어입니다.");
+            if (!isMyTurn) {
+                if (window.showToast) window.showToast("당신의 차례가 아닙니다!", "warning");
+                else alert("당신의 차례가 아닙니다!");
+                return;
+            }
+            if (calledNumbers.includes(word)) {
+                if (window.showToast) window.showToast("이미 선택된 단어입니다.", "warning");
+                else alert("이미 선택된 단어입니다.");
+                return;
+            }
             socket.emit('theme word selected', { roomId: window.roomId, word });
         });
         bingoBoard.appendChild(cell);
@@ -393,9 +401,18 @@ if (saveThemeBtn) saveThemeBtn.addEventListener('click', async () => {
         if (!val) isAllFilled = false;
         words.push(val);
     });
-    if (!isAllFilled) return alert("모든 칸을 채운 뒤 저장해주세요.");
+    if (!isAllFilled) {
+        if (window.showToast) window.showToast("모든 칸을 채운 뒤 저장해주세요.", "warning");
+        else alert("모든 칸을 채운 뒤 저장해주세요.");
+        return;
+    }
     const duplicates = getDuplicates(words);
-    if (duplicates.length > 0) return alert(`중복된 단어: ${duplicates.join(', ')}`);
+    if (duplicates.length > 0) {
+        const msg = `중복된 단어: ${duplicates.join(', ')}`;
+        if (window.showToast) window.showToast(msg, "warning");
+        else alert(msg);
+        return;
+    }
     const title = prompt("테마 제목 입력:");
     if (!title) return;
     try {
@@ -404,9 +421,17 @@ if (saveThemeBtn) saveThemeBtn.addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title, words, userId: myUserId })
         });
-        if (res.ok) alert("저장되었습니다!");
-        else alert("저장 실패");
-    } catch (e) { alert("오류 발생"); }
+        if (res.ok) {
+            if (window.showToast) window.showToast("저장되었습니다!", "success");
+            else alert("저장되었습니다!");
+        } else {
+            if (window.showToast) window.showToast("저장 실패", "error");
+            else alert("저장 실패");
+        }
+    } catch (e) {
+        if (window.showToast) window.showToast("오류 발생", "error");
+        else alert("오류 발생");
+    }
 });
 
 readyButton.addEventListener('click', () => {
@@ -436,9 +461,18 @@ readyButton.addEventListener('click', () => {
         words.push(val);
     });
 
-    if (!isAllFilled) return alert("모든 칸을 채워주세요.");
+    if (!isAllFilled) {
+        if (window.showToast) window.showToast("모든 칸을 채워주세요.", "warning");
+        else alert("모든 칸을 채워주세요.");
+        return;
+    }
     const duplicates = getDuplicates(words);
-    if (duplicates.length > 0) return alert(`중복된 단어: ${duplicates.join(', ')}`);
+    if (duplicates.length > 0) {
+        const msg = `중복된 단어: ${duplicates.join(', ')}`;
+        if (window.showToast) window.showToast(msg, "warning");
+        else alert(msg);
+        return;
+    }
 
     isMyReady = true;
     readyButton.textContent = "준비 해제";
@@ -499,8 +533,18 @@ async function deleteTheme(id) {
     if (!confirm("삭제하시겠습니까?")) return;
     try {
         const res = await fetch(`/api/themes/${id}?userId=${myUserId}`, { method: 'DELETE' });
-        if (res.ok) { alert("삭제됨"); loadThemes(); } else alert("실패");
-    } catch (e) { alert("오류"); }
+        if (res.ok) {
+            if (window.showToast) window.showToast("삭제되었습니다.", "success");
+            else alert("삭제됨");
+            loadThemes();
+        } else {
+            if (window.showToast) window.showToast("실패하였습니다.", "error");
+            else alert("실패");
+        }
+    } catch (e) {
+        if (window.showToast) window.showToast("오류가 발생했습니다.", "error");
+        else alert("오류");
+    }
 }
 
 async function selectTheme(id) {
@@ -514,14 +558,25 @@ async function selectTheme(id) {
             words = words.sort(() => Math.random() - 0.5);
             const inputs = document.querySelectorAll('.board-input');
             inputs.forEach((input, index) => { if (words[index]) input.value = words[index]; });
-            alert("자동 입력 완료!");
+            if (window.showToast) window.showToast("자동 입력 완료!", "success");
+            else alert("자동 입력 완료!");
         }
-    } catch (e) { alert("실패"); }
+    } catch (e) {
+        if (window.showToast) window.showToast("불러오기 실패", "error");
+        else alert("실패");
+    }
 }
 
 startGameBtn.addEventListener('click', async () => {
     const playersCount = document.querySelectorAll('.user-card').length;
-    if (playersCount < 2) return alert("🚫 최소 2명이 모여야 합니다.");
+    if (playersCount < 2) {
+        if (window.showToast) {
+            window.showToast('빙고 게임은 최소 2명 이상이어야 시작할 수 있습니다!', 'error');
+        } else {
+            alert("🚫 최소 2명이 모여야 합니다.");
+        }
+        return;
+    }
     if (!confirm("게임을 시작하시겠습니까?")) return;
 
     let selectedLines = 3;
@@ -564,14 +619,19 @@ startGameBtn.addEventListener('click', async () => {
                 // 성공 시에도 잠시 대기 후 초기화 (UX)
                 setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 1000);
             } else {
-                alert("AI 생성 실패: " + (data.error || "알 수 없는 오류"));
+                const msg = "AI 생성 실패: " + (data.error || "알 수 없는 오류");
+                if (window.showToast) window.showToast(msg, "error");
+                else alert(msg);
+                
                 startGameBtn.textContent = originalText;
                 startGameBtn.disabled = false;
                 if (progressContainer) progressContainer.style.display = 'none';
                 return; // 에러 시 진행 중단!
             }
         } catch (e) {
-            alert("서버 연결 오류가 발생했습니다.");
+            if (window.showToast) window.showToast("서버 연결 오류가 발생했습니다.", "error");
+            else alert("서버 연결 오류가 발생했습니다.");
+            
             startGameBtn.textContent = originalText;
             startGameBtn.disabled = false;
             if (progressContainer) progressContainer.style.display = 'none';
@@ -608,12 +668,16 @@ bingoButton.addEventListener('click', () => {
     } else if (count >= 1) {
         if (!isMyTurn) {
             bingoButton.disabled = true;
-            return alert("내 턴이 아님");
+            if (window.showToast) window.showToast("현재 내 턴이 아닙니다.", "warning");
+            else alert("내 턴이 아님");
+            return;
         }
         const remaining = count - myUsedEventCount;
         if (remaining <= 0) {
             bingoButton.disabled = false;
-            return alert("이벤트를 사용할 기회가 없습니다!");
+            if (window.showToast) window.showToast("이벤트를 사용할 기회가 없습니다!", "warning");
+            else alert("이벤트를 사용할 기회가 없습니다!");
+            return;
         }
         if (confirm(`이벤트를 발동하시겠습니까? (남은 기회: ${remaining}회)`)) {
             socket.emit('trigger event', { name: window.myName });
@@ -873,6 +937,11 @@ socket.on('game over', (data) => {
     turnTimerBar.style.display = 'none';
 
     // Render stats modal
+    const resultStatHeader1 = document.getElementById('result-stat-header-1');
+    const resultStatHeader2 = document.getElementById('result-stat-header-2');
+    if (resultStatHeader1) resultStatHeader1.textContent = "빙고 수";
+    if (resultStatHeader2) resultStatHeader2.textContent = "이벤트 사용";
+
     resultWinner.textContent = `👑 승자: ${data.winner}`;
     resultStatsBody.innerHTML = '';
     

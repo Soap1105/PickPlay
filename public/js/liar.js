@@ -25,6 +25,15 @@ let currentUsers = [];
 let allLiarCategories = [];
 let selectedLiarCategories = [];
 
+// Result Modal Elements
+const resultModal = document.getElementById('result-modal');
+const resultTitle = document.getElementById('result-title');
+const resultWinner = document.getElementById('result-winner');
+const resultStatsBody = document.getElementById('result-stats-body');
+const resultStatHeader1 = document.getElementById('result-stat-header-1');
+const resultStatHeader2 = document.getElementById('result-stat-header-2');
+const closeResultBtn = document.getElementById('close-result-btn');
+
 // 체크박스 렌더링 함수
 function renderCategoryCheckboxes() {
     if (!amIHost) return;
@@ -193,7 +202,8 @@ startGameBtn.addEventListener('click', () => {
     const selectedCats = Array.from(checkedCbs).map(cb => cb.value);
     
     if (selectedCats.length === 0 && allLiarCategories.length > 0) {
-        alert("최소 1개 이상의 카테고리를 선택해야 합니다!");
+        if (window.showToast) window.showToast("최소 1개 이상의 카테고리를 선택해야 합니다!", "warning");
+        else alert("최소 1개 이상의 카테고리를 선택해야 합니다!");
         return;
     }
     
@@ -208,6 +218,16 @@ socket.on('update scores', (scores, target) => {
     window.winTarget = target;
     if (window.gameType === 'liar') {
         window.renderLiarUsers(currentUsers, amIHost); // 점수 반영해서 다시 그리기
+    }
+});
+
+// 게임 타입 변경 감지 (로비 이동 시 초기화)
+socket.on('game changed', (mode) => {
+    if (mode === 'lobby') {
+        window.gameScores = {};
+        if (window.gameType === 'liar') {
+            window.renderLiarUsers(currentUsers, amIHost);
+        }
     }
 });
 
@@ -251,7 +271,11 @@ socket.on('liar role assigned', (data) => {
     if (submitBtn) {
         submitBtn.onclick = () => {
             const desc = inputField.value.trim();
-            if (!desc) { alert("설명을 입력해주세요!"); return; }
+            if (!desc) {
+                if (window.showToast) window.showToast("설명을 입력해주세요!", "warning");
+                else alert("설명을 입력해주세요!");
+                return;
+            }
             socket.emit('submit description', desc);
             inputArea.style.display = 'none';
             document.getElementById('turn-message').textContent = "제출 완료! 다음 순서를 기다립니다.";
@@ -383,7 +407,11 @@ socket.on('final guess phase', (data) => {
 
         document.getElementById('final-guess-btn').onclick = () => {
             const val = document.getElementById('final-guess-input').value.trim();
-            if (!val) { alert("정답을 입력해야 합니다!"); return; }
+            if (!val) {
+                if (window.showToast) window.showToast("정답을 입력해야 합니다!", "warning");
+                else alert("정답을 입력해야 합니다!");
+                return;
+            }
             socket.emit('submit final guess', val);
             playerUI.innerHTML = "<h2>결과 판정 중...</h2>";
         };
@@ -400,6 +428,11 @@ socket.on('final guess phase', (data) => {
 
 socket.on('round over', (result) => {
     window.isGamePlaying = false;
+    if (liarTimerUI) liarTimerUI.style.display = 'none';
+
+    if (result.isFinalGameOver) {
+        showLiarResultModal(result);
+    }
 
     const hostBtnId = result.isFinalGameOver ? 'restart-liar-btn' : 'next-round-btn';
     const hostBtnText = result.isFinalGameOver ? '게임 초기화' : '다음 라운드 시작';
@@ -495,5 +528,51 @@ socket.on('liar timer tick', (data) => {
 socket.on('liar timer clear', () => {
     if (liarTimerUI) liarTimerUI.style.display = 'none';
 });
+
+function showLiarResultModal(result) {
+    if (!resultModal) return;
+
+    resultTitle.textContent = "🕵️‍♂️ 라이어 게임 종료 🕵️‍♂️";
+    // 승리팀 표시
+    const winTeam = result.citizensWon ? "시민 승리" : "라이어 승리";
+    const winColor = result.citizensWon ? "#27ae60" : "#e74c3c";
+    
+    resultWinner.innerHTML = `
+        <div style="color: ${winColor}; font-size: 2.2rem; margin-bottom: 10px;">${winTeam}!</div>
+        <div style="font-size: 1.1rem; color: #333;">진짜 라이어: <span style="color:#e74c3c; font-weight:bold;">${result.liarName}</span></div>
+        <div style="font-size: 1.1rem; color: #333;">정답 단어: <span style="color:#2980b9; font-weight:bold;">${result.word}</span></div>
+    `;
+
+    // 헤더 텍스트 변경
+    if (resultStatHeader1) resultStatHeader1.textContent = "최종 승수";
+    if (resultStatHeader2) resultStatHeader2.textContent = "역할";
+
+    resultStatsBody.innerHTML = '';
+    if (result.stats) {
+        result.stats.forEach(stat => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = "1px solid #eee";
+            const roleText = stat.isLiar ? '<span style="color:#e74c3c">라이어</span>' : '시민';
+            tr.innerHTML = `
+                <td style="padding:15px;">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
+                <td style="padding:15px; font-weight:bold; color:#f39c12;">${stat.score}승</td>
+                <td style="padding:15px;">${roleText}</td>
+            `;
+            if (stat.score >= window.winTarget) tr.style.backgroundColor = '#fff9c4';
+            resultStatsBody.appendChild(tr);
+        });
+    }
+
+    resultModal.style.display = 'block';
+
+    // 닫기 버튼 오버라이드 (로비 복귀 또는 다시 시작)
+    closeResultBtn.onclick = () => {
+        resultModal.style.display = 'none';
+        if (amIHost) {
+            // 라이어 게임은 게임 종료 후 보통 대기실로 돌아감 (빙고와 동일하게 처리)
+            socket.emit('restart liar game'); 
+        }
+    };
+}
 
 })();

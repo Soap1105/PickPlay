@@ -437,6 +437,14 @@ module.exports = (io, socket, gameRooms) => {
         }
         resultData.submissions = room.liarGame.submissions;
 
+        // 결과 모달용 공통 스탯 형식 생성
+        resultData.stats = Object.keys(room.players).map(pid => ({
+            id: pid,
+            name: room.players[pid].name,
+            score: room.liarGame.scores[pid] || 0,
+            isLiar: pid === room.liarGame.liarId
+        })).sort((a, b) => b.score - a.score);
+
         io.to(roomId).emit('round over', resultData);
     }
 

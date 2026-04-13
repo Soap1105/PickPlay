@@ -17,9 +17,9 @@ const geminiService = {
 주제: "${topic}"
 
 ### [필수 지침 - 원칙의 우선순위 (Strict Hierarchy)]
-1. **제1원칙 (정확성)**: 무조건 해당 주제 "${topic}"에 완벽히 부합하는 **실존하는 고유 명칭**이어야 해. 40개를 채우기 위해 근거 없는 단어를 지어내는 것은 절대 금지야.
-2. **제2원칙 (수량)**: 1원칙을 지키면서 **최소 40개**를 찾아내. 만약 실존하는 단어가 40개 미만이라면 억지로 채우지 말고 무조건 **실패(error)**를 반환해.
-3. **제3원칙 (대중성)**: 1, 2원칙이 충족되는 선에서, 가급적 **한국인에게 친숙하고 대중적인 단어**를 우선적으로 리스트 상단에 배치해. 희귀하고 전문적인 단어는 40개를 채우기 위해 부족한 경우에만 보조적으로 포함해.
+1. **제1원칙 (정확성)**: 무조건 해당 주제 "${topic}"에 완벽히 부합하는 **실존하는 고유 명칭**이어야 해. 개수를 채우기 위해 근거 없는 단어를 지어내는 것은 절대 금지야.
+2. **제2원칙 (수량 및 속도)**: 실존하는 단어를 **최소 30개에서 최대 50개** 범위로 찾아내. 응답 속도가 중요하므로, 35개 전후의 확실한 단어를 찾았다면 무리해서 더 찾지 말고 **즉시 탐색을 멈추고 반환(Early Exit)**해. 실존 단어가 30개조차 되지 않을 때만 **실패(error)**를 반환해.
+3. **제3원칙 (대중성 우선)**: 무조건 대중에게 가장 친숙하고 유명한 단어(주인공, 간판 캐릭터 등) 위주로 추출해. 억지로 개수를 채우기 위해 인지도가 떨어지는 마이너한 타겟이나 애매한 단어를 무리하게 끼워넣는 것은 금지야. 버릴 건 과감히 버려.
 
 ### [카테고리별 특화 규칙]
 1. **인물/캐릭터**: 일본식(성 이름), 서양식/한국식 표준 풀네임을 사용해. 관계 묘사(X의 언니 등)는 금지하고 진짜 이름만 사용해.
@@ -35,11 +35,11 @@ const geminiService = {
 2. **길이 제한**: 각 단어는 최대 12글자 이내여야 해. 12글자를 초과하는데 널리 쓰이는 공식 줄임말조차 없다면, **억지로 뎅강 자르지 말고 아예 그 단어는 목록에서 빼(탈락시켜).** 다른 짧은 단어로 대체할 것.
 
 ### [Self-Correction 최종 검토]
-결과를 출력하기 직전에 모든 단어를 훑어보고, "이 단어가 주제에 맞는 진짜 이름이 맞는가?", "중복은 없는가?", "12글자를 초과하는 단어는 없는가?"를 자문해라. 40개를 채우려고 '이상한 단어'를 넣었다면 즉시 삭제하고 정답으로 교체하거나, 정답이 없으면 실패를 반환해.
+결과를 출력하기 직전에 모든 단어를 훑어보고, "이 단어가 주제에 맞는 진짜 이름이 맞는가?", "중복은 없는가?", "12글자를 초과하는 단어는 없는가?"를 자문해라. 개수를 채우려고 '이상한 단어'를 넣었다면 즉시 삭제하고 정답으로 교체하거나, 정답이 없으면 실패를 반환해.
 
 [출력 형식 - JSON만, 다른 텍스트 절대 금지]
-성공: { "status": "success", "words": ["단어1", "단어2", ...최소 40개] }
-실패: { "status": "error", "message": "'${topic}'은(는) 검색 결과에서 40개를 찾을 수 없습니다. 더 유명하거나 넓은 주제를 입력해주세요." }
+성공: { "status": "success", "words": ["단어1", "단어2", ...최소 30개] }
+실패: { "status": "error", "message": "'${topic}'은(는) 검색 결과에서 30개를 찾을 수 없습니다. 더 유명하거나 넓은 주제를 입력해주세요." }
             `;
 
             const result = await model.generateContent(prompt);
@@ -64,7 +64,14 @@ const geminiService = {
 
             if (endIdx === -1) throw new Error("Malformed JSON: no closing brace");
 
-            return JSON.parse(responseText.substring(startIdx, endIdx + 1));
+            const parsed = JSON.parse(responseText.substring(startIdx, endIdx + 1));
+            
+            // [강제 방어 로직] AI가 프롬프트를 무시하고 중복을 넣거나 50개를 넘길 경우 자바스크립트 단에서 강제 커팅
+            if (parsed.status === "success" && Array.isArray(parsed.words)) {
+                parsed.words = [...new Set(parsed.words)].slice(0, 50);
+            }
+            
+            return parsed;
 
         } catch (error) {
             console.error("Gemini API Error:", error);
@@ -103,9 +110,9 @@ const geminiService = {
 - **네이밍 규칙**: 각 문화권 표준 풀네임 준수, '성 이름' 순서 준수.
 - **범용 필터링**: 등급(3성/엘다인), 스토리구분(메인/서브), 아이템/음식 명칭 절대 배제. (12글자 초과 시 억지로 자르지 말고 그냥 그 단어는 통째로 배제할 것)
 - **Self-Correction**: 출력 전 스스로 블랙리스트 및 명칭 순서를 검토하여 부적절한 단어는 수정할 것.
-- 40개 채우기 불가능하거나 부적절한 주제면 error 반환.
+- 30개 채우기 불가능하거나 부적절한 주제면 error 반환.
 
-성공: { "status": "success", "words": ["단어1", ...최소 40개] }
+성공: { "status": "success", "words": ["단어1", ...최소 30개] }
 실패: { "status": "error", "message": "적합하지 않은 주제입니다. 더 넓은 범위를 입력해주세요." }
             `;
 
@@ -116,7 +123,12 @@ const geminiService = {
             const result = await Promise.race([model.generateContent(prompt), timeoutPromise]);
             let responseText = result.response.text();
             responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-            return JSON.parse(responseText);
+            const parsed = JSON.parse(responseText);
+
+            if (parsed.status === "success" && Array.isArray(parsed.words)) {
+                parsed.words = [...new Set(parsed.words)].slice(0, 50);
+            }
+            return parsed;
 
         } catch (error) {
             console.error("Fallback Gemini Error:", error);
