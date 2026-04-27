@@ -16,8 +16,6 @@ const guestWaitingMsg = document.getElementById('guest-waiting-msg');
 // Buttons
 const gameSelectBtns = document.querySelectorAll('.game-select-btn');
 const returnLobbyBtns = document.querySelectorAll('.return-lobby-btn');
-const voteBtns = document.querySelectorAll('.vote-btn');
-const startVoteBtn = document.getElementById('start-vote-btn');
 const closeResultBtn = document.getElementById('close-result-btn');
 
 function showContainer(containerId) {
@@ -34,16 +32,26 @@ socket.on('role update', (data) => {
     myRoleDisplay.textContent = isHost ? "👑 방장" : "👤 참가자";
 
     if (window.gameType === 'lobby') {
+        const lobbyContainer = document.getElementById('lobby-container');
+        const lobbyWelcome = document.querySelector('.lobby-welcome');
         if (isHost) {
+            lobbyContainer.classList.add('host-view');
+            lobbyContainer.classList.remove('guest-view');
+            if (lobbyWelcome) lobbyWelcome.style.display = 'block';
             hostGameSelection.style.display = 'block';
-            document.getElementById('host-vote-controls').style.display = 'block';
+            document.getElementById('host-vote-controls')?.style.setProperty('display', 'block');
             guestWaitingMsg.style.display = 'none';
         } else {
+            lobbyContainer.classList.remove('host-view');
+            lobbyContainer.classList.add('guest-view');
+            if (lobbyWelcome) lobbyWelcome.style.display = 'none';
             hostGameSelection.style.display = 'none';
-            document.getElementById('host-vote-controls').style.display = 'none';
-            guestWaitingMsg.style.display = 'block';
+            document.getElementById('host-vote-controls')?.style.setProperty('display', 'none');
+            guestWaitingMsg.style.display = 'flex';
         }
     }
+
+
     
     // Trigger role update in specific games if they are active
     if (window.gameType === 'bingo' && window.updateBingoRoleUI) {
@@ -113,88 +121,62 @@ gameSelectBtns.forEach(btn => {
 returnLobbyBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         if (!isHost) return;
+        // bomb.js에 자체 핸들러가 있으므로 중복 방지
+        if (window.gameType === 'bomb') return;
         if (confirm("게임을 종료하고 대기실로 돌아가시겠습니까?")) {
             socket.emit('return to lobby');
         }
     });
 });
 
-// Voting logic
-if (startVoteBtn) {
-    startVoteBtn.addEventListener('click', () => {
-        const time = document.getElementById('vote-time-select').value;
-        socket.emit('host start vote', { duration: parseInt(time) });
-    });
-}
-
-voteBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        if (btn.classList.contains('voted')) return;
-        const game = btn.getAttribute('data-vote');
-        socket.emit('vote game', game);
-    });
-});
-
-socket.on('vote update', (votes) => {
-    document.getElementById('vote-count-bingo').textContent = votes.bingo || 0;
-    document.getElementById('vote-count-liar').textContent = votes.liar || 0;
-});
-
-socket.on('vote timer', (data) => {
-    const timerDisplay = document.getElementById('vote-timer-display');
-    const timerText = document.getElementById('vote-time-left');
-    const optionsContainer = document.getElementById('vote-options-container');
-    const resultDisplay = document.getElementById('vote-result-display');
-    const resultMsg = document.getElementById('vote-result-msg');
-
-    if (data.status === 'started') {
-        timerDisplay.style.display = 'block';
-        resultDisplay.style.display = 'none';
-        optionsContainer.style.opacity = '1';
-        optionsContainer.style.pointerEvents = 'auto';
-        if (startVoteBtn) startVoteBtn.disabled = true;
-    } else if (data.status === 'ended') {
-        timerDisplay.style.display = 'none';
-        resultDisplay.style.display = 'block';
-        optionsContainer.style.opacity = '0.5';
-        optionsContainer.style.pointerEvents = 'none';
-        if (startVoteBtn) startVoteBtn.disabled = false;
-        
-        const winnerText = data.winner === 'tie' ? '무승부입니다!' : (data.winner === 'bingo' ? '빙고' : '라이어') + ' 게임이 선택되었습니다!';
-        resultMsg.textContent = `📢 투표 결과: ${winnerText}`;
-    }
-    
-    if (data.timeLeft !== undefined) {
-        timerText.textContent = data.timeLeft < 10 ? '0' + data.timeLeft : data.timeLeft;
-    }
-});
-
-socket.on('voted', (game) => {
-    voteBtns.forEach(btn => {
-        if (btn.getAttribute('data-vote') === game) {
-            btn.classList.add('voted');
-            btn.textContent = '완료';
-        } else {
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
+// =============================================
+//  게스트 대기실 파티클 + 팁 로테이션
+// =============================================
+(function() {
+    // --- 배경 파티클 생성 ---
+    const particleContainer = document.getElementById('gw-particles');
+    if (particleContainer) {
+        const COLORS = ['#64c8ff', '#a29bfe', '#fd79a8', '#fdcb6e', '#55efc4'];
+        for (let i = 0; i < 18; i++) {
+            const p = document.createElement('div');
+            p.className = 'gw-particle';
+            const size = 8 + Math.random() * 24;
+            p.style.cssText = [
+                `width:${size}px`, `height:${size}px`,
+                `left:${Math.random() * 100}%`,
+                `bottom:${-size}px`,
+                `background:${COLORS[Math.floor(Math.random() * COLORS.length)]}`,
+                `animation-duration:${8 + Math.random() * 12}s`,
+                `animation-delay:${Math.random() * 10}s`,
+            ].join(';');
+            particleContainer.appendChild(p);
         }
-    });
-});
+    }
 
-function resetVotesUI() {
-    voteBtns.forEach(btn => {
-        btn.classList.remove('voted');
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.textContent = '투표';
-    });
-    document.getElementById('vote-count-bingo').textContent = '0';
-    document.getElementById('vote-count-liar').textContent = '0';
-    document.getElementById('vote-timer-display').style.display = 'none';
-    document.getElementById('vote-result-display').style.display = 'none';
-    document.getElementById('vote-options-container').style.opacity = '0.5';
-    document.getElementById('vote-options-container').style.pointerEvents = 'none';
-}
+    // --- 팁 로테이션 ---
+    const TIPS = [
+        '💡 <strong>팁:</strong> 채팅창에서 친구들과 대화하며 기다려 보세요!',
+        '🎯 <strong>빙고:</strong> 단어 배치 전략이 승패를 가릅니다!',
+        '🕵️ <strong>라이어:</strong> 너무 자세히 설명하면 오히려 의심받아요!',
+        '💣 <strong>폭탄:</strong> 당황하지 말고 침착하게 단어를 떠올리세요!',
+        '🎮 <strong>PickPlay:</strong> 이모지 폭죽으로 분위기를 올려보세요!',
+        '👥 <strong>참가자:</strong> 우측 목록에서 함께하는 친구들을 확인하세요!',
+    ];
+    let tipIndex = 0;
+    const tipEl = document.getElementById('guest-tip-text');
+    if (!tipEl) return;
+
+    function rotateTip() {
+        tipIndex = (tipIndex + 1) % TIPS.length;
+        tipEl.style.opacity = '0';
+        setTimeout(() => {
+            tipEl.innerHTML = TIPS[tipIndex];
+            tipEl.style.opacity = '1';
+        }, 400);
+    }
+    setInterval(rotateTip, 5000);
+})();
+
 
 if (closeResultBtn) {
     closeResultBtn.addEventListener('click', () => {
@@ -205,28 +187,43 @@ if (closeResultBtn) {
 // Server notifies that the game mode has changed
 socket.on('game changed', (newGameType) => {
     window.gameType = newGameType;
+    const gameContainer = document.getElementById('game-container');
 
     if (newGameType === 'lobby') {
         stylesheetLink.href = ""; 
         document.getElementById('game-title').textContent = "PickPlay 대기실";
         showContainer('lobby-container');
-        resetVotesUI(); // Reset votes UI when back to lobby
         
+        // 게임 컨테이너 다크 배경 제거
+        gameContainer.classList.remove('game-active', 'game-active-bingo', 'game-active-liar', 'game-active-bomb');
+        
+        const lobbyContainer = document.getElementById('lobby-container');
+        const lobbyWelcome = document.querySelector('.lobby-welcome');
         if (isHost) {
+            lobbyContainer.classList.add('host-view');
+            lobbyContainer.classList.remove('guest-view');
+            if (lobbyWelcome) lobbyWelcome.style.display = 'block';
             hostGameSelection.style.display = 'block';
-            document.getElementById('host-vote-controls').style.display = 'block';
+            document.getElementById('host-vote-controls')?.style.setProperty('display', 'block');
             guestWaitingMsg.style.display = 'none';
         } else {
+            lobbyContainer.classList.remove('host-view');
+            lobbyContainer.classList.add('guest-view');
+            if (lobbyWelcome) lobbyWelcome.style.display = 'none';
             hostGameSelection.style.display = 'none';
-            document.getElementById('host-vote-controls').style.display = 'none';
-            guestWaitingMsg.style.display = 'block';
+            document.getElementById('host-vote-controls')?.style.setProperty('display', 'none');
+            guestWaitingMsg.style.display = 'flex';
         }
+
+
         // 대기실 진입 시 이모지 팔레트 표시
         emojiSetLobbyMode(true);
     } else if (newGameType === 'bingo') {
         stylesheetLink.href = "/css/bingo.css";
         document.getElementById('game-title').textContent = "테마 빙고";
         showContainer('bingo-container');
+        gameContainer.classList.add('game-active', 'game-active-bingo');
+        gameContainer.classList.remove('game-active-liar', 'game-active-bomb');
         if (window.initBingoUI) window.initBingoUI(isHost);
         // 게임 시작 시 팔레트 숨김
         emojiSetLobbyMode(false);
@@ -234,6 +231,8 @@ socket.on('game changed', (newGameType) => {
         stylesheetLink.href = "/css/liar.css";
         document.getElementById('game-title').textContent = "라이어 게임";
         showContainer('liar-container');
+        gameContainer.classList.add('game-active', 'game-active-liar');
+        gameContainer.classList.remove('game-active-bingo', 'game-active-bomb');
         if (window.initLiarUI) window.initLiarUI(isHost);
         // 게임 시작 시 팔레트 숨김
         emojiSetLobbyMode(false);
@@ -241,6 +240,8 @@ socket.on('game changed', (newGameType) => {
         stylesheetLink.href = ""; // bomb uses static bomb.css (or we can move it here)
         document.getElementById('game-title').textContent = "주제 폭탄돌리기";
         showContainer('bomb-container');
+        gameContainer.classList.add('game-active', 'game-active-bomb');
+        gameContainer.classList.remove('game-active-bingo', 'game-active-liar');
         if (window.initBombUI) window.initBombUI(isHost);
         // 게임 시작 시 팔레트 숨김
         emojiSetLobbyMode(false);

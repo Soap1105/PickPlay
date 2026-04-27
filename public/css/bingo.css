@@ -9,7 +9,16 @@
     margin: 10px 0;
     width: 100%;
     text-align: center;
+    color: #2c3e50;
 }
+
+/* 다크 배경(game-active-bingo)에서도 빙고 UI 텍스트 색상 명시 */
+.game-active-bingo #turn-display { color: #2c3e50; }
+.game-active-bingo #called-numbers-display { color: #e74c3c; }
+.game-active-bingo .board-cell { color: #333; }
+.game-active-bingo .board-input { color: #333; background: #f9f9f9; }
+.game-active-bingo #theme-title { color: white; }
+.game-active-bingo .player-ui { color: white; }
 
 #called-numbers-display {
     height: 40px;

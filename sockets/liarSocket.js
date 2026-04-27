@@ -163,22 +163,24 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         const currentPId = turnOrder[currentIndex];
-        const label = String.fromCharCode(65 + currentIndex); // A, B, C...
+        const playerName = room.players[currentPId]?.name || '알수없음';
 
-        // 전체 유저에게 "익명 X가 설명 중입니다..." 알림
+        // 전체 유저에게 "OOO가 설명 중입니다..." 알림
         io.to(roomId).emit('liar next turn', {
-            label: label,
+            playerName: playerName,
+            playerId: currentPId,
             isMyTurn: false
         });
 
         // 해당 인원에게만 "당신 본인의 차례"임을 알림
         io.to(currentPId).emit('liar next turn', {
-            label: label,
+            playerName: playerName,
+            playerId: currentPId,
             isMyTurn: true
         });
 
         // 턴별 타이머 (25초)
-        startLiarTimer(roomId, `익명 ${label} 설명`, 25, () => {
+        startLiarTimer(roomId, `${playerName} 설명`, 25, () => {
             const currentRoom = gameRooms[roomId];
             if (!currentRoom || currentRoom.status !== 'submission') return;
             if (currentRoom.liarGame.turnOrder[currentRoom.liarGame.currentTurnIndex] !== currentPId) return;
@@ -187,7 +189,8 @@ module.exports = (io, socket, gameRooms) => {
             if (!currentRoom.liarGame.submissions[currentPId]) {
                 currentRoom.liarGame.submissions[currentPId] = "시간 초과 (미입력)";
                 io.to(roomId).emit('liar hint received', {
-                    label: label,
+                    playerName: playerName,
+                    playerId: currentPId,
                     desc: "시간 초과 (미입력)"
                 });
             }
@@ -209,11 +212,12 @@ module.exports = (io, socket, gameRooms) => {
         if (turnOrder[currentIndex] !== socket.id) return;
 
         room.liarGame.submissions[socket.id] = desc;
-        const label = String.fromCharCode(65 + currentIndex);
+        const playerName = room.players[socket.id]?.name || '알수없음';
 
         // 설명 즉시 공개 (실시간 중계)
         io.to(socket.roomId).emit('liar hint received', {
-            label: label,
+            playerName: playerName,
+            playerId: socket.id,
             desc: desc
         });
 
@@ -259,18 +263,14 @@ module.exports = (io, socket, gameRooms) => {
         });
     }
 
-    // 라이어 지목(투표) - 이제 라벨(A, B, C...)을 받음
-    socket.on('vote liar', (targetLabel) => {
+    // 라이어 지목(투표)
+    socket.on('vote liar', (targetId) => {
         const room = gameRooms[socket.roomId];
         if (!room || room.status !== 'playing') return;
 
-        // 라벨을 실제 플레이어 ID로 변환
-        const labelIdx = (typeof targetLabel === 'string') ? targetLabel.toUpperCase().charCodeAt(0) - 65 : -1;
-        const targetId = room.liarGame.anonymousMapping ? room.liarGame.anonymousMapping[labelIdx] : null;
-
         if (!targetId) return;
 
-        // 본인 힌트 투표 방지
+        // 본인 투표 방지
         if (targetId === socket.id) {
             socket.emit('system message', '자신의 힌트에는 투표할 수 없습니다!');
             return;
@@ -359,6 +359,16 @@ module.exports = (io, socket, gameRooms) => {
         }
     }
 
+    // 라이어 최후 변론 실시간 타이핑 중계
+    socket.on('final guess typing', (partialWord) => {
+        const room = gameRooms[socket.roomId];
+        if (!room || room.status !== 'final_guess') return;
+        if (socket.id !== room.liarGame.liarId) return;
+
+        // 라이어를 제외한 나머지 사람들에게 브로드캐스트
+        socket.to(socket.roomId).emit('final guess typing update', { partialWord });
+    });
+
     // 라이어 최후 변론 제출
     socket.on('submit final guess', (guessWord) => {
         const room = gameRooms[socket.roomId];
@@ -429,8 +439,8 @@ module.exports = (io, socket, gameRooms) => {
             room.status = 'ROUND_OVER';
         }
 
-        // 결과 통계에 익명 매핑 정보 추가 (정답 공개 시 사용)
-        resultData.anonymousMapping = room.liarGame.anonymousMapping;
+        // 결과 통계에 제출 순서 정보 추가 (정답 공개 시 사용)
+        resultData.turnOrder = room.liarGame.turnOrder;
         resultData.playerNames = {};
         for(let pid in room.players) {
             resultData.playerNames[pid] = room.players[pid].name;

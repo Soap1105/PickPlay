@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" id="game-stylesheet" href=""> <!-- Dynamically loaded css -->
     <link rel="stylesheet" href="/css/bomb.css"> <!-- Bomb specific styles (static for now or handled by room.js) -->
+    <link rel="stylesheet" href="/css/liar.css"> <!-- Liar specific styles -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .hidden-container {
@@ -13,63 +14,306 @@
         }
 
         #lobby-container {
-            text-align: center;
+            position: relative;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             padding: 20px;
+            text-align: center;
+            min-height: 0;
         }
 
-        .game-select-btn {
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            margin: 10px;
-            cursor: pointer;
+        /* ===== 방장 헤더 ===== */
+        .lobby-welcome {
+            text-align: center;
+            padding: 10px 0 20px;
+        }
+        .lobby-welcome-icon {
+            font-size: 3rem;
+            animation: floatIcon 3s ease-in-out infinite;
+        }
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .lobby-welcome-title {
+            font-size: 1.6rem;
+            color: #2c3e50;
+            margin: 8px 0 4px;
+        }
+        .lobby-welcome-sub {
+            color: #7f8c8d;
+            font-size: 0.92rem;
+            margin: 0;
+        }
+
+        .game-card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            width: 100%;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        .game-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 20px;
             border: none;
-            border-radius: 10px;
-            background-color: #3498db;
+            border-radius: 16px;
+            cursor: pointer;
+            text-align: left;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
             color: white;
-            transition: background-color 0.3s;
+            font-family: inherit;
         }
-
-        .game-select-btn:hover:not(:disabled) {
-            background-color: #2980b9;
+        .game-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.08);
+            opacity: 0;
+            transition: opacity 0.2s;
         }
-
-        .game-select-btn:disabled {
-            background-color: #bdc3c7;
-            cursor: not-allowed;
-            opacity: 0.7;
+        .game-card:hover:not(:disabled)::before { opacity: 1; }
+        .game-card:hover:not(:disabled) {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.22);
         }
+        .game-card:active:not(:disabled) { transform: translateY(-1px); }
 
-        .vote-count {
+        .game-card-bingo  { background: linear-gradient(135deg, #3498db, #2980b9); box-shadow: 0 6px 18px rgba(52,152,219,0.35); }
+        .game-card-liar   { background: linear-gradient(135deg, #e74c3c, #c0392b); box-shadow: 0 6px 18px rgba(231,76,60,0.35); }
+        .game-card-bomb   { background: linear-gradient(135deg, #e67e22, #d35400); box-shadow: 0 6px 18px rgba(230,126,34,0.35); }
+        .game-card-soon   { background: linear-gradient(135deg, #95a5a6, #7f8c8d); box-shadow: none; cursor: not-allowed; opacity: 0.65; }
+
+        .game-card-icon {
+            font-size: 2.2rem;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .game-card-body { flex: 1; min-width: 0; }
+        .game-card-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            letter-spacing: -0.01em;
+        }
+        .game-card-desc {
+            font-size: 0.78rem;
+            opacity: 0.85;
+            line-height: 1.45;
+        }
+        .game-card-tag {
             display: inline-block;
-            margin-left: 10px;
-            background: #e74c3c;
-            color: white;
+            margin-top: 7px;
+            background: rgba(255,255,255,0.2);
             padding: 2px 8px;
-            border-radius: 12px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .game-card-arrow {
             font-size: 0.9rem;
-            font-weight: bold;
+            opacity: 0.7;
+            flex-shrink: 0;
         }
 
-        .vote-btn {
-            background-color: #2ecc71;
+        /* 참가자 대기실: game-container 전체를 판경 커버 */
+        #guest-waiting-msg {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+            border-radius: 15px;
+            overflow: hidden;
+            padding: 0;
+            z-index: 10;
+        }
+
+        /* 부유하는 배경 파티클 */
+        .gw-particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.15;
+            animation: gwFloat linear infinite;
+        }
+        @keyframes gwFloat {
+            0%   { transform: translateY(100%) scale(0.8); opacity: 0; }
+            10%  { opacity: 0.15; }
+            90%  { opacity: 0.12; }
+            100% { transform: translateY(-120vh) scale(1.2); opacity: 0; }
+        }
+
+        /* 메인 콘텐츠 래퍼 */
+        .gw-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+            width: 100%;
+            max-width: 560px;
+            padding: 0 24px;
+        }
+
+        /* 상단: 큰 파동 아이콘 */
+        .gw-hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        .gw-ripple-wrap {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gw-ripple {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2px solid rgba(100,200,255,0.6);
+            animation: gwRipple 2.4s ease-out infinite;
+        }
+        .gw-ripple:nth-child(2) { animation-delay: 0.8s; }
+        .gw-ripple:nth-child(3) { animation-delay: 1.6s; }
+        @keyframes gwRipple {
+            0%   { transform: scale(0.6); opacity: 0.8; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+        .gw-hero-icon {
+            font-size: 3.4rem;
+            position: relative;
+            z-index: 1;
+            animation: gwHeroFloat 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 18px rgba(100,200,255,0.5));
+        }
+        @keyframes gwHeroFloat {
+            0%, 100% { transform: translateY(0) rotate(-3deg); }
+            50% { transform: translateY(-10px) rotate(3deg); }
+        }
+        .gw-hero-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 0;
+            letter-spacing: -0.02em;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+        }
+        .gw-hero-sub {
+            font-size: 0.88rem;
+            color: rgba(255,255,255,0.55);
+            margin: -8px 0 0;
+        }
+
+        /* 게임 쇼케이스 카드 3개 */
+        .gw-showcase {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+        }
+        .gw-game-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 18px 10px 14px;
+            border-radius: 18px;
             color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            margin-left: 5px;
-            transition: background-color 0.2s;
-        }
-
-        .vote-btn:hover {
-            background-color: #27ae60;
-        }
-
-        .vote-btn.voted {
-            background-color: #95a5a6;
+            border: 1px solid rgba(255,255,255,0.12);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             cursor: default;
+            user-select: none;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.25s, box-shadow 0.25s;
         }
+        .gw-game-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.04);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .gw-game-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
+        .gw-game-card:hover::before { opacity: 1; }
+        .gw-card-bingo { background: linear-gradient(145deg, rgba(52,152,219,0.7), rgba(41,128,185,0.7)); box-shadow: 0 8px 24px rgba(52,152,219,0.25); }
+        .gw-card-liar  { background: linear-gradient(145deg, rgba(231,76,60,0.7), rgba(192,57,43,0.7));   box-shadow: 0 8px 24px rgba(231,76,60,0.25); }
+        .gw-card-bomb  { background: linear-gradient(145deg, rgba(230,126,34,0.7), rgba(211,84,0,0.7));   box-shadow: 0 8px 24px rgba(230,126,34,0.25); }
+        .gw-card-icon  { font-size: 2.4rem; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
+        .gw-card-name  { font-size: 0.85rem; font-weight: 800; letter-spacing: -0.01em; }
+        .gw-card-desc  { font-size: 0.72rem; opacity: 0.82; text-align: center; line-height: 1.4; }
+        .gw-card-badge {
+            font-size: 0.65rem;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        /* 하단 로딩 + 팁 */
+        .gw-footer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .gw-dots {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .gw-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: gwDotPop 1.5s ease-in-out infinite;
+        }
+        .gw-dot:nth-child(1) { background: #64c8ff; animation-delay: 0s; }
+        .gw-dot:nth-child(2) { background: #ff7675; animation-delay: 0.25s; }
+        .gw-dot:nth-child(3) { background: #fdcb6e; animation-delay: 0.5s; }
+        @keyframes gwDotPop {
+            0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; }
+            40% { transform: scale(1.3); opacity: 1; }
+        }
+        .gw-tip {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.45);
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 8px 16px;
+            width: 100%;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            transition: opacity 0.4s;
+        }
+        .gw-tip strong { color: rgba(255,255,255,0.75); }
+
+        /* 오래된 .guest-waiting-* 클래스 호환성 유지 */
+        .guest-waiting-tip { display: none; }
     </style>
 </head>
 
@@ -79,12 +323,12 @@
         style="display: none; align-items: center; justify-content: center; z-index: 10000; background: rgba(0,0,0,0.8);">
         <div class="modal-content"
             style="text-align: center; border-radius: 20px; padding: 40px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); max-width: 400px; margin: 0 auto; top: 30%; position: relative;">
-            <h2 style="color: #2c3e50; margin-top: 0;">🎮 PickPlay 입장 🎮</h2>
+            <h2 style="color: #2c3e50; margin-top: 0;">PickPlay</h2>
             <p style="color: #7f8c8d; margin-bottom: 20px;">닉네임을 입력해 주세요 (1~6글자)</p>
             <input type="text" id="nickname-input-modal" placeholder="닉네임 입력"
                 style="width: 80%; padding: 15px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #bdc3c7; text-align: center; margin-bottom: 20px; outline: none;">
             <br>
-            <button id="join-game-btn" class="start-btn" style="width: 80%; padding: 15px;">방 입장</button>
+            <button id="join-game-btn" class="start-btn" style="width: 80%; padding: 15px;">입장!</button>
         </div>
     </div>
 
@@ -96,59 +340,112 @@
 
             <!-- ================= LOBBY CONTAINER ================= -->
             <div id="lobby-container">
-                <h2>대기실에 오신 것을 환영합니다!</h2>
+                <div class="lobby-welcome">
+                    <div class="lobby-welcome-icon">🎮</div>
+                    <h2 class="lobby-welcome-title">어떤 게임을 할까요?</h2>
+                    <p class="lobby-welcome-sub">방장이 게임을 선택하면 모두 함께 시작합니다</p>
+                </div>
 
-                <div id="game-voting-area"
-                    style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 15px;">
-                    <h3>🎮 다음 게임 투표</h3>
+                <!-- 방장: 게임 카드 선택 -->
+                <div id="host-game-selection" style="display: none;">
+                    <div class="game-card-grid">
+                        <button class="game-card game-card-bingo game-select-btn" data-game="bingo" id="card-bingo">
+                            <div class="game-card-icon">🎯</div>
+                            <div class="game-card-body">
+                                <div class="game-card-name">테마 빙고</div>
+                                <div class="game-card-desc">5×5 빙고판에 단어를 채워<br>줄을 먼저 완성하세요!</div>
+                                <div class="game-card-tag">2인 이상</div>
+                            </div>
+                            <div class="game-card-arrow">▶</div>
+                        </button>
 
-                    <div id="host-vote-controls"
-                        style="display: none; margin-bottom: 15px; border-bottom: 1px dashed #ccc; padding-bottom: 15px;">
-                        <label style="font-weight: bold; margin-right: 10px;">투표 시간:</label>
-                        <select id="vote-time-select" style="padding: 5px; border-radius: 5px;">
-                            <option value="10">10초</option>
-                            <option value="30" selected>30초</option>
-                            <option value="60">1분</option>
-                        </select>
-                        <button id="start-vote-btn" class="vote-btn"
-                            style="background-color: #3498db; margin-left: 10px; padding: 8px 15px; font-size: 0.9rem;">투표
-                            시작</button>
-                    </div>
+                        <button class="game-card game-card-liar game-select-btn" data-game="liar" id="card-liar">
+                            <div class="game-card-icon">🕵️</div>
+                            <div class="game-card-body">
+                                <div class="game-card-name">라이어 게임</div>
+                                <div class="game-card-desc">숨은 라이어를 찾아내거나<br>들키지 않고 버티세요!</div>
+                                <div class="game-card-tag">3인 이상</div>
+                            </div>
+                            <div class="game-card-arrow">▶</div>
+                        </button>
 
-                    <div id="vote-timer-display"
-                        style="display: none; font-size: 1.2rem; font-weight: bold; color: #e74c3c; margin-bottom: 10px;">
-                        남은 시간: <span id="vote-time-left">00</span>초
-                    </div>
+                        <button class="game-card game-card-bomb game-select-btn" data-game="bomb" id="card-bomb">
+                            <div class="game-card-icon">💣</div>
+                            <div class="game-card-body">
+                                <div class="game-card-name">폭탄 돌리기</div>
+                                <div class="game-card-desc">주제에 맞는 단어를 말하고<br>폭탄을 넘기세요!</div>
+                                <div class="game-card-tag">2인 이상</div>
+                            </div>
+                            <div class="game-card-arrow">▶</div>
+                        </button>
 
-                    <div id="vote-result-display"
-                        style="display: none; font-size: 1.1rem; font-weight: bold; color: #2ecc71; margin-bottom: 15px; padding: 10px; border: 1px solid #2ecc71; border-radius: 10px; background: #e8f8f5;">
-                        <span id="vote-result-msg"></span>
-                    </div>
-
-                    <div id="vote-options-container"
-                        style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; opacity: 0.5; pointer-events: none;">
-                        <div class="vote-item">
-                            <span>빙고</span>
-                            <span id="vote-count-bingo" class="vote-count">0</span>
-                            <button class="vote-btn" data-vote="bingo">투표</button>
-                        </div>
-                        <div class="vote-item">
-                            <span>라이어</span>
-                            <span id="vote-count-liar" class="vote-count">0</span>
-                            <button class="vote-btn" data-vote="liar">투표</button>
-                        </div>
+                        <button class="game-card game-card-soon" disabled>
+                            <div class="game-card-icon">🔧</div>
+                            <div class="game-card-body">
+                                <div class="game-card-name">개발 중</div>
+                                <div class="game-card-desc">새로운 게임이<br>곧 추가됩니다!</div>
+                                <div class="game-card-tag">Coming Soon</div>
+                            </div>
+                        </button>
                     </div>
                 </div>
 
-                <div id="host-game-selection" style="display: none; margin-top: 30px;">
-                    <h3>어떤 게임을 할까요?</h3>
-                    <button class="game-select-btn" data-game="bingo">빙고 게임 시작하기</button>
-                    <button class="game-select-btn" data-game="liar">라이어 게임 시작하기</button>
-                    <button class="game-select-btn" data-game="bomb" style="background-color: #e67e22;">폭탄 돌리기 시작하기</button>
-                    <button class="game-select-btn" data-game="Coming soon" disabled>개발 중...</button>
-                </div>
-                <div id="guest-waiting-msg" style="margin-top: 30px;">
-                    <p>방장이 게임을 선택하기를 기다리고 있습니다...</p>
+                <!-- 게스트: 방장 대기 메시지 (풀스크린) -->
+                <div id="guest-waiting-msg">
+
+                    <!-- 배경 파티클 (JS로 생성) -->
+                    <div id="gw-particles"></div>
+
+                    <!-- 메인 콘텐츠 -->
+                    <div class="gw-content">
+
+                        <!-- 히어로 섹션 -->
+                        <div class="gw-hero">
+                            <div class="gw-ripple-wrap">
+                                <div class="gw-ripple"></div>
+                                <div class="gw-ripple"></div>
+                                <div class="gw-ripple"></div>
+                                <span class="gw-hero-icon">🎮</span>
+                            </div>
+                            <h2 class="gw-hero-title">방장이 게임을 고르는 중!</h2>
+                            <p class="gw-hero-sub">곧 신나는 게임이 시작됩니다 🎉</p>
+                        </div>
+
+                        <!-- 게임 쇼케이스 -->
+                        <div class="gw-showcase">
+                            <div class="gw-game-card gw-card-bingo">
+                                <div class="gw-card-icon">🎯</div>
+                                <div class="gw-card-name">테마 빙고</div>
+                                <div class="gw-card-desc">5×5 단어로<br>줄을 완성!</div>
+                                <div class="gw-card-badge">2인 이상</div>
+                            </div>
+                            <div class="gw-game-card gw-card-liar">
+                                <div class="gw-card-icon">🕵️</div>
+                                <div class="gw-card-name">라이어 게임</div>
+                                <div class="gw-card-desc">숨은 라이어를<br>찾아내세요!</div>
+                                <div class="gw-card-badge">3인 이상</div>
+                            </div>
+                            <div class="gw-game-card gw-card-bomb">
+                                <div class="gw-card-icon">💣</div>
+                                <div class="gw-card-name">폭탄 돌리기</div>
+                                <div class="gw-card-desc">단어 말하고<br>폭탄 넘기기!</div>
+                                <div class="gw-card-badge">2인 이상</div>
+                            </div>
+                        </div>
+
+                        <!-- 로딩 + 팁 -->
+                        <div class="gw-footer">
+                            <div class="gw-dots">
+                                <div class="gw-dot"></div>
+                                <div class="gw-dot"></div>
+                                <div class="gw-dot"></div>
+                            </div>
+                            <div class="gw-tip" id="guest-tip-text">
+                                💡 <strong>팁:</strong> 채팅창에서 친구들과 대화하며 기다려 보세요!
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
@@ -156,61 +453,52 @@
             <div id="bingo-container" class="hidden-container">
                 <div class="ready-status-display">준비 인원: 0 / 0</div>
 
-                <div class="setup-area bing-setup" style="display: none;">
-                    <h3>👑 빙고 방장 설정</h3>
-                    <div class="setting-group">
-                        <label class="setting-title">🏆 승리 조건</label>
-                        <div class="radio-group">
-                            <label><input type="radio" name="win-lines" value="2"> 2줄</label>
-                            <label><input type="radio" name="win-lines" value="3" checked> 3줄</label>
-                            <label><input type="radio" name="win-lines" value="4"> 4줄</label>
-                            <label><input type="radio" name="win-lines" value="5"> 5줄</label>
+                <div class="setup-area bingo-setup" style="display: none;">
+                    <!-- 기존 설정 보관용 -->
+                    <input type="hidden" id="turn-order-select" value="host_first">
+                    <input type="hidden" id="turn-time-limit" value="15">
+                    <input type="hidden" id="theme-topic-input" value="">
+                    <input type="hidden" id="win-lines-select" value="3">
+                    <div class="host-setup-glass">
+                        <h3>👑 빙고 방장 설정</h3>
+                        <!-- AI 진행률 표시줄 -->
+                        <div id="ai-progress-container"
+                            style="display: none; margin: 0 0 16px; padding: 12px; background: rgba(100,181,246,0.12); border-radius: 10px; border: 1px solid rgba(100,181,246,0.3);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span id="ai-progress-step"
+                                    style="font-size: 0.9rem; color: #64b5f6; font-weight: bold; display: flex; align-items: center;">
+                                    <i class="fas fa-robot" style="margin-right: 8px;"></i> AI 가동 중...
+                                </span>
+                                <span id="ai-progress-percent"
+                                    style="font-size: 0.9rem; color: #64b5f6; font-weight: 800;">0%</span>
+                            </div>
+                            <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                                <div id="ai-progress-bar"
+                                    style="width: 0%; height: 100%; background: linear-gradient(90deg, #3498db, #64b5f6); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="setting-group">
-                        <label class="setting-title">🔄 시작 순서</label>
-                        <select id="turn-order-select" style="padding: 5px; font-size: 1rem;">
-                            <option value="host_first">👑 방장부터 시계방향</option>
-                            <option value="random">🎲 완전 랜덤</option>
-                            <option value="join_asc">➡️ 입장 순서대로</option>
-                            <option value="join_desc">⬅️ 입장 역순으로</option>
-                        </select>
-                    </div>
-                    <div class="setting-group" id="theme-topic-group">
-                        <label class="setting-title">🎨 AI에게 요청할 빙고 주제 입력</label>
-                        <input type="text" id="theme-topic-input" placeholder="예: 과일,영화 등"
-                            style="width: 100%; padding: 10px; font-size: 1.1rem; border-radius: 5px; border: 1px solid #ccc;">
-                    </div>
-                    <!-- AI 진행률 표시줄 추가 -->
-                    <div id="ai-progress-container" style="display: none; margin: 10px 0; padding: 12px; background: #fff5f5; border-radius: 10px; border: 1px solid #feb2b2; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span id="ai-progress-step" style="font-size: 0.9rem; color: #c53030; font-weight: bold; display: flex; align-items: center;">
-                                <i class="fas fa-robot" style="margin-right: 8px;"></i> AI 가동 중...
-                            </span>
-                            <span id="ai-progress-percent" style="font-size: 0.9rem; color: #c53030; font-weight: 800;">0%</span>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                            <button id="open-settings-bingo" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
+                            <button id="start-game-bingo" class="start-btn" style="background-color: #2ecc71;">🚀 빙고 게임 시작</button>
                         </div>
-                        <div style="width: 100%; height: 10px; background: #fed7d7; border-radius: 5px; overflow: hidden; border: 1px solid #feb2b2;">
-                            <div id="ai-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f56565, #c53030); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
-                        </div>
+                        <button class="return-lobby-btn">대기실로 돌아가기</button>
                     </div>
-                    <div class="setting-group">
-                        <label class="setting-title">⏱️ 턴 제한 시간</label>
-                        <select id="turn-time-limit" style="padding: 5px; font-size: 1rem;">
-                            <option value="0">무제한</option>
-                            <option value="10">10초</option>
-                            <option value="15" selected>15초</option>
-                            <option value="20">20초</option>
-                            <option value="30">30초</option>
-                        </select>
-                        <p style="font-size: 0.8rem; color: #7f8c8d; margin-top: 5px;">시간 내 미선택 시 랜덤 체크됩니다.</p>
-                    </div>
-                    <button id="start-bingo-btn" class="start-btn">주제 생성 및 시작!</button>
-                    <button class="return-lobby-btn" style="margin-top: 10px;">대기실로 돌아가기</button>
                 </div>
 
                 <div class="waiting-area" style="display: none;">
-                    <h3>⏳ 대기 중...</h3>
-                    <p>방장이 게임을 설정하고 있습니다.</p>
+                    <div class="game-waiting-card bingo-waiting-card">
+                        <div class="game-waiting-icon bingo-waiting-icon">🎯</div>
+                        <div class="waiting-dots-row">
+                            <span class="wdot"></span><span class="wdot"></span><span class="wdot"></span>
+                        </div>
+                        <p class="waiting-title">방장이 빙고 게임을 설정하는 중...</p>
+                        <p class="waiting-subtitle">잠시 후 게임이 시작됩니다!</p>
+                        <div class="game-rules-preview">
+                            <div class="rule-item">📋 <span>5×5 빙고판에 단어 25개를 직접 입력하세요</span></div>
+                            <div class="rule-item">👉 <span>순서대로 돌아가며 단어를 하나씩 선택합니다</span></div>
+                            <div class="rule-item">🏆 <span>먼저 설정된 줄 수를 완성하면 빙고!</span></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="player-ui">
@@ -226,7 +514,8 @@
 
                     <!-- [Refinement] 시작 버튼 디자인 단순화 (박스 및 메시지 제거) -->
                     <div id="manual-start-area" style="display: none; margin: 10px 0; text-align: center;">
-                        <button id="host-manual-start-btn" class="start-btn host-start-btn-custom" disabled>게임 시작!</button>
+                        <button id="host-manual-start-btn" class="start-btn host-start-btn-custom" disabled>게임
+                            시작!</button>
                     </div>
 
                     <div id="input-controls" style="display: none; margin-top: 10px;">
@@ -259,22 +548,32 @@
             <!-- ================= LIAR CONTAINER ================= -->
             <div id="liar-container" class="hidden-container">
 
-                <div class="setup-area liar-setup" style="display: none; margin-bottom: 20px;">
-                    <h3>👑 라이어 게임 방장 설정</h3>
-                    <label for="win-target-select" style="font-weight: bold; margin-right: 10px;">목표 승수:</label>
-                    <select id="win-target-select"
-                        style="padding: 10px; font-size: 1.1rem; border-radius: 5px; margin-right: 15px; border: 1px solid #bdc3c7;">
-                        <option value="2">2승</option>
-                        <option value="3" selected>3승</option>
-                        <option value="4">4승</option>
-                    </select>
-                    <button id="start-liar-btn" class="start-btn">시작</button>
-                    <button class="return-lobby-btn" style="margin-top: 10px;">대기실로 돌아가기</button>
+                <div class="setup-area liar-setup" style="display: none;">
+                    <input type="hidden" id="win-target-select" value="3">
+                    <div class="host-setup-glass">
+                        <h3>👑 라이어 게임 방장 설정</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                            <button id="open-settings-liar" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
+                            <button id="start-game-liar" class="start-btn" style="background-color: #e74c3c;">🚀 라이어 게임 시작</button>
+                        </div>
+                        <button class="return-lobby-btn">대기실로 돌아가기</button>
+                    </div>
                 </div>
 
                 <div class="waiting-area" style="display: none;">
-                    <h3>⏳ 대기 중...</h3>
-                    <p>방장이 게임을 설정하고 있습니다.</p>
+                    <div class="game-waiting-card liar-waiting-card">
+                        <div class="game-waiting-icon liar-waiting-icon">🕵️</div>
+                        <div class="waiting-dots-row">
+                            <span class="wdot"></span><span class="wdot"></span><span class="wdot"></span>
+                        </div>
+                        <p class="waiting-title">방장이 라이어 게임을 설정하는 중...</p>
+                        <p class="waiting-subtitle">잠시 후 게임이 시작됩니다!</p>
+                        <div class="game-rules-preview">
+                            <div class="rule-item">🃏 <span>한 명이 라이어로 선정되고 다른 제시어를 받습니다</span></div>
+                            <div class="rule-item">💬 <span>순서대로 제시어를 설명하되, 라이어는 들키지 않게!</span></div>
+                            <div class="rule-item">🗳️ <span>설명이 끝나면 투표로 라이어를 지목하세요</span></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="player-ui liar-player-ui">
@@ -284,65 +583,71 @@
 
             <!-- ================= BOMB CONTAINER ================= -->
             <div id="bomb-container" class="hidden-container">
-                <div id="bomb-scores-display" class="ready-status-display">기다리는 중...</div>
+                <div id="bomb-scores-display" class="ready-status-display" style="display:none;"></div>
 
                 <div class="setup-area bomb-setup" style="display: none;">
-                    <h3>👑 폭탄 돌리기 방장 설정</h3>
-                    <div class="setting-group">
-                        <label class="setting-title">🏆 목표 승수</label>
-                        <select id="bomb-win-target" style="padding: 8px; font-size: 1rem; border-radius: 5px;">
-                            <option value="2">2승</option>
-                            <option value="3" selected>3승</option>
-                            <option value="4">4승</option>
-                            <option value="5">5승</option>
-                        </select>
+                    <input type="hidden" id="bomb-win-target" value="3">
+                    <input type="hidden" id="bomb-show-timer" value="true">
+                    <input type="hidden" id="bomb-timer-range" value="medium">
+                    <div class="host-setup-glass">
+                        <h3>👑 폭탄 게임 방장 설정</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                            <button id="open-settings-bomb" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
+                            <button id="start-game-bomb" class="start-btn" style="background-color: #e67e22;">🚀 폭탄 돌리기 시작</button>
+                        </div>
+                        <button class="return-lobby-btn">대기실로 돌아가기</button>
                     </div>
-                    <div class="setting-group">
-                        <label class="setting-title">⏱️ 폭탄 타이머 노출</label>
-                        <label style="cursor:pointer;"><input type="checkbox" id="bomb-show-timer" checked> 타이머를 화면에 표시함</label>
-                    </div>
-                    <div class="setting-group">
-                        <label class="setting-title">🔥 폭탄 유지 시간 범위</label>
-                        <select id="bomb-timer-range" style="padding: 8px; font-size: 1rem; border-radius: 5px;">
-                            <option value="short">짧게 (15~30초)</option>
-                            <option value="medium" selected>보통 (30~55초)</option>
-                            <option value="long">길게 (50~80초)</option>
-                        </select>
-                    </div>
-                    <button id="start-bomb-btn" class="start-btn">게임 시작!</button>
-                    <button class="return-lobby-btn" style="margin-top: 10px;">대기실로 돌아가기</button>
                 </div>
 
                 <div class="waiting-area bomb-waiting" style="display: none;">
-                    <h3>💣 폭탄 준비 중...</h3>
-                    <p>방장이 게임을 설정하고 있습니다.</p>
+                    <div class="game-waiting-card bomb-waiting-card">
+                        <div class="game-waiting-icon bomb-waiting-icon">💣</div>
+                        <div class="waiting-dots-row">
+                            <span class="wdot"></span><span class="wdot"></span><span class="wdot"></span>
+                        </div>
+                        <p class="waiting-title">방장이 폭탄 돌리기를 설정하는 중...</p>
+                        <p class="waiting-subtitle">잠시 후 게임이 시작됩니다!</p>
+                        <div class="game-rules-preview">
+                            <div class="rule-item">💡 <span>주제가 공개되면 관련 단어를 빠르게 말하세요</span></div>
+                            <div class="rule-item">🔄 <span>입력 후 자동으로 다음 사람에게 폭탄이 넘어갑니다</span></div>
+                            <div class="rule-item">💥 <span>시간 안에 단어를 못 말하면 폭발! 패배합니다</span></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="player-ui bomb-player-ui" style="display: none; width: 100%; text-align: center;">
-                    <div id="bomb-theme-display" style="font-size: 1.5rem; font-weight: bold; color: #e67e22; margin-bottom: 20px; background: #fff3e0; padding: 10px; border-radius: 10px;">주제: </div>
-                    
+                    <div id="bomb-theme-display"
+                        style="font-size: 1.5rem; font-weight: bold; color: #e67e22; margin-bottom: 20px; background: #fff3e0; padding: 10px; border-radius: 10px;">
+                        주제: </div>
+
                     <div id="bomb-timer-area" style="height: 40px; margin-bottom: 10px;">
-                        <span id="bomb-timer-text" style="font-size: 1.8rem; font-weight: bold; color: #e74c3c; background: white; padding: 5px 20px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none;">00:00</span>
+                        <span id="bomb-timer-text"
+                            style="font-size: 1.8rem; font-weight: bold; color: #e74c3c; background: white; padding: 5px 20px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none;">00:00</span>
                     </div>
 
-                    <div id="bomb-visual-area" style="position: relative; height: 180px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: radial-gradient(circle, #f9f9f9 0%, #e0e0e0 100%); border-radius: 50%; width: 180px; margin: 0 auto 20px auto;">
+                    <div id="bomb-visual-area"
+                        style="position: relative; height: 180px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: radial-gradient(circle, #f9f9f9 0%, #e0e0e0 100%); border-radius: 50%; width: 180px; margin: 0 auto 20px auto;">
                         <div id="bomb-graphic" class="bomb-idle">💣</div>
                     </div>
 
-                    <div id="bomb-current-turn" style="font-size: 1.2rem; margin-bottom: 15px; font-weight: bold;"></div>
+                    <div id="bomb-current-turn" style="font-size: 1.2rem; margin-bottom: 15px; font-weight: bold;">
+                    </div>
 
                     <div id="bomb-input-area" style="display: none;">
-                        <input type="text" id="bomb-word-input" placeholder="정답 입력 후 엔터!" 
-                               style="width: 80%; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #e67e22; outline: none; text-align: center;">
+                        <input type="text" id="bomb-word-input" placeholder="정답 입력 후 엔터!"
+                            style="width: 80%; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #e67e22; outline: none; text-align: center;">
                     </div>
-                    <div id="bomb-used-words-preview" style="margin-top: 20px; font-size: 0.9rem; color: #7f8c8d; height: 60px; overflow-y: auto; border-top: 1px dashed #ccc; padding-top: 10px;">
+                    <div id="bomb-used-words-preview"
+                        style="margin-top: 20px; font-size: 0.9rem; color: #7f8c8d; height: 60px; overflow-y: auto; border-top: 1px dashed #ccc; padding-top: 10px;">
                         최근 사용 단어: <span id="bomb-words-list"></span>
                     </div>
                 </div>
 
-                <div id="bomb-round-result" style="display: none; margin-top: 20px; padding: 20px; background: #ffebee; border-radius: 10px; border: 2px solid #ef5350;">
+                <div id="bomb-round-result"
+                    style="display: none; margin-top: 20px; padding: 20px; background: #ffebee; border-radius: 10px; border: 2px solid #ef5350;">
                     <h3 id="bomb-result-msg" style="color: #c62828; margin: 0 0 10px 0;"></h3>
                     <button id="next-bomb-round-btn" class="start-btn" style="display: none;">다음 라운드 시작</button>
+                    <button class="return-lobby-btn" style="margin-top: 10px; background: #7f8c8d;">대기실로 돌아가기</button>
                 </div>
             </div>
 
@@ -390,6 +695,31 @@
         <button type="submit">전송</button>
     </form>
 
+    <!-- ================== 게임 설정 통합 모달 ================== -->
+    <div id="settings-modal" style="display:none; position:fixed; inset:0; z-index:5000; background:rgba(0,0,0,0.55); align-items:center; justify-content:center;">
+        <div id="settings-modal-inner" style="background:#fff; border-radius:20px; padding:0; width:min(560px, 95vw); max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); position:relative;">
+
+            <!-- 헤더 -->
+            <div id="settings-modal-header" style="padding:28px 32px 20px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div id="settings-modal-game-icon" style="font-size:2rem; margin-bottom:4px;"></div>
+                    <h2 id="settings-modal-title" style="margin:0; font-size:1.4rem; color:#1a1a2e;"></h2>
+                    <p id="settings-modal-subtitle" style="margin:4px 0 0; font-size:0.85rem; color:#888;"></p>
+                </div>
+                <button id="settings-modal-close" style="background:none; border:none; font-size:1.6rem; cursor:pointer; color:#999; padding:4px 8px; border-radius:8px; transition:background 0.2s;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='none'">✕</button>
+            </div>
+
+            <!-- 설정 본문 -->
+            <div id="settings-modal-body" style="padding:24px 32px;"></div>
+
+            <!-- 푸터 -->
+            <div style="padding:16px 32px 24px; border-top:1px solid #eee; display:flex; gap:12px; justify-content:flex-end;">
+                <button id="settings-modal-cancel" style="padding:12px 28px; border-radius:10px; border:2px solid #ddd; background:white; color:#555; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">취소</button>
+                <button id="settings-modal-confirm" style="padding:12px 32px; border-radius:10px; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-size:1rem; font-weight:700; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 15px rgba(102,126,234,0.4);" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">💾 설정 저장</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 게임 결과 모달 -->
     <div id="result-modal" class="modal">
         <div class="modal-content" style="max-width: 600px; text-align: center; padding: 30px;">
@@ -420,6 +750,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/common.js"></script>
     <script src="/js/room.js"></script>
+    <script src="/js/settingsModal.js"></script>
     <script src="/js/bingo.js"></script>
     <script src="/js/liar.js"></script>
     <script src="/js/bomb.js"></script>

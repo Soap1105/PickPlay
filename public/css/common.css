@@ -43,7 +43,22 @@ h1#game-title {
     align-items: center; 
     position: relative; 
     overflow-y: auto; 
-    min-width: 550px; 
+    min-width: 550px;
+    transition: background-color 0.4s ease, background 0.4s ease;
+}
+
+/* 게임 진입 시 다크 배경 */
+#game-container.game-active-bingo {
+    background: linear-gradient(160deg, #0d1b2a 0%, #1a3a5c 60%, #0a2040 100%);
+    color: white;
+}
+#game-container.game-active-liar {
+    background: linear-gradient(160deg, #2a0d0d 0%, #5a1515 60%, #3a0a0a 100%);
+    color: white;
+}
+#game-container.game-active-bomb {
+    background: linear-gradient(160deg, #1e1005 0%, #4a2200 60%, #2d1400 100%);
+    color: white;
 }
 
 #my-role-display { font-weight: bold; margin-bottom: 10px; color: #555; }
@@ -55,6 +70,25 @@ h1#game-title {
 .setting-group { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
 .setting-title { font-weight: bold; display: block; margin-bottom: 5px; font-size: 1.1rem; color: #2c3e50; }
 .start-btn { width: 100%; background-color: #27ae60; color: white; padding: 12px; border: none; border-radius: 5px; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 5px; }
+
+.return-lobby-btn {
+    width: 100%;
+    background: transparent;
+    color: #7f8c8d;
+    padding: 10px;
+    border: 2px solid #bdc3c7;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.return-lobby-btn:hover {
+    background: #ecf0f1;
+    color: #555;
+    border-color: #95a5a6;
+}
 
 /* =========================================
    2. 우측 유저 및 채팅 영역 (공용)
@@ -325,4 +359,473 @@ h1#game-title {
 @keyframes toast-out {
     from { transform: translateY(0); opacity: 1; }
     to { transform: translateY(-20px); opacity: 0; }
+}
+
+/* =========================================
+   4. 게임 설정 통합 모달 (Settings Modal)
+   ========================================= */
+.settings-open-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    box-shadow: 0 4px 15px rgba(102,126,234,0.35);
+    transition: opacity 0.2s, transform 0.1s;
+}
+.settings-open-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+.settings-open-btn:active { transform: translateY(0); }
+
+/* 섹션 */
+.smodal-section {
+    margin-bottom: 22px;
+}
+.smodal-section:last-child { margin-bottom: 0; }
+
+.smodal-label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #444;
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+}
+
+/* Select */
+.smodal-select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    font-size: 0.95rem;
+    color: #333;
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.2s;
+    cursor: pointer;
+}
+.smodal-select:focus { border-color: #667eea; }
+
+/* Input */
+.smodal-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    font-size: 0.95rem;
+    color: #333;
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.smodal-input:focus { border-color: #667eea; }
+
+/* 라디오 카드 그룹 */
+.smodal-radio-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.smodal-radio-card {
+    flex: 1;
+    min-width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    background: #fafafa;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #555;
+    transition: all 0.18s;
+    user-select: none;
+}
+.smodal-radio-card input[type="radio"] { display: none; }
+.smodal-radio-card:has(input:checked) {
+    border-color: #667eea;
+    background: #f0f0ff;
+    color: #667eea;
+}
+.smodal-radio-card:hover { border-color: #aaa; }
+
+/* 체크박스 그리드 */
+.smodal-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 4px 2px;
+}
+.smodal-check-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1.5px solid #e0e0e0;
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #444;
+    transition: all 0.15s;
+    user-select: none;
+}
+.smodal-check-label:has(input:checked) {
+    border-color: #667eea;
+    background: #f0f0ff;
+    color: #667eea;
+}
+.smodal-check-label input[type="checkbox"] {
+    accent-color: #667eea;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+/* 토글 스위치 행 */
+.smodal-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fafafa;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+/* 모달 전용 토글 */
+.smodal-toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+.smodal-toggle input { opacity: 0; width: 0; height: 0; }
+.smodal-toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: #ccc;
+    border-radius: 24px;
+    cursor: pointer;
+    transition: background 0.25s;
+}
+.smodal-toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.25s;
+}
+.smodal-toggle input:checked + .smodal-toggle-slider { background: #667eea; }
+.smodal-toggle input:checked + .smodal-toggle-slider::before { transform: translateX(20px); }
+
+/* 소형 버튼 */
+.smodal-small-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.smodal-small-btn:hover { opacity: 0.82; }
+.smodal-btn-blue { background: #667eea; color: white; }
+.smodal-btn-red  { background: #e74c3c; color: white; }
+
+/* =========================================
+   5. 게임별 컨테이너 공통
+   ========================================= */
+
+#bingo-container, #liar-container, #bomb-container {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* =========================================
+   6. 게임 대기방 (방장 setup + 게스트 waiting) 공통 다크 오버레이
+   ========================================= */
+
+/* 방장 설정 영역 */
+.setup-area {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+    display: none; /* JS sets display:block */
+    border-radius: 12px;
+    overflow: hidden;
+    padding: 40px 20px;
+    margin: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    box-sizing: border-box;
+}
+
+.bingo-setup { background: linear-gradient(145deg, #0d1b2a 0%, #1a3a5c 50%, #0a2040 100%) !important; }
+.liar-setup  { background: linear-gradient(145deg, #2a0d0d 0%, #5a1515 50%, #3a0a0a 100%) !important; }
+.bomb-setup  { background: linear-gradient(145deg, #1e1005 0%, #4a2200 50%, #2d1400 100%) !important; }
+
+/* 공용 부유 파티클 (CSS-only) */
+.setup-area::before, .setup-area::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.07;
+    animation: setupFloat 8s ease-in-out infinite;
+}
+.setup-area::before {
+    width: 260px; height: 260px;
+    top: -60px; left: -60px;
+    background: white;
+}
+.setup-area::after {
+    width: 180px; height: 180px;
+    bottom: -40px; right: -40px;
+    background: white;
+    animation-delay: -4s;
+}
+@keyframes setupFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(15px, 15px) scale(1.08); }
+}
+
+/* 방장 설정 글래스 카드 */
+.host-setup-glass {
+    position: relative;
+    z-index: 2;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 22px;
+    padding: 30px 28px;
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto;          /* display:block일 때 수평 중앙 */
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06);
+}
+
+.setup-area h3 {
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 0 0 20px;
+    text-align: center;
+    letter-spacing: -0.01em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* 방장 설정 내 버튼들 */
+.setup-area .start-btn {
+    font-size: 1.05rem;
+    border-radius: 12px;
+    padding: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.setup-area .start-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.setup-area .start-btn:active { transform: translateY(0); }
+
+.setup-area .return-lobby-btn {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.6);
+    border-radius: 12px;
+}
+.setup-area .return-lobby-btn:hover {
+    background: rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.9);
+    border-color: rgba(255,255,255,0.35);
+}
+
+/* 게스트 대기 영역 */
+.waiting-area {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+    display: none; /* JS sets display:block */
+    border-radius: 12px;
+    overflow: hidden;
+    padding: 48px 20px 36px;
+    margin: 0;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+#bingo-container .waiting-area { background: linear-gradient(145deg, #0d1b2a 0%, #1a3a5c 50%, #0a2040 100%); }
+#liar-container  .waiting-area { background: linear-gradient(145deg, #2a0d0d 0%, #5a1515 50%, #3a0a0a 100%); }
+#bomb-container  .waiting-area { background: linear-gradient(145deg, #1e1005 0%, #4a2200 50%, #2d1400 100%); }
+
+.waiting-area::before, .waiting-area::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.07;
+    animation: setupFloat 8s ease-in-out infinite;
+}
+.waiting-area::before {
+    width: 260px; height: 260px;
+    top: -60px; right: -60px;
+    background: white;
+}
+.waiting-area::after {
+    width: 180px; height: 180px;
+    bottom: -40px; left: -40px;
+    background: white;
+    animation-delay: -4s;
+}
+
+/* game-waiting-card을 display:block 부모에서도 수평 중앙 */
+.game-waiting-card {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* =========================================
+   7. 게임 대기방 카드 UI (글래스모피즘)
+   ========================================= */
+
+.game-waiting-card {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 0 0 28px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06);
+    max-width: 420px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    overflow: hidden;
+    color: white;
+}
+
+/* 게임별 상단 accent 바 */
+.game-waiting-card::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 5px;
+    flex-shrink: 0;
+    border-radius: 0;
+    margin-bottom: 8px;
+}
+.bingo-waiting-card::before { background: linear-gradient(90deg, #3498db, #64b5f6); }
+.liar-waiting-card::before  { background: linear-gradient(90deg, #e74c3c, #ff7675); }
+.bomb-waiting-card::before  { background: linear-gradient(90deg, #e67e22, #fdcb6e); }
+
+.game-waiting-icon {
+    font-size: 4.2rem;
+    line-height: 1;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
+
+.bingo-waiting-icon { animation: waitBounce 1.8s ease-in-out infinite; }
+@keyframes waitBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-12px) scale(1.05); }
+}
+
+.liar-waiting-icon { animation: waitWiggle 2.2s ease-in-out infinite; }
+@keyframes waitWiggle {
+    0%, 100% { transform: rotate(0deg); }
+    20% { transform: rotate(-14deg); }
+    40% { transform: rotate(14deg); }
+    60% { transform: rotate(-8deg); }
+    80% { transform: rotate(8deg); }
+}
+
+.bomb-waiting-icon { animation: waitShake 0.75s ease-in-out infinite; }
+@keyframes waitShake {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-10deg) scale(1.08); }
+    75% { transform: rotate(10deg) scale(1.08); }
+}
+
+/* 세 점 로딩 */
+.waiting-dots-row { display: flex; gap: 6px; align-items: center; }
+.wdot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    animation: wdotBounce 1.2s ease-in-out infinite;
+}
+.wdot:nth-child(2) { animation-delay: 0.2s; }
+.wdot:nth-child(3) { animation-delay: 0.4s; }
+
+.bingo-waiting-card .wdot { background: #64b5f6; }
+.liar-waiting-card  .wdot { background: #ff7675; }
+.bomb-waiting-card  .wdot { background: #fdcb6e; }
+
+@keyframes wdotBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+    40% { transform: translateY(-7px); opacity: 1; }
+}
+
+.waiting-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    letter-spacing: -0.01em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.waiting-subtitle {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.55);
+    margin: -6px 0 0;
+}
+
+/* 게임 룰 미리보기 */
+.game-rules-preview {
+    width: calc(100% - 40px);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+}
+
+.bingo-waiting-card .game-rules-preview { background: rgba(52,152,219,0.15);  border: 1px solid rgba(100,181,246,0.3); }
+.liar-waiting-card  .game-rules-preview { background: rgba(231,76,60,0.15);   border: 1px solid rgba(255,118,117,0.3); }
+.bomb-waiting-card  .game-rules-preview { background: rgba(230,126,34,0.15);  border: 1px solid rgba(253,203,110,0.3); }
+
+.rule-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.82);
+    line-height: 1.4;
+}
+.rule-item span { flex: 1; }
+
+/* #lobby-container 기본 패딩 정리 */
+#lobby-container {
+    width: 100%;
+    padding: 16px 8px;
 }

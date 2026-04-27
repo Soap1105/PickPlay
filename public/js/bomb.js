@@ -19,7 +19,8 @@
     const bombCategoryList = document.getElementById('bomb-category-list');
 
     // Buttons
-    const startBombBtn = document.getElementById('start-bomb-btn');
+    const openSettingsBombBtn = document.getElementById('open-settings-bomb');
+    const startGameBombBtn = document.getElementById('start-game-bomb');
     const nextBombRoundBtn = document.getElementById('next-bomb-round-btn');
     const returnLobbyBtns = document.querySelectorAll('.return-lobby-btn');
 
@@ -118,24 +119,27 @@
         });
     };
 
-    // 방장: 게임 시작 버튼
-    if (startBombBtn) {
-        startBombBtn.addEventListener('click', () => {
-            const winTarget = document.getElementById('bomb-win-target').value;
-            const showTimer = document.getElementById('bomb-show-timer').checked;
-            const timeLimit = document.getElementById('bomb-timer-range').value;
+    if (openSettingsBombBtn) {
+        openSettingsBombBtn.addEventListener('click', () => {
+            window.openSettingsModal('bomb', (settings) => {
+                window.bombSelectedCategories = settings.selectedCategories;
+                if (window.showToast) window.showToast('설정이 저장되었습니다!', 'success');
+            });
+        });
+    }
 
-            // 선택된 카테고리 수집
-            const selectedCategories = [];
-            const checkboxes = document.querySelectorAll('input[name="bomb-category"]:checked');
-            checkboxes.forEach(cb => selectedCategories.push(cb.value));
-
+    if (startGameBombBtn) {
+        startGameBombBtn.addEventListener('click', () => {
+            const hWinTarget = parseInt(document.getElementById('bomb-win-target')?.value || '3');
+            const hTimerRange = document.getElementById('bomb-timer-range')?.value || 'medium';
+            const hShowTimerStr = document.getElementById('bomb-show-timer')?.value || 'true';
+            
             socket.emit('setup bomb game', {
                 roomId: window.roomId,
-                winTarget: parseInt(winTarget),
-                timeLimit: timeLimit,
-                showTimer: showTimer,
-                selectedCategories: selectedCategories
+                winTarget: hWinTarget,
+                timeLimit: hTimerRange,
+                showTimer: (hShowTimerStr === 'true'),
+                selectedCategories: window.bombSelectedCategories
             });
         });
     }
@@ -147,29 +151,19 @@
         });
     }
 
-    // 대기실 복귀 버튼들
+    // 대기실 복귀 버튼들 (폭탄 게임 활성 상태일 때만 처리)
     returnLobbyBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (localIsHost) {
-                if (confirm('대기실로 돌아가 새로운 게임을 준비하시겠습니까?')) {
-                    socket.emit('return to lobby from bomb');
-                }
-            } else {
-                if (window.showToast) window.showToast('방장만 대기실로 복귀할 수 있습니다.', 'info');
-                else alert('방장만 복귀 가능합니다.');
+            if (window.gameType !== 'bomb') return;
+            if (!localIsHost) return; // 방장만 가능
+            if (confirm('대기실로 돌아가 새로운 게임을 준비하시겠습니까?')) {
+                socket.emit('return to lobby from bomb');
             }
         });
     });
 
-    // 결과 모달 닫기 버튼
-    if (closeResultBtn) {
-        closeResultBtn.onclick = () => {
-            resultModal.style.display = 'none';
-            if (localIsHost) {
-                socket.emit('return to lobby from bomb');
-            }
-        };
-    }
+
+
 
     // 단어 입력 처리
     bombWordInput.addEventListener('keypress', (e) => {
@@ -225,9 +219,6 @@
         console.log("점수 업데이트 수신:", scores, "목표:", target);
         window.bombScores = scores; // 전역 점수 저장
         if (target) window.bombWinTarget = target;
-
-        const msg = "🏆 목표: " + window.bombWinTarget + "승";
-        bombScoresDisplay.textContent = msg;
 
         // 중요: 점수가 바뀌었으므로 캐싱된 유저 목록을 사용해 즉시 다시 그리기
         if (currentBombUsers.length > 0) {

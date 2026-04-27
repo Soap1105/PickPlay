@@ -1,4 +1,21 @@
 /* =========================================
    라이어 게임 전용 스타일
    ========================================= */
-/* 나중에 라이어 게임 관련 스타일이 작성될 예정 */
+
+/* 최후 변론 실시간 타이핑 - 글자 낙하 애니메이션 */
+@keyframes liarCharDrop {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 커서 깜빡임 */
+@keyframes liarBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
