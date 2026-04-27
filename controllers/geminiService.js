@@ -1,18 +1,34 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// .env에 설정된 API 키를 가져옵니다.
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// 재시도 로직을 포함한 헬퍼 함수
+async function retryRequest(fn, retries = 3, delay = 1500) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            // 400 에러(잘못된 요청)는 재시도해도 실패하므로 즉시 throw하여 폴백 로직으로 보냄
+            const isRetryable = (error.status === 503 || error.status === 429 || error.message?.includes('fetch failed')) && error.status !== 400;
+            if (i === retries - 1 || !isRetryable) throw error;
+            
+            console.log(`[Gemini Retry] ${i + 1}회 실패. ${delay}ms 후 재시도... (Error: ${error.status || error.message})`);
+            await new Promise(res => setTimeout(res, delay));
+            delay *= 2; 
+        }
+    }
+}
 
 const geminiService = {
     async generateBingoWords(topic) {
         try {
-            // Google Search Grounding 사용: AI의 기억이 아닌 검색 결과에서 직접 추출
-            const model = genAI.getGenerativeModel({
-                model: "gemini-2.5-flash",
-                tools: [{ googleSearch: {} }]
-            });
+            return await retryRequest(async () => {
+                const model = genAI.getGenerativeModel({
+                    model: "gemini-2.5-flash",
+                    tools: [{ googleSearch: {} }]
+                });
 
-            const prompt = `
+                const prompt = `
 너는 빙고 게임을 위해 정확하고 일관된 단어 목록을 생성하는 전문가 AI야.
 주제: "${topic}"
 
@@ -40,69 +56,54 @@ const geminiService = {
 [출력 형식 - JSON만, 다른 텍스트 절대 금지]
 성공: { "status": "success", "words": ["단어1", "단어2", ...최소 30개] }
 실패: { "status": "error", "message": "'${topic}'은(는) 검색 결과에서 30개를 찾을 수 없습니다. 더 유명하거나 넓은 주제를 입력해주세요." }
-            `;
+                `;
 
-            const result = await model.generateContent(prompt);
-            let responseText = result.response.text();
+                const result = await model.generateContent(prompt);
+                let responseText = result.response.text();
+                responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-            // 마크다운 코드블럭 제거
-            responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const startIdx = responseText.indexOf('{');
+                if (startIdx === -1) throw new Error("No JSON found in response");
 
-            // 괄호 짝애기로 정확한 JSON 합체만 추출 (Grounding 시 뽙는 URL/각주 텍스트 제거)
-            const startIdx = responseText.indexOf('{');
-            if (startIdx === -1) throw new Error("No JSON found in response");
-
-            let depth = 0;
-            let endIdx = -1;
-            for (let i = startIdx; i < responseText.length; i++) {
-                if (responseText[i] === '{') depth++;
-                else if (responseText[i] === '}') {
-                    depth--;
-                    if (depth === 0) { endIdx = i; break; }
+                let depth = 0;
+                let endIdx = -1;
+                for (let i = startIdx; i < responseText.length; i++) {
+                    if (responseText[i] === '{') depth++;
+                    else if (responseText[i] === '}') {
+                        depth--;
+                        if (depth === 0) { endIdx = i; break; }
+                    }
                 }
-            }
-
-            if (endIdx === -1) throw new Error("Malformed JSON: no closing brace");
-
-            const parsed = JSON.parse(responseText.substring(startIdx, endIdx + 1));
-            
-            // [강제 방어 로직] AI가 프롬프트를 무시하고 중복을 넣거나 50개를 넘길 경우 자바스크립트 단에서 강제 커팅
-            if (parsed.status === "success" && Array.isArray(parsed.words)) {
-                parsed.words = [...new Set(parsed.words)].slice(0, 50);
-            }
-            
-            return parsed;
-
+                if (endIdx === -1) throw new Error("Malformed JSON: no closing brace");
+                const parsed = JSON.parse(responseText.substring(startIdx, endIdx + 1));
+                
+                if (parsed.status === "success" && Array.isArray(parsed.words)) {
+                    parsed.words = [...new Set(parsed.words)].slice(0, 50);
+                }
+                return parsed;
+            });
         } catch (error) {
             console.error("Gemini API Error:", error);
-
-            // Google Search Grounding이 무료 티어에서 지원 안 될 경우 폴백
-            if (error.status === 400 || (error.message && error.message.includes('googleSearch'))) {
-                console.log("[Grounding 미지원] 일반 모드로 폴백합니다.");
+            // 400 에러나 googleSearch 관련 에러 발생 시 Grounding 없는 모드로 폴백
+            if (error.status === 400 || (error.message && error.message.toLowerCase().includes('googlesearch'))) {
+                console.log("[Grounding 미지원 또는 에러] 일반 모드로 폴백합니다.");
                 return geminiService.generateBingoWordsNoGrounding(topic);
             }
-
-            if (error.status === 429) {
-                return { status: "error", message: "무료 API 일일/분당 제공량을 초과했습니다. 약 1분 뒤에 다시 시도해주세요 ⏳" };
-            }
-
-            if (error.message === "TIMEOUT") {
-                return { status: "error", message: "AI 응답 시간이 초과되었습니다. 주제가 너무 모호하거나 오타가 있는지 확인해주세요." };
-            }
-
-            return { status: "error", message: "AI 서버 응답이 지연되거나 형식이 깨졌습니다. 다시 한 번 생성 버튼을 눌러주세요!" };
+            if (error.status === 429) return { status: "error", message: "무료 API 일일/분당 제공량을 초과했습니다. 약 1분 뒤에 다시 시도해주세요 ⏳" };
+            if (error.status === 503) return { status: "error", message: "구글 AI 서버가 현재 매우 붐빕니다. 잠시 후 다시 시도해주세요!" };
+            return { status: "error", message: "AI 서버 응답 지연으로 인해 단어 생성에 실패했습니다. 다시 시도해주세요." };
         }
     },
 
-    // Google Search Grounding 미지원 시 폴백용 (일반 주제용)
     async generateBingoWordsNoGrounding(topic) {
         try {
-            const model = genAI.getGenerativeModel({
-                model: "gemini-2.5-flash",
-                generationConfig: { responseMimeType: "application/json" }
-            });
+            return await retryRequest(async () => {
+                const model = genAI.getGenerativeModel({
+                    model: "gemini-2.5-flash",
+                    generationConfig: { responseMimeType: "application/json" }
+                });
 
-            const prompt = `
+                const prompt = `
 너는 빙고 게임 단어 풀 40~50개를 만들어주는 AI야. 주제: "${topic}"
 
 ### [필수 지침]
@@ -114,32 +115,20 @@ const geminiService = {
 
 성공: { "status": "success", "words": ["단어1", ...최소 30개] }
 실패: { "status": "error", "message": "적합하지 않은 주제입니다. 더 넓은 범위를 입력해주세요." }
-            `;
+                `;
 
-            // 타임아웃 래퍼 함수 (90초 제한 - gemini-2.5-flash thinking 감안)
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("AI 응답 시간 초과 (90초 제한). 주제가 너무 모호하거나 네트워크가 불안정합니다. 잠시 후 다시 시도해주세요.")), 90000)
-            );
-            const result = await Promise.race([model.generateContent(prompt), timeoutPromise]);
-            let responseText = result.response.text();
-            responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(responseText);
+                const result = await model.generateContent(prompt);
+                let responseText = result.response.text();
+                responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(responseText);
 
-            if (parsed.status === "success" && Array.isArray(parsed.words)) {
-                parsed.words = [...new Set(parsed.words)].slice(0, 50);
-            }
-            return parsed;
-
+                if (parsed.status === "success" && Array.isArray(parsed.words)) {
+                    parsed.words = [...new Set(parsed.words)].slice(0, 50);
+                }
+                return parsed;
+            });
         } catch (error) {
             console.error("Fallback Gemini Error:", error);
-            if (error.status === 429) {
-                return { status: "error", message: "무료 API 제공량을 초과했습니다. 약 1분 뒤에 다시 시도해주세요 ⏳" };
-            }
-
-            if (error.message === "TIMEOUT") {
-                return { status: "error", message: "AI 응답 시간이 초과되었습니다. 주제가 너무 모호하거나 오타가력 확인해주세요." };
-            }
-
             return { status: "error", message: "AI 서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요." };
         }
     }
