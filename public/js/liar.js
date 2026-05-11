@@ -66,7 +66,7 @@
             if (amIHost && user.id !== socket.id && setupArea.style.display !== 'none') {
                 const kickBtn = document.createElement('button');
                 kickBtn.className = 'kick-btn';
-                kickBtn.textContent = 'X';
+                kickBtn.textContent = '강퇴';
                 kickBtn.onclick = () => {
                     if (confirm(`${user.name}님 강퇴?`)) socket.emit('kick user', user.id);
                 };
@@ -149,7 +149,12 @@
                 return;
             }
             const winTarget = parseInt(document.getElementById('win-target-select')?.value || '3');
-            const categories = window.liarSelectedCategories; // 안 골랐으면 서버가 전체로 처리할 것임
+            const categories = window.liarSelectedCategories; 
+            
+            if (!categories || categories.length === 0) {
+                if (window.showToast) window.showToast('최소 한 개의 카테고리를 선택해야 합니다!', 'warning');
+                return;
+            }
             
             socket.emit('setup liar game', {
                 winTarget: winTarget,
@@ -509,7 +514,7 @@
 
     socket.on('game restarted', () => {
         liarGameStarted = false; // 게임 재시작 = 대기 상태로
-        playerUI.innerHTML = '<h2>게임 준비 중입니다.</h2>';
+        playerUI.innerHTML = '';
         if (amIHost) {
             setupArea.style.display = 'block';
             waitingArea.style.display = 'none';

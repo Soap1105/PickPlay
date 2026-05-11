@@ -1,183 +1,473 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 
 <head>
-    <title>실시간 소셜 게임 플랫폼</title>
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PickPlay - 닉네임 설정</title>
+    <meta name="description" content="PickPlay 닉네임 및 아이콘 설정">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body {
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            background: #2c3e50;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        .lobby-wrapper {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
+        :root {
+            --accent: #6c63ff;
+            --accent2: #ff6584;
+            --bg: #0f0e17;
+            --text: #fffffe;
+            --sub: rgba(255, 255, 255, 0.45);
         }
 
-        .lobby-left {
-            flex: 1;
-            background: linear-gradient(135deg, #1abc9c, #16a085);
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            font-family: 'Outfit', sans-serif;
             display: flex;
-            flex-direction: column;
-            justify-content: center;
             align-items: center;
-            color: white;
-            text-align: center;
-            padding: 40px;
-            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.2);
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            color: var(--text);
+        }
+
+        /* 배경 블롭 */
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.16;
+            pointer-events: none;
+            animation: blobDrift ease-in-out infinite alternate;
+        }
+
+        .blob-1 {
+            width: 520px;
+            height: 520px;
+            background: var(--accent);
+            top: -140px;
+            left: -140px;
+            animation-duration: 9s;
+        }
+
+        .blob-2 {
+            width: 420px;
+            height: 420px;
+            background: var(--accent2);
+            bottom: -120px;
+            right: -120px;
+            animation-duration: 12s;
+        }
+
+        .blob-3 {
+            width: 280px;
+            height: 280px;
+            background: #43e97b;
+            top: 55%;
+            left: 58%;
+            animation-duration: 7s;
+        }
+
+        @keyframes blobDrift {
+            from {
+                transform: translate(0, 0) scale(1);
+            }
+
+            to {
+                transform: translate(40px, 28px) scale(1.09);
+            }
+        }
+
+        /* 카드 */
+        .card {
+            position: relative;
             z-index: 10;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 28px;
+            padding: 52px 56px 48px;
+            width: min(480px, 94vw);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
 
-        .lobby-left h1 {
-            font-size: 3.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        @keyframes cardIn {
+            from {
+                opacity: 0;
+                transform: translateY(36px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
-        .lobby-left p {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            max-width: 80%;
-            line-height: 1.6;
+        /* 로고 */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 36px;
         }
 
-        .mascot-icon {
-            font-size: 6rem;
-            margin-bottom: 20px;
-            animation: bounce 2s infinite ease-in-out;
+        .logo-title {
+            font-size: 2.4rem;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, #a29bfe, #fd79a8, #fdcb6e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        @keyframes bounce {
+        /* 섹션 라벨 */
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--sub);
+            margin-bottom: 12px;
+        }
+
+        /* 이모지 사이클러 */
+        .emoji-section {
+            margin-bottom: 28px;
+        }
+
+        .emoji-cycler {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+        }
+
+        .emoji-arrow {
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            border-radius: 50%;
+            color: var(--text);
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.18s;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .emoji-arrow:hover {
+            background: rgba(108, 99, 255, 0.3);
+            border-color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .emoji-arrow:active {
+            transform: scale(0.95);
+        }
+
+        .emoji-display-wrap {
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+
+        .emoji-display {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3.2rem;
+            transition: transform 0.18s;
+            cursor: default;
+            user-select: none;
+        }
+
+        .emoji-display.pop {
+            animation: emojiPop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes emojiPop {
+            0% {
+                transform: scale(0.7) rotate(-8deg);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        /* 닉네임 입력 */
+        .nickname-section {
+            margin-bottom: 28px;
+        }
+
+        .nickname-input-wrap {
+            position: relative;
+        }
+
+        .nickname-input {
+            width: 100%;
+            padding: 16px 60px 16px 20px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            color: var(--text);
+            font-size: 1.1rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .nickname-input::placeholder {
+            color: rgba(255, 255, 255, 0.28);
+            font-weight: 400;
+        }
+
+        .nickname-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.2);
+        }
+
+        .nickname-input.error {
+            border-color: var(--accent2);
+            box-shadow: 0 0 0 4px rgba(255, 101, 132, 0.2);
+            animation: shake 0.3s ease;
+        }
+
+        @keyframes shake {
 
             0%,
             100% {
-                transform: translateY(0);
+                transform: translateX(0);
             }
 
-            50% {
-                transform: translateY(-20px);
+            25% {
+                transform: translateX(-7px);
+            }
+
+            75% {
+                transform: translateX(7px);
             }
         }
 
-        .lobby-right {
-            flex: 1;
-            background: #ecf0f1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 30px;
-            padding: 40px;
+        .char-count {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            color: var(--sub);
+            font-weight: 600;
+            pointer-events: none;
         }
 
-        .lobby-right h2 {
-            color: #2c3e50;
-            font-size: 2rem;
-            margin-bottom: 10px;
+        .char-count.warn {
+            color: var(--accent2);
         }
 
-        .game-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            width: 80%;
-            max-width: 400px;
-            padding: 25px;
-            font-size: 1.5rem;
-            cursor: pointer;
-            border-radius: 15px;
+        .input-error-msg {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--accent2);
+            min-height: 18px;
+            padding-left: 4px;
+        }
+
+        /* 시작 버튼 */
+        .start-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
             border: none;
-            font-weight: bold;
+            border-radius: 14px;
             color: white;
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+            font-size: 1.1rem;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 8px 28px rgba(108, 99, 255, 0.4);
+            position: relative;
+            overflow: hidden;
         }
 
-        .btn-bingo {
-            background: linear-gradient(135deg, #3498db, #2980b9);
+        .start-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
+            opacity: 0;
+            transition: opacity 0.2s;
         }
 
-        .btn-bingo:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 12px 20px rgba(52, 152, 219, 0.3);
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 36px rgba(108, 99, 255, 0.5);
         }
 
-        .btn-liar {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        .start-btn:hover::before {
+            opacity: 1;
         }
 
-        .btn-liar:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 12px 20px rgba(231, 76, 60, 0.3);
-        }
-
-        .btn-icon {
-            font-size: 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .lobby-wrapper {
-                flex-direction: column;
-            }
-
-            .lobby-left {
-                padding: 30px 15px;
-            }
-
-            .lobby-left h1 {
-                font-size: 2.5rem;
-            }
-
-            .mascot-icon {
-                font-size: 4rem;
-                margin-bottom: 10px;
-            }
-
-            .lobby-right {
-                padding: 30px 15px;
-            }
-
-            .game-btn {
-                padding: 15px;
-                font-size: 1.2rem;
-                width: 90%;
-            }
-
-            .btn-icon {
-                font-size: 1.5rem;
-            }
+        .start-btn:active {
+            transform: translateY(0);
         }
     </style>
 </head>
 
 <body>
-    <div class="lobby-wrapper">
-        <div class="lobby-left">
-            <div class="mascot-icon">🎮</div>
-            <h1>PickPlay</h1>
-            <p>친구들과 함께 실시간으로 즐기는<br>다양한 멀티플레이어 게임 캐주얼 플랫폼입니다.</p>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="card">
+        <!-- 로고 -->
+        <div class="logo-area">
+            <div class="logo-title">🎮 PickPlay</div>
         </div>
-        <div class="lobby-right">
-            <h2>지금 게임을 플레이 하세요!</h2>
-            <button class="game-btn btn-bingo" onclick="createRoom()">
-                <i class="fas fa-plus-circle btn-icon"></i> 새 방 만들기
-            </button>
+
+        <!-- 이모지 사이클러 -->
+        <div class="emoji-section">
+            <div class="section-label">내 아이콘</div>
+            <div class="emoji-cycler">
+                <button class="emoji-arrow" id="emoji-prev" title="이전">◀</button>
+                <div class="emoji-display-wrap">
+                    <div class="emoji-display" id="emoji-display">🐱</div>
+                </div>
+                <button class="emoji-arrow" id="emoji-next" title="다음">▶</button>
+            </div>
         </div>
+
+        <!-- 닉네임 입력 -->
+        <div class="nickname-section">
+            <div class="section-label">닉네임 (1~10글자)</div>
+            <div class="nickname-input-wrap">
+                <input type="text" id="nickname-input" class="nickname-input" placeholder="닉네임을 입력하세요" maxlength="10"
+                    autocomplete="off" autofocus />
+                <span class="char-count" id="char-count">0/10</span>
+            </div>
+            <div class="input-error-msg" id="error-msg"></div>
+        </div>
+
+        <!-- 시작 버튼 -->
+        <button class="start-btn" id="start-btn">시작하기</button>
     </div>
 
     <script>
-        // 닉네임 입력 로직을 게임방 모달로 위임했으므로 여기서는 닉네임을 제거하고 즉시 방을 생성
-        function createRoom() {
-            const roomId = "room-" + Math.random().toString(36).substring(2, 9);
-            window.location.href = `/room/${roomId}`;
+        const EMOJIS = [
+            '🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯',
+            '🐸', '🐵', '🐰', '🐹', '🐺', '🐮', '🐷', '🦉',
+        ];
+
+        const display = document.getElementById('emoji-display');
+        const prevBtn = document.getElementById('emoji-prev');
+        const nextBtn = document.getElementById('emoji-next');
+        const nicknameInput = document.getElementById('nickname-input');
+        const charCount = document.getElementById('char-count');
+        const errorMsg = document.getElementById('error-msg');
+        const startBtn = document.getElementById('start-btn');
+
+        // 저장된 값 복원
+        const savedNickname = localStorage.getItem('pp_nickname') || '';
+        const savedEmoji = localStorage.getItem('pp_emoji') || '🐱';
+
+        let emojiIndex = EMOJIS.indexOf(savedEmoji);
+        if (emojiIndex < 0) emojiIndex = 0;
+
+        function updateDisplay() {
+            display.textContent = EMOJIS[emojiIndex];
+            display.classList.remove('pop');
+            void display.offsetWidth; // reflow
+            display.classList.add('pop');
         }
+
+        prevBtn.addEventListener('click', () => {
+            emojiIndex = (emojiIndex - 1 + EMOJIS.length) % EMOJIS.length;
+            updateDisplay();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            emojiIndex = (emojiIndex + 1) % EMOJIS.length;
+            updateDisplay();
+        });
+
+        // 저장된 닉네임 복원
+        if (savedNickname) {
+            nicknameInput.value = savedNickname;
+            updateCharCount();
+        }
+        updateDisplay();
+
+        // 글자 수 카운터
+        function updateCharCount() {
+            const len = nicknameInput.value.length;
+            charCount.textContent = `${len}/10`;
+            charCount.classList.toggle('warn', len >= 9);
+        }
+
+        nicknameInput.addEventListener('input', () => {
+            updateCharCount();
+            if (errorMsg.textContent) errorMsg.textContent = '';
+            nicknameInput.classList.remove('error');
+        });
+
+        // 시작
+        function handleStart() {
+            const name = nicknameInput.value.trim();
+            if (!name) {
+                showError('닉네임을 입력해 주세요!');
+                return;
+            }
+            if (name.length > 10) {
+                showError('닉네임은 10글자 이내여야 합니다!');
+                return;
+            }
+            localStorage.setItem('pp_nickname', name);
+            localStorage.setItem('pp_emoji', EMOJIS[emojiIndex]);
+
+            // redirect 파라미터가 있으면 해당 방으로, 없으면 새 방 생성
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            if (redirect) {
+                window.location.href = redirect;
+            } else {
+                const roomId = 'room-' + Math.random().toString(36).substring(2, 9);
+                window.location.href = `/room/${roomId}`;
+            }
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            nicknameInput.classList.add('error');
+            nicknameInput.focus();
+            setTimeout(() => nicknameInput.classList.remove('error'), 350);
+        }
+
+        startBtn.addEventListener('click', handleStart);
+        nicknameInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') handleStart();
+        });
+
+        updateCharCount();
     </script>
 </body>
 

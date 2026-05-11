@@ -12,47 +12,36 @@ const nicknameModal = document.getElementById('nickname-modal');
 const nicknameInput = document.getElementById('nickname-input-modal');
 const joinGameBtn = document.getElementById('join-game-btn');
 
-let myName = sessionStorage.getItem('myNickname');
+// localStorage에서 닉네임/이모지 복원 (index.html에서 설정)
+let myName = localStorage.getItem('pp_nickname') || '';
+let myAvatar = localStorage.getItem('pp_emoji') || '🐱';
+
+// 고유 클라이언트 ID 발급 (같은 기기/브라우저 식별용)
+let myClientId = localStorage.getItem('pp_client_id');
+if (!myClientId) {
+    myClientId = 'c-' + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('pp_client_id', myClientId);
+}
 
 function initConnection() {
     window.myName = myName;
-    socket.emit('join room', { roomId: roomId, name: myName, gameType: gameType });
+    window.myAvatar = myAvatar;
+    socket.emit('join room', { roomId: roomId, name: myName, avatar: myAvatar, clientId: myClientId, gameType: gameType });
 }
 
-if (!myName && nicknameModal) {
-    // 닉네임이 없으면 모달을 띄운다 (기본 prompt 제거)
-    nicknameModal.style.display = 'flex';
-
-    // 모달 안에서 입장 버튼 누름
-    joinGameBtn.addEventListener('click', () => {
-        const val = nicknameInput.value.trim();
-        if (!val) {
-            alert('닉네임은 필수입니다!');
-            return;
-        }
-        if (val.length > 6) {
-            alert('닉네임은 6글자 이내여야 합니다!');
-            return;
-        }
-        myName = val;
-        sessionStorage.setItem('myNickname', myName);
-        nicknameModal.style.display = 'none';
-        initConnection(); // 연결 시작
-    });
-
-    nicknameInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') joinGameBtn.click();
-    });
+if (!myName) {
+    // 닉네임 미설정 시 → index.html로 리다이렉트 (현재 경로를 redirect 파라미터로 전달)
+    const redirect = encodeURIComponent(window.location.pathname);
+    window.location.href = `/?redirect=${redirect}`;
 } else {
-    // 이미 세션에 닉네임이 있으면 즉시 연결 시작
     if (nicknameModal) nicknameModal.style.display = 'none';
     initConnection();
 }
 // ---------------------------------
 
-socket.on('room full', (msg) => { alert(msg); window.location.href = '/'; });
-socket.on('join failed', (msg) => { alert(msg); window.location.href = '/'; });
-socket.on('kicked', () => { alert("강퇴되었습니다."); window.location.href = '/'; });
+socket.on('room full', (msg) => { showToast(msg, 'error'); setTimeout(() => window.location.href = '/', 2000); });
+socket.on('join failed', (msg) => { showToast(msg, 'error'); setTimeout(() => window.location.href = '/', 2000); });
+socket.on('kicked', () => { showToast("강퇴되었습니다.", "warning"); setTimeout(() => window.location.href = '/', 2000); });
 
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
@@ -62,7 +51,7 @@ const inviteBtn = document.getElementById('invite-btn');
 if (inviteBtn) {
     inviteBtn.addEventListener('click', () => {
         const url = window.location.href;
-        navigator.clipboard.writeText(url).then(() => alert("링크가 복사되었습니다!"));
+        navigator.clipboard.writeText(url).then(() => showToast("링크가 복사되었습니다!", "success"));
     });
 }
 
@@ -121,9 +110,11 @@ function showToast(message, type = 'info') {
     if (type === 'error') iconClass = 'fa-times-circle';
     if (type === 'success') iconClass = 'fa-check-circle';
 
+    const showIcon = type !== 'none';
     toast.innerHTML = `
-        <i class="fas ${iconClass} toast-icon"></i>
-        <span>${message}</span>
+        <i class="fas ${iconClass} toast-icon ${showIcon ? '' : 'hidden'}"></i>
+        <span style="flex:1; text-align: ${showIcon ? 'left' : 'center'}">${message}</span>
+        <div class="toast-progress"></div>
     `;
 
     container.appendChild(toast);
@@ -146,9 +137,42 @@ socket.on('system message', (msg) => {
         if (msg.includes('!')) type = 'warning';
         if (msg.includes('최소')) type = 'error';
         if (msg.includes('승리')) type = 'success';
+        
         showToast(msg, type);
     }
 });
+
+window.showConfirm = function(message, callback) {
+    const modal = document.getElementById('confirm-modal');
+    const msgEl = document.getElementById('confirm-message');
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const cancelBtn = document.getElementById('confirm-cancel-btn');
+    
+    if(!modal || !msgEl || !okBtn || !cancelBtn) {
+        if(confirm(message)) callback();
+        return;
+    }
+    
+    msgEl.innerText = message;
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
+    const cleanup = () => {
+        modal.style.display = 'none';
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+    };
+    
+    okBtn.onclick = () => {
+        cleanup();
+        callback();
+    };
+    
+    cancelBtn.onclick = () => {
+        cleanup();
+    };
+};
 
 window.addChatMessage = addChatMessage;
 window.addSystemMessage = addSystemMessage;

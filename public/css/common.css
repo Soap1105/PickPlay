@@ -4,9 +4,9 @@
 * { box-sizing: border-box; }
 
 body { 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-    background-color: #2c3e50; 
-    color: white;
+    font-family: 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    background-color: #0f0e17; 
+    color: #fffffe;
     margin: 0;
     height: 100vh;
     display: flex;
@@ -15,9 +15,11 @@ body {
 
 h1#game-title { 
     margin: 0; padding: 15px; text-align: center; 
-    background: #1a252f; color: #ecf0f1; 
-    font-size: 1.5rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+    background: #0f0e17; color: #fffffe; 
+    font-size: 1.5rem; 
+    border-bottom: 1px solid rgba(255,255,255,0.1);
     flex-shrink: 0; 
+    font-weight: 700;
 }
 
 #main-wrapper {
@@ -34,8 +36,8 @@ h1#game-title {
 
 #game-container {
     flex: 2; 
-    background-color: #ecf0f1; 
-    color: #333; 
+    background-color: #1a1a2e; 
+    color: #fffffe; 
     border-radius: 15px; 
     padding: 20px; 
     display: flex; 
@@ -44,6 +46,7 @@ h1#game-title {
     position: relative; 
     overflow-y: auto; 
     min-width: 550px;
+    border: 1px solid rgba(255,255,255,0.05);
     transition: background-color 0.4s ease, background 0.4s ease;
 }
 
@@ -61,14 +64,16 @@ h1#game-title {
     color: white;
 }
 
-#my-role-display { font-weight: bold; margin-bottom: 10px; color: #555; }
-#ready-status-display { background-color: #2980b9; color: white; padding: 5px 15px; border-radius: 15px; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
+#my-role-display { font-weight: bold; margin-bottom: 10px; color: rgba(255,255,255,0.7); }
+#ready-status-display { background-color: #34495e; color: #fffffe; padding: 5px 15px; border-radius: 15px; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1); }
 #setup-area, #waiting-area, #in-progress-area {
-    background: white; padding: 20px; border-radius: 10px; margin-bottom: 15px; 
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; text-align: center; 
+    background: rgba(255,255,255,0.03); 
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 20px; border-radius: 10px; margin-bottom: 15px; 
+    width: 100%; text-align: center; 
 }
-.setting-group { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.setting-title { font-weight: bold; display: block; margin-bottom: 5px; font-size: 1.1rem; color: #2c3e50; }
+.setting-group { margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+.setting-title { font-weight: bold; display: block; margin-bottom: 5px; font-size: 1.1rem; color: #fffffe; }
 .start-btn { width: 100%; background-color: #27ae60; color: white; padding: 12px; border: none; border-radius: 5px; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 5px; }
 
 .return-lobby-btn {
@@ -85,61 +90,149 @@ h1#game-title {
     transition: background 0.18s, color 0.18s, border-color 0.18s;
 }
 .return-lobby-btn:hover {
-    background: #ecf0f1;
-    color: #555;
-    border-color: #95a5a6;
+    background: rgba(255,255,255,0.1);
+    color: #fffffe;
+    border-color: rgba(255,255,255,0.3);
 }
 
 /* =========================================
    2. 우측 유저 및 채팅 영역 (공용)
    ========================================= */
 #right-sidebar { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 300px; }
-#invite-btn { background-color: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px #2980b9; transition: all 0.1s; }
-#invite-btn:active { transform: translateY(2px); box-shadow: 0 2px #2980b9; }
+#invite-btn { 
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: #fffffe; 
+    border: 1px solid rgba(255,255,255,0.2); 
+    padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; 
+    cursor: pointer; transition: all 0.2s; 
+}
+#invite-btn:hover { background: linear-gradient(135deg, #3e5871, #4e6a85); border-color: rgba(255,255,255,0.4); }
+#invite-btn:active { transform: translateY(2px); }
 
-#user-section { flex: 1; background-color: #34495e; border-radius: 15px; padding: 15px; display: flex; flex-direction: column; min-height: 200px; }
+#user-section { 
+    flex: 1; 
+    background: rgba(255,255,255,0.04); 
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 15px; 
+    padding: 15px; 
+    display: flex; 
+    flex-direction: column; 
+    min-height: 200px; 
+}
 #user-grid { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 5px; flex: 1; }
 
 .user-card {
-    background-color: #ecf0f1; color: #333; border-radius: 8px; padding: 10px 15px;
-    display: flex; align-items: center; gap: 15px; border-left: 5px solid transparent; 
+    background: rgba(255,255,255,0.05); 
+    color: #fffffe; 
+    border-radius: 8px; 
+    padding: 10px 15px;
+    display: flex; align-items: center; gap: 15px; 
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 5px solid transparent; 
     transition: all 0.2s; position: relative;
 }
-.user-card.is-me { border-left-color: #f1c40f; background-color: #fffcf0; }
+.user-card.is-me { border-left-color: #f1c40f; background: rgba(241, 196, 15, 0.1); }
 .user-card.is-host { border-left-color: #e74c3c; }
 .user-info { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
-.nickname { font-weight: bold; font-size: 1rem; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; margin-bottom: 4px; }
+.nickname {
+    font-weight: bold;
+    color: #fffffe;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 .avatar-wrapper { position: relative; display: inline-block; margin-right: 5px; }
 .avatar { font-size: 2.2rem; }
 
-#chat-section { flex: 1; background-color: #34495e; border-radius: 15px; padding: 15px; display: flex; flex-direction: column; min-height: 200px; }
+/* 강퇴 버튼 */
+.kick-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 5;
+}
+
+.kick-btn:hover {
+    background: #e74c3c;
+    color: white;
+    border-color: #e74c3c;
+    transform: scale(1.05);
+}
+
+.kick-btn:active {
+    transform: scale(0.95);
+}
+
+#chat-section { 
+    flex: 1; 
+    background: rgba(255,255,255,0.04); 
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 15px; 
+    padding: 15px; 
+    display: flex; 
+    flex-direction: column; 
+    min-height: 200px; 
+}
 #chat-history { 
-    flex: 1; background: #ecf0f1; border-radius: 10px; padding: 10px; 
-    overflow-y: auto; font-size: 0.9rem; color: #333; display: flex; 
+    flex: 1; 
+    background: rgba(0, 0, 0, 0.2); 
+    border-radius: 10px; padding: 10px; 
+    overflow-y: auto; font-size: 0.9rem; color: #fffffe; 
+    display: flex; 
     flex-direction: column; gap: 5px; 
+    border: 1px solid rgba(255,255,255,0.05);
 }
 .chat-msg { line-height: 1.4; }
-.chat-time { color: #888; font-size: 0.8rem; margin-right: 5px; }
-.chat-name { font-weight: bold; margin-right: 5px; color: #2c3e50; }
+.chat-time { color: rgba(255,255,255,0.4); font-size: 0.8rem; margin-right: 5px; }
+.chat-name { font-weight: bold; margin-right: 5px; color: #f1c40f; }
 .chat-text { white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
-.system-msg { color: #7f8c8d; font-style: italic; text-align: center; font-size: 0.85rem; margin: 5px 0; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; padding: 2px 0; }
+.system-msg { color: rgba(255,255,255,0.5); font-style: italic; text-align: center; font-size: 0.85rem; margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.2); border-bottom: 1px dashed rgba(255,255,255,0.2); padding: 2px 0; }
 
 #chat-form { 
-    position: relative; width: 100%; height: 80px; background-color: #1a252f; 
+    position: relative; width: 100%; height: 80px; 
+    background-color: #0f0e17; 
     padding: 15px; display: flex; justify-content: center; align-items: center;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 200; flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    z-index: 200; flex-shrink: 0;
 }
 #chat-input { 
-    width: 60%; max-width: 600px; padding: 10px; border-radius: 10px; border: none; 
+    width: 60%; max-width: 600px; padding: 10px; border-radius: 10px; 
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+    color: #fffffe;
     outline: none; font-size: 1rem; resize: none; height: 50px; font-family: inherit; vertical-align: middle;
 }
 #chat-form button { margin-left: 10px; padding: 10px 20px; border-radius: 20px; border: none; background: #f1c40f; color: #333; cursor: pointer; font-weight: bold; }
 
 /* 공용 모달 스타일 */
 .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
-.modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); color: #333; max-height: 80vh; overflow-y: auto; }
-.close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-.close-modal:hover { color: black; }
+.modal-content { 
+    background-color: #1a1a2e; 
+    margin: 10% auto; padding: 20px; 
+    border: 1px solid rgba(255,255,255,0.1); 
+    width: 80%; max-width: 500px; 
+    border-radius: 20px; 
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
+    color: #fffffe; 
+    max-height: 80vh; overflow-y: auto; 
+}
+.close-modal { color: rgba(255,255,255,0.5); float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+.close-modal:hover { color: #fffffe; }
 
 /* =========================================
    이모지 폭죽 시스템
@@ -315,50 +408,73 @@ h1#game-title {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 11000;
+    z-index: 10001;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    gap: 12px;
     pointer-events: none;
 }
 
 .toast {
-    min-width: 300px;
-    max-width: 450px;
-    padding: 12px 20px;
-    border-radius: 12px;
-    color: white;
-    font-weight: 600;
-    font-size: 1rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1);
+    min-width: 320px;
+    max-width: 480px;
+    padding: 16px 24px;
+    border-radius: 16px;
+    color: #fffffe;
+    background: rgba(15, 14, 23, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
-    gap: 12px;
-    animation: toast-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
-               toast-out 0.4s cubic-bezier(0.6, -0.28, 0.735, 0.045) 3.6s forwards;
+    gap: 15px;
+    position: relative;
+    overflow: hidden;
+    animation: toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+               toast-out 0.4s cubic-bezier(0.6, -0.28, 0.735, 0.045) 4.1s forwards;
     pointer-events: auto;
     cursor: default;
 }
 
-.toast.info { background: rgba(52, 152, 219, 0.85); border-left: 5px solid #3498db; }
-.toast.warning { background: rgba(243, 156, 18, 0.85); border-left: 5px solid #f39c12; }
-.toast.error { background: rgba(231, 76, 60, 0.85); border-left: 5px solid #e74c3c; }
-.toast.success { background: rgba(46, 204, 113, 0.85); border-left: 5px solid #2ecc71; }
+.toast.info { border-bottom: 2px solid #3498db; }
+.toast.warning { border-bottom: 2px solid #f1c40f; }
+.toast.error { border-bottom: 2px solid #e74c3c; }
+.toast.success { border-bottom: 2px solid #2ecc71; }
 
-.toast-icon { font-size: 1.2rem; }
+.toast.info .toast-icon { color: #3498db; }
+.toast.warning .toast-icon { color: #f1c40f; }
+.toast.error .toast-icon { color: #e74c3c; }
+.toast.success .toast-icon { color: #2ecc71; }
+
+.toast-icon { font-size: 1.1rem; filter: drop-shadow(0 0 4px currentColor); }
+.toast-icon.hidden { display: none; }
+
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: 100%;
+    background: currentColor;
+    opacity: 0.3;
+    animation: toast-progress 4s linear forwards;
+    transform-origin: left;
+}
 
 @keyframes toast-in {
-    from { transform: translateY(-100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(-120%) scale(0.9); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 @keyframes toast-out {
-    from { transform: translateY(0); opacity: 1; }
-    to { transform: translateY(-20px); opacity: 0; }
+    from { transform: translateY(0) scale(1); opacity: 1; }
+    to { transform: translateY(-40px) scale(0.95); opacity: 0; }
+}
+
+@keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
 }
 
 /* =========================================
@@ -382,7 +498,7 @@ h1#game-title {
     display: block;
     font-weight: 700;
     font-size: 0.9rem;
-    color: #444;
+    color: rgba(255,255,255,0.8);
     margin-bottom: 10px;
     letter-spacing: 0.01em;
 }
@@ -392,14 +508,15 @@ h1#game-title {
     width: 100%;
     padding: 10px 14px;
     border-radius: 10px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid rgba(255,255,255,0.1);
     font-size: 0.95rem;
-    color: #333;
-    background: #fafafa;
+    color: #fffffe;
+    background: rgba(255,255,255,0.05);
     outline: none;
     transition: border-color 0.2s;
     cursor: pointer;
 }
+.smodal-select option { background: #1a1a2e; color: #fffffe; }
 .smodal-select:focus { border-color: #667eea; }
 
 /* Input */
@@ -407,10 +524,10 @@ h1#game-title {
     width: 100%;
     padding: 10px 14px;
     border-radius: 10px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid rgba(255,255,255,0.1);
     font-size: 0.95rem;
-    color: #333;
-    background: #fafafa;
+    color: #fffffe;
+    background: rgba(255,255,255,0.05);
     outline: none;
     transition: border-color 0.2s;
     box-sizing: border-box;
@@ -432,22 +549,22 @@ h1#game-title {
     gap: 6px;
     padding: 10px 8px;
     border-radius: 10px;
-    border: 2px solid #e0e0e0;
-    background: #fafafa;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
     cursor: pointer;
     font-weight: 600;
     font-size: 0.9rem;
-    color: #555;
+    color: rgba(255,255,255,0.6);
     transition: all 0.18s;
     user-select: none;
 }
 .smodal-radio-card input[type="radio"] { display: none; }
 .smodal-radio-card:has(input:checked) {
     border-color: #667eea;
-    background: #f0f0ff;
-    color: #667eea;
+    background: rgba(102, 126, 234, 0.15);
+    color: #fffffe;
 }
-.smodal-radio-card:hover { border-color: #aaa; }
+.smodal-radio-card:hover { border-color: rgba(255,255,255,0.3); }
 
 /* 체크박스 그리드 */
 .smodal-check-grid {
@@ -464,18 +581,18 @@ h1#game-title {
     gap: 7px;
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1.5px solid #e0e0e0;
-    background: #fafafa;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
     cursor: pointer;
     font-size: 0.88rem;
-    color: #444;
+    color: rgba(255,255,255,0.7);
     transition: all 0.15s;
     user-select: none;
 }
 .smodal-check-label:has(input:checked) {
     border-color: #667eea;
-    background: #f0f0ff;
-    color: #667eea;
+    background: rgba(102, 126, 234, 0.15);
+    color: #fffffe;
 }
 .smodal-check-label input[type="checkbox"] {
     accent-color: #667eea;
@@ -489,8 +606,8 @@ h1#game-title {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #fafafa;
-    border: 2px solid #e0e0e0;
+    background: rgba(255,255,255,0.04);
+    border: 2px solid rgba(255,255,255,0.1);
     border-radius: 10px;
     padding: 10px 14px;
 }

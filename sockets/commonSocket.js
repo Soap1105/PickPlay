@@ -6,21 +6,27 @@ const MAX_PLAYERS = 8;
 module.exports = (io, socket, gameRooms) => {
     socket.on('join room', (data) => {
         const roomId = data.roomId;
-        let nickname = data.name || "익명";
-        if (nickname.length > 6) nickname = nickname.substring(0, 6);
+        let nickname = (data.name || '익명').trim();
+        if (nickname.length > 10) nickname = nickname.substring(0, 10);
+        const clientId = data.clientId || null;
+        const avatar = data.avatar || '🐱';
 
         if (!gameRooms[roomId]) {
             gameRooms[roomId] = {
-                hostId: socket.id, players: {}, status: 'WAITING', mode: 'lobby', // [수정] 기본 모드를 로비로 설정
+                hostId: socket.id, players: {}, status: 'WAITING', mode: 'lobby',
                 winLines: 3, turnOrderOption: 'host_first', calledNumbers: [], allNumbers: [],
                 numberInterval: null, turnOrder: [], currentTurnIndex: 0, joinOrder: [],
-                liarGame: { scores: {}, votes: {}, submissions: {} }, // 라이어 게임용 초기화
-                lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {}, // 로비 투표 초기화
-                emojiCooldowns: {} // 이모지 폭죽 쿨다운
+                liarGame: { scores: {}, votes: {}, submissions: {} },
+                lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {},
+                emojiCooldowns: {},
+                clientIds: {} // clientId → socketId 매핑
             };
         }
 
         const room = gameRooms[roomId];
+
+        // clientIds가 없는 기존 방 호환성 처리
+        if (!room.clientIds) room.clientIds = {};
 
         if (room.status !== 'WAITING') {
             socket.emit('join failed', '이미 게임이 진행 중입니다.');
@@ -32,12 +38,32 @@ module.exports = (io, socket, gameRooms) => {
             return;
         }
 
+        // clientId 중복 접속 처리: 같은 clientId가 이미 방에 있으면 기존 소켓 교체
+        if (clientId && room.clientIds[clientId]) {
+            const oldSocketId = room.clientIds[clientId];
+            if (oldSocketId !== socket.id && room.players[oldSocketId]) {
+                // 기존 연결 정리
+                const oldSocket = io.sockets.sockets.get(oldSocketId);
+                if (oldSocket) {
+                    oldSocket.emit('kicked');
+                    oldSocket.disconnect(true);
+                }
+                delete room.players[oldSocketId];
+                room.joinOrder = room.joinOrder.filter(id => id !== oldSocketId);
+                if (room.hostId === oldSocketId) {
+                    room.hostId = socket.id; // 방장 교체
+                }
+            }
+        }
+        if (clientId) room.clientIds[clientId] = socket.id;
+
         socket.join(roomId);
         socket.roomId = roomId;
+        socket.clientId = clientId;
 
         room.players[socket.id] = {
             id: socket.id, board: [], ready: false, name: nickname,
-            avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)],
+            avatar: avatar,
             isSkipped: false, skipCount: 0, usedEventCount: 0
         };
 
@@ -95,9 +121,6 @@ module.exports = (io, socket, gameRooms) => {
         
         io.to(roomId).emit('game changed', selectedGame);
         io.to(roomId).emit('update user list', getSortedUserList(room));
-        
-        const gameName = selectedGame === 'bingo' ? '테마 빙고' : '라이어 게임';
-        io.to(roomId).emit('system message', `방장이 ${gameName}을(를) 선택했습니다. 게임 세팅을 준비합니다.`);
     });
 
     socket.on('return to lobby', () => {
@@ -121,7 +144,6 @@ module.exports = (io, socket, gameRooms) => {
         io.to(roomId).emit('game changed', 'lobby');
         io.to(roomId).emit('vote update', room.lobbyVotes);
         io.to(roomId).emit('update user list', getSortedUserList(room));
-        io.to(roomId).emit('system message', '방장이 대기실로 복귀했습니다. 잠시 쉬어갑시다!');
     });
 
     socket.on('host start vote', (data) => {
@@ -222,7 +244,19 @@ module.exports = (io, socket, gameRooms) => {
         const roomId = socket.roomId;
         if (roomId && gameRooms[roomId]) {
             const room = gameRooms[roomId];
-            const leavingPlayerName = room.players[socket.id] ? room.players[socket.id].name : "누군가";
+
+            // 이 소켓이 이미 다른 소켓으로 교체된 경우 (새 탭/새로고침으로 재접속 시)
+            // clientId가 있고, 현재 room.clientIds[clientId]가 이 소켓이 아니면 stale disconnect → 무시
+            const cid = socket.clientId;
+            if (cid && room.clientIds && room.clientIds[cid] !== socket.id) {
+                // 이미 교체된 소켓의 disconnect → 아무것도 하지 않음
+                return;
+            }
+
+            // clientIds 맵에서도 정리
+            if (cid && room.clientIds) delete room.clientIds[cid];
+
+            const leavingPlayerName = room.players[socket.id] ? room.players[socket.id].name : '누군가';
             delete room.players[socket.id];
             room.joinOrder = room.joinOrder.filter(id => id !== socket.id);
 
@@ -244,23 +278,18 @@ module.exports = (io, socket, gameRooms) => {
                 }
             } else if (room.mode === 'liar') {
                 const remainingPlayers = Object.keys(room.players);
-                // 진행 중이거나 결과창 대기 중일 때 인원이 2명 이하가 되면 강제 종료
                 if (room.status !== 'WAITING' && remainingPlayers.length < 3) {
                     if (room.liarGame && room.liarGame.timerInterval) {
                         clearInterval(room.liarGame.timerInterval);
                         room.liarGame.timerInterval = null;
                     }
-                    io.to(roomId).emit('liar timer clear'); // 프론트엔드 UI 타이머 숨김
-                    
+                    io.to(roomId).emit('liar timer clear');
                     room.status = 'WAITING';
-                    
                     io.to(roomId).emit('round over', {
                         isFinalGameOver: true,
-                        message: "인원수 부족 (강제 종료)",
-                        finalMessage: "게임 진행 최소 인원(3명)에 미달하여 대기실 상태로 롤백됩니다.",
-                        liarName: "-",
-                        word: "-",
-                        citizensWon: false
+                        message: '인원수 부족 (강제 종료)',
+                        finalMessage: '게임 진행 최소 인원(3명)에 미달하여 대기실 상태로 롤백됩니다.',
+                        liarName: '-', word: '-', citizensWon: false
                     });
                 }
             }
@@ -276,7 +305,7 @@ module.exports = (io, socket, gameRooms) => {
             }
             if (Object.keys(room.players).length === 0) {
                 if (room.numberInterval) clearInterval(room.numberInterval);
-                if (room.voteTimer) clearInterval(room.voteTimer); // [추가] 방 삭제 시 타이머 정리
+                if (room.voteTimer) clearInterval(room.voteTimer);
                 delete gameRooms[roomId];
             }
         }

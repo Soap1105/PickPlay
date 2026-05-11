@@ -120,6 +120,7 @@ module.exports = (io, socket, gameRooms) => {
         room.winLines = parseInt(data.winLines) || 3;
         room.turnOrderOption = data.turnOrder || 'host_first';
         room.turnTimeLimit = parseInt(data.turnTimeLimit) || 0;
+        room.useEvents = data.useEvents !== undefined ? data.useEvents : true;
         room.calledNumbers = [];
         room.turnTimer = null;
 
@@ -131,6 +132,7 @@ module.exports = (io, socket, gameRooms) => {
             io.to(p.id).emit('setup theme input', {
                 topic: data.topic,
                 winLines: room.winLines,
+                useEvents: room.useEvents, // [수정] 이벤트 모드 설정값 누락 해결
                 presetWords: presetWords
             });
         });
@@ -242,6 +244,7 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[roomId];
 
         if (room.status !== 'PLAYING' || room.mode !== 'bingo') return;
+        if (!room.useEvents) return; // [수정] 이벤트 모드가 꺼져있으면 실행 불가
         if (socket.id !== room.turnOrder[room.currentTurnIndex]) return;
 
         const player = room.players[socket.id];

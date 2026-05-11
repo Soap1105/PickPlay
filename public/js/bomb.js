@@ -1,30 +1,21 @@
 // public/js/bomb.js
-
 (function () {
-    // UI Elements
     const bombContainer = document.getElementById('bomb-container');
-    const bombSetup = bombContainer.querySelector('.bomb-setup');
-    const bombWaiting = bombContainer.querySelector('.bomb-waiting');
-    const bombPlayerUI = bombContainer.querySelector('.bomb-player-ui');
-    const bombScoresDisplay = document.getElementById('bomb-scores-display');
-    const bombThemeDisplay = document.getElementById('bomb-theme-display');
-    const bombCurrentTurn = document.getElementById('bomb-current-turn');
     const bombInputArea = document.getElementById('bomb-input-area');
     const bombWordInput = document.getElementById('bomb-word-input');
-    const bombWordsList = document.getElementById('bomb-words-list');
-    const bombGraphic = document.getElementById('bomb-graphic');
+    const bombCategory = document.getElementById('bomb-theme-display');
     const bombTimerText = document.getElementById('bomb-timer-text');
-    const bombRoundResult = document.getElementById('bomb-round-result');
+    const bombCurrentTurn = document.getElementById('bomb-current-turn');
+    const bombUsedWordsList = document.getElementById('bomb-words-list');
     const bombResultMsg = document.getElementById('bomb-result-msg');
-    const bombCategoryList = document.getElementById('bomb-category-list');
-
-    // Buttons
-    const openSettingsBombBtn = document.getElementById('open-settings-bomb');
+    const bombRoundResult = document.getElementById('bomb-round-result');
+    const bombGraphic = document.getElementById('bomb-graphic');
+    
     const startGameBombBtn = document.getElementById('start-game-bomb');
+    const openSettingsBombBtn = document.getElementById('open-settings-bomb');
     const nextBombRoundBtn = document.getElementById('next-bomb-round-btn');
     const returnLobbyBtns = document.querySelectorAll('.return-lobby-btn');
-
-    // Result Modal Elements
+    
     const resultModal = document.getElementById('result-modal');
     const resultTitle = document.getElementById('result-title');
     const resultWinner = document.getElementById('result-winner');
@@ -35,88 +26,101 @@
 
     let isMyTurn = false;
     let localIsHost = false;
-    window.bombWinTarget = 3; // 기본값
-    window.bombScores = {};
-    let currentBombUsers = []; // 현재 유저 목록 캐싱
+    let currentBombUsers = [];
+    let data_message_cache = "";
+    let bombMaxHearts = 3; // 실제 설정값 추적
 
-    // 초기화 함수 (room.js에서 호출)
+    function getCirclePosition(index, total, radiusPx) {
+        const angle = (2 * Math.PI * index / total) - (Math.PI / 2); // 12시 방향 시작
+        const x = Math.cos(angle) * radiusPx;
+        const y = Math.sin(angle) * radiusPx;
+        return { x, y };
+    }
+
     window.initBombUI = function (isHost) {
         localIsHost = isHost;
-        updateBombRoleUI(isHost);
+        const setupArea = bombContainer.querySelector('.bomb-setup');
+        const waitingArea = bombContainer.querySelector('.bomb-waiting');
+        const playerUI = bombContainer.querySelector('.bomb-player-ui');
+        
+        window.currentBombTurnId = null; // 초기화
 
-        // 초기화
-        bombPlayerUI.style.display = 'none';
-        bombRoundResult.style.display = 'none';
-        bombThemeDisplay.textContent = '주제: ';
-        bombWordsList.innerHTML = '';
-        bombGraphic.className = 'bomb-idle';
-        bombGraphic.textContent = '💣';
-    };
-
-    // 역할별 UI 처리
-    window.updateBombRoleUI = function (isHost) {
-        localIsHost = isHost;
-        if (window.gameType !== 'bomb') return;
-
-        if (localIsHost) {
-            bombSetup.style.display = 'block';
-            bombWaiting.style.display = 'none';
-            // 카테고리 목록 요청
-            socket.emit('request bomb categories');
+        if (isHost) {
+            setupArea.style.display = 'block';
+            if (waitingArea) waitingArea.style.display = 'none';
         } else {
-            bombSetup.style.display = 'none';
-            bombWaiting.style.display = 'block';
+            setupArea.style.display = 'none';
+            if (waitingArea) waitingArea.style.display = 'block';
         }
+        
+        if (playerUI) playerUI.style.display = 'none';
+        bombInputArea.style.display = 'none';
+        bombRoundResult.style.display = 'none';
+
+        // 사이드바 복구
+        const sidebar = document.getElementById('right-sidebar');
+        if (sidebar) sidebar.classList.remove('bomb-game-active');
+
+        if (bombCategory) bombCategory.textContent = "방장이 게임을 시작하기를 기다리는 중...";
+        if (bombTimerText) bombTimerText.style.display = 'none';
+        if (bombCurrentTurn) bombCurrentTurn.textContent = "";
+        if (bombUsedWordsList) bombUsedWordsList.innerHTML = '';
+        if (bombGraphic) {
+            bombGraphic.className = 'bomb-idle';
+            bombGraphic.innerHTML = '💣';
+        }
+
+        const scoreDisplay = document.getElementById('bomb-scores-display');
+        if (scoreDisplay) scoreDisplay.style.display = 'none';
     };
 
-    // 참여자 목록 렌더링 (room.js에서 호출)
-    window.renderBombUsers = function (users, isHost) {
-        currentBombUsers = users; // 최신 유저 목록 저장
+    window.renderBombUsers = function (users) {
+        currentBombUsers = users;
+        const arenaPlayers = document.getElementById('bomb-arena-players');
+        if (!arenaPlayers) return;
+        arenaPlayers.innerHTML = '';
 
-        // [디버깅] 렌더링 시점의 점수 데이터 확인
-        console.log("렌더링 유저 목록 - 현재 점수판:", window.bombScores);
+        const radius = 180; // px
+        const isGameActive = window.currentBombTurnId !== undefined && window.currentBombTurnId !== null;
 
-        const userGrid = document.getElementById('user-grid');
-        userGrid.innerHTML = '';
+        users.forEach((user, index) => {
+            const pos = getCirclePosition(index, users.length, radius);
+            const slot = document.createElement('div');
+            slot.className = 'arena-player-slot';
+            slot.dataset.playerId = user.id;
 
-        users.forEach(user => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'user-card player-card';
+            if (user.id === socket.id) slot.classList.add('is-me');
+            if (isGameActive && window.currentBombTurnId === user.id) slot.classList.add('is-turn');
 
-            // 현재 턴 강조
-            if (window.currentBombTurnId === user.id) {
-                userDiv.classList.add('is-turn');
+            const heartCount = (window.bombHearts && window.bombHearts[user.id] !== undefined) 
+                               ? window.bombHearts[user.id] 
+                               : bombMaxHearts;
+            const isDead = heartCount <= 0;
+            if (isGameActive && isDead) slot.classList.add('is-dead');
+
+            // 하트 HTML
+            let heartsHtml = '';
+            if (isGameActive) {
+                for (let i = 0; i < bombMaxHearts; i++) {
+                    heartsHtml += (i < heartCount) ? '❤️' : '🖤';
+                }
             }
 
-            const isMe = user.id === socket.id;
-            if (isMe) userDiv.classList.add('is-me');
-
-            const hostIcon = user.isHost ? '👑' : '';
-            const statusIcon = isMe && isMyTurn ? '🔥' : '';
-
-            // 점수 도트(Dots) 생성 로직
-            const score = (window.bombScores && window.bombScores[user.id]) || 0;
-            const target = window.bombWinTarget || 3;
-
-            let dotsHTML = '<div class="bomb-progress">';
-            for (let i = 0; i < target; i++) {
-                dotsHTML += `<div class="progress-dot ${i < score ? 'filled' : ''}"></div>`;
-            }
-            dotsHTML += '</div>';
-
-            userDiv.innerHTML = `
-                <div class="avatar-wrapper">
-                    <div class="avatar">${user.avatar}</div>
+            slot.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+            slot.innerHTML = `
+                <div class="arena-avatar-wrap">
+                    <div class="arena-avatar">${user.avatar}</div>
+                    <div class="arena-dead-overlay">💀</div>
                 </div>
-                <div class="user-info">
-                    <div class="nickname">${hostIcon} ${user.name} ${statusIcon}</div>
-                    <div class="status-row">
-                        ${dotsHTML}
-                    </div>
-                </div>
+                <div class="arena-player-name">${user.isHost ? '👑' : ''}${user.name}</div>
+                ${isGameActive ? `<div class="arena-hearts">${heartsHtml}</div>` : ''}
             `;
-            userGrid.appendChild(userDiv);
+            arenaPlayers.appendChild(slot);
         });
+
+        // 기존 사이드바용 렌더링 (호환성 유지용 - 필요시 주석 해제)
+        // const userGrid = document.getElementById('user-grid');
+        // if (userGrid) { ... }
     };
 
     if (openSettingsBombBtn) {
@@ -130,42 +134,40 @@
 
     if (startGameBombBtn) {
         startGameBombBtn.addEventListener('click', () => {
-            const hWinTarget = parseInt(document.getElementById('bomb-win-target')?.value || '3');
+            const hHearts = parseInt(document.getElementById('bomb-hearts')?.value || '3');
+            const hSubMode = document.getElementById('bomb-sub-mode')?.value || 'random';
             const hTimerRange = document.getElementById('bomb-timer-range')?.value || 'medium';
             const hShowTimerStr = document.getElementById('bomb-show-timer')?.value || 'true';
             
+            if (!window.bombSelectedCategories || window.bombSelectedCategories.length === 0) {
+                if (window.showToast) window.showToast('최소 한 개의 카테고리를 선택해야 합니다!', 'warning');
+                return;
+            }
+
             socket.emit('setup bomb game', {
-                roomId: window.roomId,
-                winTarget: hWinTarget,
-                timeLimit: hTimerRange,
+                hearts: hHearts,
+                subMode: hSubMode,
+                timerRange: hTimerRange,
                 showTimer: (hShowTimerStr === 'true'),
                 selectedCategories: window.bombSelectedCategories
             });
         });
     }
 
-    // 다음 라운드 버튼
     if (nextBombRoundBtn) {
         nextBombRoundBtn.addEventListener('click', () => {
             socket.emit('next bomb round');
         });
     }
 
-    // 대기실 복귀 버튼들 (폭탄 게임 활성 상태일 때만 처리)
     returnLobbyBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             if (window.gameType !== 'bomb') return;
-            if (!localIsHost) return; // 방장만 가능
-            if (confirm('대기실로 돌아가 새로운 게임을 준비하시겠습니까?')) {
-                socket.emit('return to lobby from bomb');
-            }
+            if (!localIsHost) return;
+            socket.emit('return to lobby from bomb');
         });
     });
 
-
-
-
-    // 단어 입력 처리
     bombWordInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && isMyTurn) {
             const word = bombWordInput.value.trim();
@@ -176,213 +178,250 @@
         }
     });
 
-    // --- 소켓 이벤트 핸들링 ---
+    socket.on('bomb hearts updated', (data) => {
+        const hearts = data.hearts;
+        window.bombHearts = hearts;
+        bombMaxHearts = data.maxHearts || 3;
+        updateBombScoreboard(hearts);
+        if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
+    });
 
-    socket.on('bomb categories', (categories) => {
-        if (!bombCategoryList) return;
-        bombCategoryList.innerHTML = '';
+    function updateBombScoreboard(hearts) {
+        const scoreDisplay = document.getElementById('bomb-scores-display');
+        if (!scoreDisplay) return;
+        scoreDisplay.style.display = 'none';
+        scoreDisplay.innerHTML = '';
+        
+        const sortedIds = Object.keys(hearts).sort();
+        sortedIds.forEach((pid, index) => {
+            const heartCount = hearts[pid];
+            const pName = window.playerNames ? (window.playerNames[pid] || '...') : '...';
+            const isMe = (pid === socket.id);
+            const isDead = (heartCount <= 0);
+            
+            const card = document.createElement('div');
+            card.className = `player-score-card ${isMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
+            
+            let heartHtml = '';
+            for(let i=0; i<bombMaxHearts; i++) {
+                if (i < heartCount) heartHtml += '❤️';
+                else heartHtml += '🖤';
+            }
 
-        if (categories.length === 0) {
-            bombCategoryList.innerHTML = '<span style="color: #999; font-size: 0.9rem;">사용 가능한 주제가 없습니다.</span>';
-            return;
-        }
-
-        categories.forEach(cat => {
-            const label = document.createElement('label');
-            label.style.display = 'flex';
-            label.style.alignItems = 'center';
-            label.style.gap = '5px';
-            label.style.background = 'white';
-            label.style.padding = '5px 10px';
-            label.style.borderRadius = '5px';
-            label.style.border = '1px solid #ddd';
-            label.style.cursor = 'pointer';
-            label.style.fontSize = '0.9rem';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.name = 'bomb-category';
-            checkbox.value = cat;
-            checkbox.checked = true; // 기본적으로 전체 선택
-
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(cat));
-            bombCategoryList.appendChild(label);
+            card.innerHTML = `
+                <div class="score-p-idx">${index + 1}</div>
+                <div class="score-p-name">${pName}</div>
+                <div class="score-p-hearts">${heartHtml}</div>
+            `;
+            scoreDisplay.appendChild(card);
         });
-    });
+    }
 
-    socket.on('bomb win target updated', (target) => {
-        window.bombWinTarget = target;
-    });
-
-    socket.on('bomb scores updated', (scores, target) => {
-        console.log("점수 업데이트 수신:", scores, "목표:", target);
-        window.bombScores = scores; // 전역 점수 저장
-        if (target) window.bombWinTarget = target;
-
-        // 중요: 점수가 바뀌었으므로 캐싱된 유저 목록을 사용해 즉시 다시 그리기
-        if (currentBombUsers.length > 0) {
-            window.renderBombUsers(currentBombUsers, localIsHost);
+    function updateTurnInternal(turnId) {
+        isMyTurn = (turnId === socket.id);
+        if (isMyTurn) {
+            if (bombCurrentTurn) {
+                bombCurrentTurn.textContent = "👉 당신의 차례입니다! 빨리 입력하세요!";
+                bombCurrentTurn.style.color = "#e74c3c";
+            }
+            if (bombInputArea) bombInputArea.style.display = 'block';
+            if (bombWordInput) bombWordInput.focus();
+        } else {
+            if (bombCurrentTurn) {
+                bombCurrentTurn.textContent = "⏳ 다른 플레이어가 입력 중입니다...";
+                bombCurrentTurn.style.color = "#999";
+            }
+            if (bombInputArea) bombInputArea.style.display = 'none';
         }
-    });
+    }
 
     socket.on('bomb round started', (data) => {
-        bombSetup.style.display = 'none';
-        bombWaiting.style.display = 'none';
-        bombPlayerUI.style.display = 'block';
+        const setupArea = bombContainer.querySelector('.bomb-setup');
+        const waitingArea = bombContainer.querySelector('.bomb-waiting');
+        const playerUI = bombContainer.querySelector('.bomb-player-ui');
+        
+        if (setupArea) setupArea.style.display = 'none';
+        if (waitingArea) waitingArea.style.display = 'none';
+        if (playerUI) playerUI.style.display = 'block';
+
+        // 사이드바 숨김
+        const sidebar = document.getElementById('right-sidebar');
+        if (sidebar) sidebar.classList.add('bomb-game-active');
+
         bombRoundResult.style.display = 'none';
-
-        bombThemeDisplay.textContent = '💡 주제: ' + data.category;
-        window.currentBombTurnId = data.currentTurnId;
-
-        bombWordsList.innerHTML = '';
-        bombGraphic.className = 'bomb-ticking';
-        bombGraphic.textContent = '💣';
-
-        // 타이머 텍스트 설정 (먼저 보이고 안보이고 결정)
-        bombTimerText.style.display = data.showTimer ? 'block' : 'none';
-        if (data.showTimer) bombTimerText.textContent = "준비!";
-
-        updateTurnInternal(data.currentTurnId);
-
-        // 서버에 전체 유저 리스트 요청해서 갱신 (턴 강조를 위해)
-        socket.emit('request update user list');
-    });
-
-    socket.on('game changed', (mode) => {
-        if (mode === 'lobby') {
-            console.log("[Bomb] Game changed to lobby. Clearing scores.");
-            window.bombScores = {};
-            // 유저 그리드에서 도트가 지워지도록 즉시 재렌더링
-            if (currentBombUsers.length > 0) {
-                window.renderBombUsers(currentBombUsers, localIsHost);
-            }
+        if (bombUsedWordsList) bombUsedWordsList.innerHTML = '';
+        if (bombCategory) bombCategory.textContent = `주제: ${data.category}`;
+        
+        if (bombGraphic) {
+            bombGraphic.className = 'bomb-ticking';
+            bombGraphic.innerHTML = `
+                <div class="bomb-body-wrapper">
+                    <div class="bomb-body"></div>
+                    <div class="bomb-cap"></div>
+                    <div class="bomb-fuse">
+                        <div class="bomb-spark"></div>
+                    </div>
+                </div>
+            `;
         }
+        window.currentBombTurnId = data.currentTurnId;
+        updateTurnInternal(data.currentTurnId);
+        if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
     });
 
     socket.on('bomb timer tick', (data) => {
-        if (data.showTimer) {
-            bombTimerText.style.display = 'block'; // 매 티킹마다 보장
-            bombTimerText.textContent = data.timeLeft + "초";
-        } else {
-            bombTimerText.style.display = 'none';
-        }
-
-        // 시간이 얼마 안 남았을 때 (빨라지는 연출)
-        if (data.timeLeft <= 10) {
-            bombGraphic.className = 'bomb-fast-ticking';
-        } else {
-            bombGraphic.className = 'bomb-ticking';
+        if (bombTimerText) {
+            bombTimerText.style.display = 'block';
+            bombTimerText.textContent = `${data.timeLeft}초`;
+            if (data.timeLeft <= 3) {
+                if (bombGraphic) bombGraphic.className = 'bomb-super-fast';
+                bombTimerText.style.color = '#e74c3c';
+                bombTimerText.style.transform = 'scale(1.3)';
+            } else if (data.timeLeft <= 7) {
+                if (bombGraphic) bombGraphic.className = 'bomb-fast-ticking';
+                bombTimerText.style.color = '#e67e22';
+                bombTimerText.style.transform = 'scale(1.1)';
+            } else {
+                if (bombGraphic) bombGraphic.className = 'bomb-ticking';
+                bombTimerText.style.color = '#fff';
+                bombTimerText.style.transform = 'scale(1)';
+            }
         }
     });
 
     socket.on('bomb word accepted', (data) => {
-        // 단어 리스트에 추가
+        const { word, senderName, reflect } = data;
         const wordSpan = document.createElement('span');
-        wordSpan.textContent = data.word;
-        bombWordsList.prepend(wordSpan);
+        wordSpan.textContent = word;
+        if (bombUsedWordsList) {
+            bombUsedWordsList.insertBefore(wordSpan, bombUsedWordsList.firstChild);
+            bombUsedWordsList.insertBefore(document.createTextNode(' '), wordSpan.nextSibling);
+        }
+        
+        if (reflect) {
+            showCenterMessage(`🔄 ${senderName}님의 초고속 반사!`, '#3498db');
+        }
+        
+        // 턴 전환은 'bomb turn changed' 이벤트를 기다림
+    });
 
-        // 턴 넘기기
-        window.currentBombTurnId = data.nextTurnId;
-        updateTurnInternal(data.nextTurnId);
-
-        // 참여자 목록 갱신
-        socket.emit('request update user list');
-
-        // 시스템 메시지처럼 살짝 표시 (채팅 등 활용 가능)
-        console.log(`${data.senderName}: ${data.word} 통과!`);
+    socket.on('bomb turn changed', (data) => {
+        const { nextTurnId } = data;
+        window.currentBombTurnId = nextTurnId;
+        updateTurnInternal(nextTurnId);
+        if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
     });
 
     socket.on('bomb invalid word', (msg) => {
-        // 토스트 알림 (common.js에 있다고 가정)
-        if (window.showToast) {
-            window.showToast(msg, 'warning');
-        } else {
-            alert(msg);
-        }
-        bombWordInput.value = '';
+        if (window.showToast) window.showToast(msg, 'error');
+    });
+
+    socket.on('bomb all words used', (data) => {
+        showCenterMessage(data.message, '#e74c3c');
     });
 
     socket.on('bomb exploded', (data) => {
-        isMyTurn = false;
-        bombInputArea.style.display = 'none';
-        bombGraphic.textContent = data.isGameOver ? '🏆' : '💥';
-        bombGraphic.className = 'bomb-idle';
-        bombTimerText.style.display = 'none';
+        const { loserId, loserName, message, isGameOver, winner, stats } = data;
+        
+        document.body.classList.add('bomb-screen-flash');
+        setTimeout(() => document.body.classList.remove('bomb-screen-flash'), 500);
 
-        bombResultMsg.textContent = data.message;
-        bombRoundResult.style.display = 'block';
-
-        if (data.isGameOver) {
-            showBombResultModal(data.winner, data.stats);
+        if (bombGraphic) {
+            bombGraphic.className = 'bomb-idle';
+            bombGraphic.innerHTML = isGameOver ? '<span style="font-size: 5rem;">🏆</span>' : '<span style="font-size: 5rem;">💥</span>';
         }
+        if (bombTimerText) bombTimerText.style.display = 'none';
 
-        if (localIsHost) {
-            if (data.isGameOver) {
-                // 게임 종료 시에는 대기실 버튼만 (또는 재시작 로직 추가 가능)
-                nextBombRoundBtn.style.display = 'none';
-            } else {
-                nextBombRoundBtn.style.display = 'inline-block';
-            }
-        }
+        if (bombResultMsg) bombResultMsg.textContent = message;
+        data_message_cache = message;
+        if (bombRoundResult) bombRoundResult.style.display = 'block';
 
-        // 패배자 전용 연출 (진동 등 가능)
-        if (data.loserId === socket.id) {
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        if (isGameOver) {
+            setTimeout(() => {
+                if (!resultModal) return;
+                resultTitle.textContent = "💣 폭탄 돌리기 종료 💣";
+                resultWinner.innerHTML = `🏆 최종 승자: <span style="font-size: 2rem;">${winner.name}</span> 🏆`;
+                if (resultStatHeader1) resultStatHeader1.textContent = "남은 하트";
+                if (resultStatHeader2) resultStatHeader2.textContent = "상태";
+
+                resultStatsBody.innerHTML = '';
+                if (stats) {
+                    stats.forEach(stat => {
+                        const tr = document.createElement('tr');
+                        const isWinner = winner && stat.id === winner.id;
+                        tr.innerHTML = `
+                            <td style="padding:15px;">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
+                            <td style="padding:15px; font-weight:bold; color:#e67e22;">${stat.hearts}개</td>
+                            <td style="padding:15px; color:${stat.hearts > 0 ? '#2ecc71' : '#999'};">${stat.hearts > 0 ? '생존' : '탈락'}</td>
+                        `;
+                        if (isWinner) tr.style.backgroundColor = 'rgba(241, 196, 15, 0.1)';
+                        resultStatsBody.appendChild(tr);
+                    });
+                }
+                resultModal.style.display = 'block';
+                if (closeResultBtn) {
+                    closeResultBtn.onclick = () => {
+                        resultModal.style.display = 'none';
+                        if (localIsHost) socket.emit('return to lobby from bomb');
+                    };
+                }
+            }, 1500);
         }
     });
 
-    function updateTurnInternal(turnId) {
-        isMyTurn = (turnId === socket.id);
-
-        if (isMyTurn) {
-            bombCurrentTurn.textContent = "👉 당신의 차례입니다! 빨리 입력하세요!";
-            bombCurrentTurn.style.color = "#e74c3c";
-            bombInputArea.style.display = 'block';
-            bombWordInput.focus();
-        } else {
-            bombCurrentTurn.textContent = "⏳ 다른 플레이어가 입력 중입니다...";
-            bombCurrentTurn.style.color = "#333";
-            bombInputArea.style.display = 'none';
+    function showCenterMessage(text, color) {
+        let msgEl = document.getElementById('bomb-center-message');
+        if (!msgEl) {
+            msgEl = document.createElement('div');
+            msgEl.id = 'bomb-center-message';
+            bombContainer.appendChild(msgEl);
         }
+        // \n을 <br>로 변환하여 줄바꿈 지원
+        msgEl.innerHTML = text.replace(/\n/g, '<br>');
+        msgEl.style.color = color;
+        msgEl.style.opacity = '1';
+        msgEl.style.display = 'block';
+        
+        setTimeout(() => {
+            msgEl.style.opacity = '0';
+            setTimeout(() => { msgEl.style.display = 'none'; }, 500);
+        }, 3000); // 3초 동안 표시
     }
 
-    function showBombResultModal(winner, stats) {
-        if (!resultModal) return;
-
-        resultTitle.textContent = "💣 주제 폭탄돌리기 종료 💣";
-        resultWinner.innerHTML = `🏆 최종 승자: <span style="font-size: 2rem;">${winner.name}</span> 🏆`;
-
-        // 헤더 텍스트 변경
-        if (resultStatHeader1) resultStatHeader1.textContent = "최종 승수";
-        if (resultStatHeader2) resultStatHeader2.textContent = "-";
-
-        resultStatsBody.innerHTML = '';
-        if (stats) {
-            stats.forEach(stat => {
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = "1px solid #eee";
-                tr.innerHTML = `
-                    <td style="padding:15px;">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
-                    <td style="padding:15px; font-weight:bold; color:#e67e22;">${stat.score}승</td>
-                    <td style="padding:15px; color:#999;">-</td>
-                `;
-                if (stat.id === winner.id) tr.style.backgroundColor = '#fff9c4';
-                resultStatsBody.appendChild(tr);
-            });
+    socket.on('bomb next round countdown', (countdown) => {
+        if (bombResultMsg) {
+            bombResultMsg.innerHTML = `${data_message_cache}<br><span style="color: #f1c40f; font-size: 0.9rem; margin-top: 10px; display: block;">⏳ ${countdown}초 후 자동으로 다음 라운드가 시작됩니다.</span>`;
         }
+    });
 
-        resultModal.style.display = 'block';
+    window.updateBombRoleUI = function (isHost) {
+        localIsHost = isHost;
+        const setupArea = bombContainer.querySelector('.bomb-setup');
+        const waitingArea = bombContainer.querySelector('.bomb-waiting');
+        const playerUI = bombContainer.querySelector('.bomb-player-ui');
 
-        // 확인 버튼 처리: 호스트가 누르면 대기실로 복귀
-        if (closeResultBtn) {
-            closeResultBtn.onclick = () => {
-                resultModal.style.display = 'none';
-                if (localIsHost) {
-                    socket.emit('return to lobby from bomb');
-                }
-            };
+        // 게임이 진행 중인지 확인 (player-ui가 보이는지)
+        const isGamePlaying = playerUI && playerUI.style.display === 'block';
+
+        if (!isGamePlaying) {
+            if (isHost) {
+                if (setupArea) setupArea.style.display = 'block';
+                if (waitingArea) waitingArea.style.display = 'none';
+            } else {
+                if (setupArea) setupArea.style.display = 'none';
+                if (waitingArea) waitingArea.style.display = 'block';
+            }
         }
-    }
+    };
+
+    socket.on('game changed', (game) => {
+        if (game === 'lobby') {
+            const scoreDisplay = document.getElementById('bomb-scores-display');
+            if (scoreDisplay) scoreDisplay.style.display = 'none';
+            window.bombHearts = null;
+            window.currentBombTurnId = null; // 게임 상태 초기화
+            window.initBombUI(localIsHost);
+        }
+    });
 
 })();

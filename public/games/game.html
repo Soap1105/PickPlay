@@ -8,7 +8,18 @@
     <link rel="stylesheet" href="/css/bomb.css"> <!-- Bomb specific styles (static for now or handled by room.js) -->
     <link rel="stylesheet" href="/css/liar.css"> <!-- Liar specific styles -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', 'Segoe UI', sans-serif;
+        }
+
         .hidden-container {
             display: none !important;
         }
@@ -30,23 +41,34 @@
             text-align: center;
             padding: 10px 0 20px;
         }
+
         .lobby-welcome-icon {
             font-size: 3rem;
             animation: floatIcon 3s ease-in-out infinite;
         }
+
         @keyframes floatIcon {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
         }
+
         .lobby-welcome-title {
-            font-size: 1.6rem;
-            color: #2c3e50;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fffffe;
             margin: 8px 0 4px;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
+
         .lobby-welcome-sub {
-            color: #7f8c8d;
-            font-size: 0.92rem;
-            margin: 0;
+            display: none;
         }
 
         .game-card-grid {
@@ -73,52 +95,89 @@
             color: white;
             font-family: inherit;
         }
+
         .game-card::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: rgba(255,255,255,0.08);
+            background: rgba(255, 255, 255, 0.08);
             opacity: 0;
             transition: opacity 0.2s;
         }
-        .game-card:hover:not(:disabled)::before { opacity: 1; }
+
+        .game-card:hover:not(:disabled)::before {
+            opacity: 1;
+        }
+
         .game-card:hover:not(:disabled) {
             transform: translateY(-4px);
-            box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
         }
-        .game-card:active:not(:disabled) { transform: translateY(-1px); }
 
-        .game-card-bingo  { background: linear-gradient(135deg, #3498db, #2980b9); box-shadow: 0 6px 18px rgba(52,152,219,0.35); }
-        .game-card-liar   { background: linear-gradient(135deg, #e74c3c, #c0392b); box-shadow: 0 6px 18px rgba(231,76,60,0.35); }
-        .game-card-bomb   { background: linear-gradient(135deg, #e67e22, #d35400); box-shadow: 0 6px 18px rgba(230,126,34,0.35); }
-        .game-card-soon   { background: linear-gradient(135deg, #95a5a6, #7f8c8d); box-shadow: none; cursor: not-allowed; opacity: 0.65; }
+        .game-card:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .game-card-bingo {
+            background: linear-gradient(135deg, #2980b9 0%, #1a3a5c 100%);
+            box-shadow: 0 6px 20px rgba(41, 128, 185, 0.2);
+            border: 1px solid rgba(100, 181, 246, 0.3);
+        }
+
+        .game-card-liar {
+            background: linear-gradient(135deg, #c0392b 0%, #5a1515 100%);
+            box-shadow: 0 6px 20px rgba(192, 57, 43, 0.2);
+            border: 1px solid rgba(255, 118, 117, 0.3);
+        }
+
+        .game-card-bomb {
+            background: linear-gradient(135deg, #d35400 0%, #4a2200 100%);
+            box-shadow: 0 6px 20px rgba(211, 84, 0, 0.2);
+            border: 1px solid rgba(253, 203, 110, 0.3);
+        }
+
+        .game-card-soon {
+            background: linear-gradient(135deg, #2c3e50, #1a252f);
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.4;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
 
         .game-card-icon {
             font-size: 2.2rem;
             flex-shrink: 0;
             line-height: 1;
         }
-        .game-card-body { flex: 1; min-width: 0; }
+
+        .game-card-body {
+            flex: 1;
+            min-width: 0;
+        }
+
         .game-card-name {
             font-size: 1.05rem;
             font-weight: 700;
             margin-bottom: 4px;
             letter-spacing: -0.01em;
         }
+
         .game-card-desc {
             font-size: 0.78rem;
             opacity: 0.85;
             line-height: 1.45;
         }
+
         .game-card-tag {
             display: inline-block;
             margin-top: 7px;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             padding: 2px 8px;
             border-radius: 20px;
             font-size: 0.72rem;
             font-weight: 600;
         }
+
         .game-card-arrow {
             font-size: 0.9rem;
             opacity: 0.7;
@@ -149,11 +208,25 @@
             opacity: 0.15;
             animation: gwFloat linear infinite;
         }
+
         @keyframes gwFloat {
-            0%   { transform: translateY(100%) scale(0.8); opacity: 0; }
-            10%  { opacity: 0.15; }
-            90%  { opacity: 0.12; }
-            100% { transform: translateY(-120vh) scale(1.2); opacity: 0; }
+            0% {
+                transform: translateY(100%) scale(0.8);
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 0.15;
+            }
+
+            90% {
+                opacity: 0.12;
+            }
+
+            100% {
+                transform: translateY(-120vh) scale(1.2);
+                opacity: 0;
+            }
         }
 
         /* 메인 콘텐츠 래퍼 */
@@ -176,6 +249,7 @@
             align-items: center;
             gap: 16px;
         }
+
         .gw-ripple-wrap {
             position: relative;
             width: 96px;
@@ -184,41 +258,67 @@
             align-items: center;
             justify-content: center;
         }
+
         .gw-ripple {
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            border: 2px solid rgba(100,200,255,0.6);
+            border: 2px solid rgba(100, 200, 255, 0.6);
             animation: gwRipple 2.4s ease-out infinite;
         }
-        .gw-ripple:nth-child(2) { animation-delay: 0.8s; }
-        .gw-ripple:nth-child(3) { animation-delay: 1.6s; }
-        @keyframes gwRipple {
-            0%   { transform: scale(0.6); opacity: 0.8; }
-            100% { transform: scale(2.2); opacity: 0; }
+
+        .gw-ripple:nth-child(2) {
+            animation-delay: 0.8s;
         }
+
+        .gw-ripple:nth-child(3) {
+            animation-delay: 1.6s;
+        }
+
+        @keyframes gwRipple {
+            0% {
+                transform: scale(0.6);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(2.2);
+                opacity: 0;
+            }
+        }
+
         .gw-hero-icon {
             font-size: 3.4rem;
             position: relative;
             z-index: 1;
             animation: gwHeroFloat 3s ease-in-out infinite;
-            filter: drop-shadow(0 0 18px rgba(100,200,255,0.5));
+            filter: drop-shadow(0 0 18px rgba(100, 200, 255, 0.5));
         }
+
         @keyframes gwHeroFloat {
-            0%, 100% { transform: translateY(0) rotate(-3deg); }
-            50% { transform: translateY(-10px) rotate(3deg); }
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(-3deg);
+            }
+
+            50% {
+                transform: translateY(-10px) rotate(3deg);
+            }
         }
+
         .gw-hero-title {
             font-size: 1.5rem;
             font-weight: 800;
             color: #ffffff;
             margin: 0;
             letter-spacing: -0.02em;
-            text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
         }
+
         .gw-hero-sub {
             font-size: 0.88rem;
-            color: rgba(255,255,255,0.55);
+            color: rgba(255, 255, 255, 0.55);
             margin: -8px 0 0;
         }
 
@@ -229,6 +329,7 @@
             gap: 12px;
             width: 100%;
         }
+
         .gw-game-card {
             display: flex;
             flex-direction: column;
@@ -237,7 +338,7 @@
             padding: 18px 10px 14px;
             border-radius: 18px;
             color: white;
-            border: 1px solid rgba(255,255,255,0.12);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             cursor: default;
@@ -246,26 +347,65 @@
             overflow: hidden;
             transition: transform 0.25s, box-shadow 0.25s;
         }
+
         .gw-game-card::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: rgba(255,255,255,0.04);
+            background: rgba(255, 255, 255, 0.04);
             opacity: 0;
             transition: opacity 0.2s;
         }
-        .gw-game-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
-        .gw-game-card:hover::before { opacity: 1; }
-        .gw-card-bingo { background: linear-gradient(145deg, rgba(52,152,219,0.7), rgba(41,128,185,0.7)); box-shadow: 0 8px 24px rgba(52,152,219,0.25); }
-        .gw-card-liar  { background: linear-gradient(145deg, rgba(231,76,60,0.7), rgba(192,57,43,0.7));   box-shadow: 0 8px 24px rgba(231,76,60,0.25); }
-        .gw-card-bomb  { background: linear-gradient(145deg, rgba(230,126,34,0.7), rgba(211,84,0,0.7));   box-shadow: 0 8px 24px rgba(230,126,34,0.25); }
-        .gw-card-icon  { font-size: 2.4rem; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
-        .gw-card-name  { font-size: 0.85rem; font-weight: 800; letter-spacing: -0.01em; }
-        .gw-card-desc  { font-size: 0.72rem; opacity: 0.82; text-align: center; line-height: 1.4; }
+
+        .gw-game-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .gw-game-card:hover::before {
+            opacity: 1;
+        }
+
+        .gw-card-bingo {
+            background: linear-gradient(145deg, rgba(41, 128, 185, 0.9), rgba(26, 58, 92, 0.9));
+            box-shadow: 0 8px 24px rgba(41, 128, 185, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gw-card-liar {
+            background: linear-gradient(145deg, rgba(192, 57, 43, 0.9), rgba(90, 21, 21, 0.9));
+            box-shadow: 0 8px 24px rgba(192, 57, 43, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gw-card-bomb {
+            background: linear-gradient(145deg, rgba(211, 84, 0, 0.9), rgba(74, 34, 0, 0.9));
+            box-shadow: 0 8px 24px rgba(211, 84, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gw-card-icon {
+            font-size: 2.4rem;
+            filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
+        }
+
+        .gw-card-name {
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .gw-card-desc {
+            font-size: 0.72rem;
+            opacity: 0.82;
+            text-align: center;
+            line-height: 1.4;
+        }
+
         .gw-card-badge {
             font-size: 0.65rem;
-            background: rgba(255,255,255,0.18);
-            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.25);
             padding: 3px 9px;
             border-radius: 20px;
             font-weight: 700;
@@ -280,29 +420,55 @@
             gap: 12px;
             width: 100%;
         }
+
         .gw-dots {
             display: flex;
             gap: 8px;
             align-items: center;
         }
+
         .gw-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             animation: gwDotPop 1.5s ease-in-out infinite;
         }
-        .gw-dot:nth-child(1) { background: #64c8ff; animation-delay: 0s; }
-        .gw-dot:nth-child(2) { background: #ff7675; animation-delay: 0.25s; }
-        .gw-dot:nth-child(3) { background: #fdcb6e; animation-delay: 0.5s; }
-        @keyframes gwDotPop {
-            0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; }
-            40% { transform: scale(1.3); opacity: 1; }
+
+        .gw-dot:nth-child(1) {
+            background: #64c8ff;
+            animation-delay: 0s;
         }
+
+        .gw-dot:nth-child(2) {
+            background: #ff7675;
+            animation-delay: 0.25s;
+        }
+
+        .gw-dot:nth-child(3) {
+            background: #fdcb6e;
+            animation-delay: 0.5s;
+        }
+
+        @keyframes gwDotPop {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0.5);
+                opacity: 0.4;
+            }
+
+            40% {
+                transform: scale(1.3);
+                opacity: 1;
+            }
+        }
+
         .gw-tip {
             font-size: 0.8rem;
-            color: rgba(255,255,255,0.45);
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255, 255, 255, 0.45);
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             padding: 8px 16px;
             width: 100%;
@@ -310,10 +476,15 @@
             backdrop-filter: blur(4px);
             transition: opacity 0.4s;
         }
-        .gw-tip strong { color: rgba(255,255,255,0.75); }
+
+        .gw-tip strong {
+            color: rgba(255, 255, 255, 0.75);
+        }
 
         /* 오래된 .guest-waiting-* 클래스 호환성 유지 */
-        .guest-waiting-tip { display: none; }
+        .guest-waiting-tip {
+            display: none;
+        }
     </style>
 </head>
 
@@ -352,7 +523,7 @@
                         <button class="game-card game-card-bingo game-select-btn" data-game="bingo" id="card-bingo">
                             <div class="game-card-icon">🎯</div>
                             <div class="game-card-body">
-                                <div class="game-card-name">테마 빙고</div>
+                                <div class="game-card-name">빙고 게임</div>
                                 <div class="game-card-desc">5×5 빙고판에 단어를 채워<br>줄을 먼저 완성하세요!</div>
                                 <div class="game-card-tag">2인 이상</div>
                             </div>
@@ -415,7 +586,7 @@
                         <div class="gw-showcase">
                             <div class="gw-game-card gw-card-bingo">
                                 <div class="gw-card-icon">🎯</div>
-                                <div class="gw-card-name">테마 빙고</div>
+                                <div class="gw-card-name">빙고 게임</div>
                                 <div class="gw-card-desc">5×5 단어로<br>줄을 완성!</div>
                                 <div class="gw-card-badge">2인 이상</div>
                             </div>
@@ -459,8 +630,9 @@
                     <input type="hidden" id="turn-time-limit" value="15">
                     <input type="hidden" id="theme-topic-input" value="">
                     <input type="hidden" id="win-lines-select" value="3">
+                    <input type="hidden" id="bingo-use-events" value="true">
                     <div class="host-setup-glass">
-                        <h3>👑 빙고 방장 설정</h3>
+                        <h3>빙고게임 설정</h3>
                         <!-- AI 진행률 표시줄 -->
                         <div id="ai-progress-container"
                             style="display: none; margin: 0 0 16px; padding: 12px; background: rgba(100,181,246,0.12); border-radius: 10px; border: 1px solid rgba(100,181,246,0.3);">
@@ -472,14 +644,17 @@
                                 <span id="ai-progress-percent"
                                     style="font-size: 0.9rem; color: #64b5f6; font-weight: 800;">0%</span>
                             </div>
-                            <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                            <div
+                                style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
                                 <div id="ai-progress-bar"
-                                    style="width: 0%; height: 100%; background: linear-gradient(90deg, #3498db, #64b5f6); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                                    style="width: 0%; height: 100%; background: linear-gradient(90deg, #3498db, #64b5f6); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
+                                </div>
                             </div>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
                             <button id="open-settings-bingo" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
-                            <button id="start-game-bingo" class="start-btn" style="background-color: #2ecc71;">🚀 빙고 게임 시작</button>
+                            <button id="start-game-bingo" class="start-btn" style="background-color: #2ecc71;">🚀 빙고 게임
+                                시작</button>
                         </div>
                         <button class="return-lobby-btn">대기실로 돌아가기</button>
                     </div>
@@ -518,21 +693,33 @@
                             시작!</button>
                     </div>
 
-                    <div id="input-controls" style="display: none; margin-top: 10px;">
-                        <div id="theme-buttons">
-                            <button id="load-theme-btn" class="theme-btn-base btn-load disabled-dev"
-                                title="준비 중 입니다....">📂
+                    <div id="input-controls" style="display: none; width: 100%; max-width: 500px; margin: 10px auto;">
+                        <div id="theme-buttons" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                            <button id="load-theme-btn" class="theme-btn-base"
+                                style="flex: 1; background: rgba(155, 89, 182, 0.15); border: 1px solid rgba(155, 89, 182, 0.3); color: #c39bd3; padding: 10px 5px; font-size: 0.9rem; border-radius: 12px; cursor: pointer;">📂
                                 불러오기</button>
-                            <button id="save-theme-btn" class="theme-btn-base btn-save disabled-dev"
-                                title="준비 중 입니다....">💾
+                            <button id="save-theme-btn" class="theme-btn-base"
+                                style="flex: 1; background: rgba(230, 126, 34, 0.15); border: 1px solid rgba(230, 126, 34, 0.3); color: #f39c12; padding: 10px 5px; font-size: 0.9rem; border-radius: 12px; cursor: pointer;">💾
                                 저장</button>
-                            <button id="auto-fill-btn" class="theme-btn-base" style="background-color: #2ecc71;">⚡ 자동
-                                채우기(테스트)</button>
+                            <button id="auto-fill-btn" class="theme-btn-base"
+                                style="flex: 1.2; background: rgba(46, 204, 113, 0.15); border: 1px solid rgba(46, 204, 113, 0.3); color: #2ecc71; padding: 10px 5px; font-size: 0.85rem; border-radius: 12px; cursor: pointer;">⚡
+                                자동 채우기</button>
                         </div>
-                        <button id="ready-button">준비 완료!</button>
+                        <button id="ready-button" class="start-btn" style="width: 100%; margin-bottom: 10px;">준비
+                            완료!</button>
                     </div>
 
-                    <button id="bingo-button" style="display: none;">BINGO!</button>
+                    <div id="bingo-action-area"
+                        style="display: none; width: 100%; max-width: 500px; margin: 20px auto; display: flex; gap: 12px;">
+                        <button id="event-trigger-btn" class="bingo-action-btn event-btn" disabled>
+                            <span class="btn-icon">⚡</span>
+                            <span class="btn-text">이벤트 사용</span>
+                        </button>
+                        <button id="victory-bingo-btn" class="bingo-action-btn victory-btn" disabled>
+                            <span class="btn-icon">🏆</span>
+                            <span class="btn-text">BINGO!!</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 빙고 전용 이벤트 디스플레이 -->
@@ -554,7 +741,8 @@
                         <h3>👑 라이어 게임 방장 설정</h3>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
                             <button id="open-settings-liar" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
-                            <button id="start-game-liar" class="start-btn" style="background-color: #e74c3c;">🚀 라이어 게임 시작</button>
+                            <button id="start-game-liar" class="start-btn" style="background-color: #e74c3c;">🚀 라이어 게임
+                                시작</button>
                         </div>
                         <button class="return-lobby-btn">대기실로 돌아가기</button>
                     </div>
@@ -577,7 +765,6 @@
                 </div>
 
                 <div class="player-ui liar-player-ui">
-                    <h2>게임 준비 중입니다.</h2>
                 </div>
             </div>
 
@@ -586,14 +773,16 @@
                 <div id="bomb-scores-display" class="ready-status-display" style="display:none;"></div>
 
                 <div class="setup-area bomb-setup" style="display: none;">
-                    <input type="hidden" id="bomb-win-target" value="3">
+                    <input type="hidden" id="bomb-hearts" value="3">
+                    <input type="hidden" id="bomb-sub-mode" value="random">
                     <input type="hidden" id="bomb-show-timer" value="true">
                     <input type="hidden" id="bomb-timer-range" value="medium">
                     <div class="host-setup-glass">
                         <h3>👑 폭탄 게임 방장 설정</h3>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
                             <button id="open-settings-bomb" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
-                            <button id="start-game-bomb" class="start-btn" style="background-color: #e67e22;">🚀 폭탄 돌리기 시작</button>
+                            <button id="start-game-bomb" class="start-btn" style="background-color: #e67e22;">🚀 폭탄 돌리기
+                                시작</button>
                         </div>
                         <button class="return-lobby-btn">대기실로 돌아가기</button>
                     </div>
@@ -615,39 +804,50 @@
                     </div>
                 </div>
 
-                <div class="player-ui bomb-player-ui" style="display: none; width: 100%; text-align: center;">
-                    <div id="bomb-theme-display"
-                        style="font-size: 1.5rem; font-weight: bold; color: #e67e22; margin-bottom: 20px; background: #fff3e0; padding: 10px; border-radius: 10px;">
-                        주제: </div>
-
-                    <div id="bomb-timer-area" style="height: 40px; margin-bottom: 10px;">
-                        <span id="bomb-timer-text"
-                            style="font-size: 1.8rem; font-weight: bold; color: #e74c3c; background: white; padding: 5px 20px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none;">00:00</span>
+                <div class="player-ui bomb-player-ui" style="display: none;">
+                    <!-- 상단 정보 바 -->
+                    <div id="bomb-info-bar">
+                        <div id="bomb-theme-display">주제: --</div>
+                        <div id="bomb-timer-area">
+                            <span id="bomb-timer-text"></span>
+                        </div>
                     </div>
 
-                    <div id="bomb-visual-area"
-                        style="position: relative; height: 180px; display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: radial-gradient(circle, #f9f9f9 0%, #e0e0e0 100%); border-radius: 50%; width: 180px; margin: 0 auto 20px auto;">
-                        <div id="bomb-graphic" class="bomb-idle">💣</div>
+                    <!-- 원형 경기장 -->
+                    <div id="bomb-arena">
+                        <div id="bomb-arena-players">
+                            <!-- JS로 동적 생성 -->
+                        </div>
+                        <!-- 중앙 폭탄 -->
+                        <div id="bomb-visual-area">
+                            <div id="bomb-graphic" class="bomb-idle">💣</div>
+                            <div class="safe-overlay"></div>
+                        </div>
                     </div>
 
-                    <div id="bomb-current-turn" style="font-size: 1.2rem; margin-bottom: 15px; font-weight: bold;">
+                    <!-- 현재 차례 안내 + 입력창 -->
+                    <div id="bomb-turn-zone">
+                        <div id="bomb-current-turn"></div>
+                        <div id="bomb-input-area" style="display: none;">
+                            <input type="text" id="bomb-word-input" placeholder="단어 입력 후 엔터!" autocomplete="off">
+                        </div>
                     </div>
 
-                    <div id="bomb-input-area" style="display: none;">
-                        <input type="text" id="bomb-word-input" placeholder="정답 입력 후 엔터!"
-                            style="width: 80%; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #e67e22; outline: none; text-align: center;">
-                    </div>
-                    <div id="bomb-used-words-preview"
-                        style="margin-top: 20px; font-size: 0.9rem; color: #7f8c8d; height: 60px; overflow-y: auto; border-top: 1px dashed #ccc; padding-top: 10px;">
+                    <!-- 하단 사용 단어 피드 -->
+                    <div id="bomb-used-words-preview">
                         최근 사용 단어: <span id="bomb-words-list"></span>
                     </div>
                 </div>
 
                 <div id="bomb-round-result"
-                    style="display: none; margin-top: 20px; padding: 20px; background: #ffebee; border-radius: 10px; border: 2px solid #ef5350;">
-                    <h3 id="bomb-result-msg" style="color: #c62828; margin: 0 0 10px 0;"></h3>
-                    <button id="next-bomb-round-btn" class="start-btn" style="display: none;">다음 라운드 시작</button>
-                    <button class="return-lobby-btn" style="margin-top: 10px; background: #7f8c8d;">대기실로 돌아가기</button>
+                    style="display: none; margin-top: 20px; padding: 25px; background: rgba(15, 14, 23, 0.8); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+                    <h3 id="bomb-result-msg"
+                        style="color: #fffffe; margin: 0 0 20px 0; font-size: 1.3rem; line-height: 1.5;"></h3>
+                    <div class="bomb-result-btns">
+                        <button id="next-bomb-round-btn" class="start-btn"
+                            style="display: none; width: auto; padding: 12px 30px; background: linear-gradient(135deg, #e67e22, #d35400); box-shadow: 0 4px 15px rgba(230,126,34,0.3);">다음
+                            라운드 시작</button>
+                    </div>
                 </div>
             </div>
 
@@ -696,26 +896,39 @@
     </form>
 
     <!-- ================== 게임 설정 통합 모달 ================== -->
-    <div id="settings-modal" style="display:none; position:fixed; inset:0; z-index:5000; background:rgba(0,0,0,0.55); align-items:center; justify-content:center;">
-        <div id="settings-modal-inner" style="background:#fff; border-radius:20px; padding:0; width:min(560px, 95vw); max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); position:relative;">
+    <div id="settings-modal"
+        style="display:none; position:fixed; inset:0; z-index:5000; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; backdrop-filter: blur(4px);">
+        <div id="settings-modal-inner"
+            style="background:#1a1a2e; border-radius:20px; padding:0; width:min(560px, 95vw); max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.5); position:relative; border: 1px solid rgba(255,255,255,0.1); color: #fffffe;">
 
             <!-- 헤더 -->
-            <div id="settings-modal-header" style="padding:28px 32px 20px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between;">
+            <div id="settings-modal-header"
+                style="padding:28px 32px 20px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:space-between; background: rgba(255,255,255,0.02);">
                 <div>
                     <div id="settings-modal-game-icon" style="font-size:2rem; margin-bottom:4px;"></div>
-                    <h2 id="settings-modal-title" style="margin:0; font-size:1.4rem; color:#1a1a2e;"></h2>
-                    <p id="settings-modal-subtitle" style="margin:4px 0 0; font-size:0.85rem; color:#888;"></p>
+                    <h2 id="settings-modal-title" style="margin:0; font-size:1.4rem; color:#fffffe;"></h2>
+                    <p id="settings-modal-subtitle"
+                        style="margin:4px 0 0; font-size:0.85rem; color:rgba(255,255,255,0.5);"></p>
                 </div>
-                <button id="settings-modal-close" style="background:none; border:none; font-size:1.6rem; cursor:pointer; color:#999; padding:4px 8px; border-radius:8px; transition:background 0.2s;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='none'">✕</button>
+                <button id="settings-modal-close"
+                    style="background:none; border:none; font-size:1.6rem; cursor:pointer; color:rgba(255,255,255,0.4); padding:4px 8px; border-radius:8px; transition:all 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fffffe'"
+                    onmouseout="this.style.background='none'; this.style.color='rgba(255,255,255,0.4)'">✕</button>
             </div>
 
             <!-- 설정 본문 -->
             <div id="settings-modal-body" style="padding:24px 32px;"></div>
 
             <!-- 푸터 -->
-            <div style="padding:16px 32px 24px; border-top:1px solid #eee; display:flex; gap:12px; justify-content:flex-end;">
-                <button id="settings-modal-cancel" style="padding:12px 28px; border-radius:10px; border:2px solid #ddd; background:white; color:#555; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">취소</button>
-                <button id="settings-modal-confirm" style="padding:12px 32px; border-radius:10px; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-size:1rem; font-weight:700; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 15px rgba(102,126,234,0.4);" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">💾 설정 저장</button>
+            <div
+                style="padding:16px 32px 24px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:12px; justify-content:flex-end; background: rgba(255,255,255,0.02);">
+                <button id="settings-modal-cancel"
+                    style="padding:12px 28px; border-radius:10px; border:2px solid rgba(255,255,255,0.1); background:transparent; color:rgba(255,255,255,0.6); font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fffffe'"
+                    onmouseout="this.style.background='transparent'; this.style.color='rgba(255,255,255,0.6)'">취소</button>
+                <button id="settings-modal-confirm"
+                    style="padding:12px 32px; border-radius:10px; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-size:1rem; font-weight:700; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 15px rgba(102,126,234,0.4);"
+                    onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">💾 설정 저장</button>
             </div>
         </div>
     </div>
@@ -723,27 +936,62 @@
     <!-- 게임 결과 모달 -->
     <div id="result-modal" class="modal">
         <div class="modal-content" style="max-width: 600px; text-align: center; padding: 30px;">
-            <h1 id="result-title" style="color: #2c3e50; margin-bottom: 20px;">🏆 게임 종료 🏆</h1>
-            <div id="result-winner" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 30px; color: #e74c3c;">
+            <h1 id="result-title" style="color: #fffffe; margin-bottom: 20px;">🏆 게임 종료 🏆</h1>
+            <div id="result-winner" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 30px; color: #ff7675;">
             </div>
 
             <div id="result-stats-container">
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
                     <thead>
-                        <tr style="background: #f8f9fa; border-bottom: 2px solid #eee;">
-                            <th style="padding: 10px;">플레이어</th>
-                            <th id="result-stat-header-1" style="padding: 10px;">기록 1</th>
-                            <th id="result-stat-header-2" style="padding: 10px;">기록 2</th>
+                        <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                            <th style="padding: 10px; color: #fffffe;">플레이어</th>
+                            <th id="result-stat-header-1" style="padding: 10px; color: #fffffe;">기록 1</th>
+                            <th id="result-stat-header-2" style="padding: 10px; color: #fffffe;">기록 2</th>
                         </tr>
                     </thead>
-                    <tbody id="result-stats-body">
+                    <tbody id="result-stats-body" style="color: #fffffe;">
                         <!-- Stats injected here -->
                     </tbody>
                 </table>
             </div>
 
+            <style>
+                #result-stats-body tr {
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                }
+
+                #result-stats-body tr.winner-row {
+                    background: rgba(241, 196, 15, 0.15) !important;
+                    color: #f1c40f !important;
+                    font-weight: bold;
+                }
+
+                #result-stats-body td {
+                    padding: 12px 10px;
+                }
+            </style>
+
             <button id="close-result-btn" class="start-btn"
                 style="width: auto; padding: 10px 40px; background-color: #34495e;">확인</button>
+        </div>
+    </div>
+
+    <!-- 커스텀 확인 모달 -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 40px; border-radius: 20px;">
+            <div id="confirm-icon" style="font-size: 3.5rem; margin-bottom: 20px;">❓</div>
+            <h2 id="confirm-message" style="color: #fffffe; margin-bottom: 30px; line-height: 1.5; font-size: 1.25rem;">
+                메시지</h2>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="confirm-cancel-btn"
+                    style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #fffffe; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+                    onmouseout="this.style.background='transparent'">취소</button>
+                <button id="confirm-ok-btn"
+                    style="flex: 1; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); transition: all 0.2s;"
+                    onmouseover="this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.transform='translateY(0)'">확인</button>
+            </div>
         </div>
     </div>
 

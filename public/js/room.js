@@ -95,8 +95,12 @@ socket.on('update user list', (users) => {
         }
 
         userDiv.innerHTML = `
-            <div class="user-avatar">${user.avatar}</div>
-            <div class="user-name">${hostCrown}${user.name}</div>
+            <div class="avatar-wrapper">
+                <div class="avatar">${user.avatar}</div>
+            </div>
+            <div class="user-info">
+                <div class="nickname">${hostCrown}${user.name}</div>
+            </div>
             ${kickBtnHTML}
         `;
         userGrid.appendChild(userDiv);
@@ -104,9 +108,9 @@ socket.on('update user list', (users) => {
 });
 
 function kickUser(userId) {
-    if (confirm("이 플레이어를 강퇴하시겠습니까?")) {
+    window.showConfirm(`"${userId}" 플레이어를 강퇴하시겠습니까?`, () => {
         socket.emit('kick user', userId);
-    }
+    });
 }
 
 // Host selects a game
@@ -123,9 +127,8 @@ returnLobbyBtns.forEach(btn => {
         if (!isHost) return;
         // bomb.js에 자체 핸들러가 있으므로 중복 방지
         if (window.gameType === 'bomb') return;
-        if (confirm("게임을 종료하고 대기실로 돌아가시겠습니까?")) {
-            socket.emit('return to lobby');
-        }
+        
+        socket.emit('return to lobby');
     });
 });
 

@@ -25,7 +25,9 @@
     const eventMsg = document.getElementById('event-msg');
     const bingoBoard = document.getElementById('bingo-board');
     const calledNumbersDisplay = document.getElementById('called-numbers-display');
-    const bingoButton = document.getElementById('bingo-button');
+    const bingoActionArea = document.getElementById('bingo-action-area');
+    const eventTriggerBtn = document.getElementById('event-trigger-btn');
+    const victoryBingoBtn = document.getElementById('victory-bingo-btn');
 
     const loadThemeBtn = document.getElementById('load-theme-btn');
     const saveThemeBtn = document.getElementById('save-theme-btn');
@@ -77,6 +79,7 @@
     let turnTimerInterval = null;
     let turnDuration = 0;
     let turnStartTime = 0;
+    window.useEventsGlobal = true; // [전역화] 렌더링 함수들이 어디서든 참조 가능하게 변경
 
     function getUserId() {
         let userId = localStorage.getItem('bingo_user_id');
@@ -113,14 +116,14 @@
             span.textContent = user.name;
             span.style.padding = "5px 10px";
             span.style.borderRadius = "15px";
-            span.style.border = "2px solid #ccc";
-            span.style.backgroundColor = "#fff";
-            span.style.color = "#333";
+            span.style.border = "1px solid rgba(255,255,255,0.1)";
+            span.style.backgroundColor = "rgba(0,0,0,0.3)";
+            span.style.color = "#fffffe";
             span.style.transition = "all 0.3s";
 
             if (user.id === currentTurnId) {
                 span.style.borderColor = "#f1c40f";
-                span.style.backgroundColor = "#fffcf0";
+                span.style.backgroundColor = "rgba(241, 196, 15, 0.15)";
                 span.style.transform = "scale(1.1)";
                 span.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
                 span.style.zIndex = "10";
@@ -150,7 +153,7 @@
         users.forEach(user => {
             if (user.id === socket.id) {
                 myUsedEventCount = user.usedEventCount || 0;
-                updateBingoButton(checkBingoLines(myBoard, calledNumbers));
+                updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
             }
 
             const card = document.createElement('div');
@@ -178,12 +181,12 @@
 
             const nickname = document.createElement('div');
             nickname.className = 'nickname';
+            nickname.style.color = "#fffffe";
+            nickname.style.textShadow = "0 2px 4px rgba(0,0,0,0.3)";
             if (user.isWaiting) {
                 nickname.textContent = `⏳ ${user.name}`;
-                nickname.style.color = "#7f8c8d";
             } else {
                 nickname.textContent = user.name;
-                nickname.style.color = "#333";
                 if (user.ready) {
                     nickname.innerHTML += ' <span style="color:#2ecc71">✔</span>';
                     bingoReadyCount++;
@@ -204,32 +207,36 @@
                     dotsContainer.appendChild(dot);
                 }
 
-                const divider = document.createElement('span');
-                divider.className = 'status-divider';
-                divider.textContent = '|';
+                if (useEventsGlobal) {
+                    const divider = document.createElement('span');
+                    divider.className = 'status-divider';
+                    divider.textContent = '|';
 
-                const eventContainer = document.createElement('div');
-                eventContainer.className = 'event-progress';
+                    const eventContainer = document.createElement('div');
+                    eventContainer.className = 'event-progress';
 
-                const used = user.usedEventCount || 0;
-                const maxSlots = Math.max(0, targetLines - 1);
-                const earned = Math.min(lines, maxSlots);
-                const fillCount = Math.max(0, earned - used);
+                    const used = user.usedEventCount || 0;
+                    const maxSlots = Math.max(0, targetLines - 1);
+                    const earned = Math.min(lines, maxSlots);
+                    const fillCount = Math.max(0, earned - used);
 
-                for (let i = 0; i < maxSlots; i++) {
-                    const star = document.createElement('i');
-                    star.className = 'event-star';
-                    if (i < fillCount) {
-                        star.className += ' fas fa-star filled';
-                    } else {
-                        star.className += ' far fa-star';
+                    for (let i = 0; i < maxSlots; i++) {
+                        const star = document.createElement('i');
+                        star.className = 'event-star';
+                        if (i < fillCount) {
+                            star.className += ' fas fa-star filled';
+                        } else {
+                            star.className += ' far fa-star';
+                        }
+                        eventContainer.appendChild(star);
                     }
-                    eventContainer.appendChild(star);
-                }
 
-                statusRow.appendChild(dotsContainer);
-                statusRow.appendChild(divider);
-                statusRow.appendChild(eventContainer);
+                    statusRow.appendChild(dotsContainer);
+                    statusRow.appendChild(divider);
+                    statusRow.appendChild(eventContainer);
+                } else {
+                    statusRow.appendChild(dotsContainer);
+                }
             }
             infoDiv.appendChild(nickname);
             infoDiv.appendChild(statusRow);
@@ -237,9 +244,11 @@
             if (amIHost && user.id !== socket.id && setupArea.style.display !== 'none') {
                 const kickBtn = document.createElement('button');
                 kickBtn.className = 'kick-btn';
-                kickBtn.textContent = 'X';
+                kickBtn.textContent = '강퇴';
                 kickBtn.onclick = () => {
-                    if (confirm(`${user.name}님 강퇴?`)) socket.emit('kick user', user.id);
+                    window.showConfirm(`${user.name}님을 강퇴하시겠습니까?`, () => {
+                        socket.emit('kick user', user.id);
+                    });
                 };
                 card.appendChild(kickBtn);
             }
@@ -251,8 +260,6 @@
     };
 
     function updateReadyStatusVisibility() {
-        // [Refinement] 로비, 설정(setupArea), 대기(waitingArea) 상태에서는 무조건 숨김
-        // 오직 빙고판 입력 도중에만 표시되도록 함
         const isInInputMode = (inputControls && inputControls.style.display === 'block');
 
         if (window.gameType === 'lobby' || !isInInputMode) {
@@ -264,34 +271,39 @@
         }
     }
 
-    function updateBingoButton(lines) {
-        if (lines >= targetLines) {
-            bingoButton.disabled = false;
-            bingoButton.textContent = "빙고!!";
-            bingoButton.style.backgroundColor = "#ff0000";
-            bingoButton.style.cursor = "pointer";
-        } else if (lines >= 1) {
+    function updateBingoActionButtons(lines) {
+        if (!isGameStarted) return;
+
+        bingoActionArea.style.display = 'flex';
+        
+        // 1. 이벤트 버튼 제어
+        if (window.useEventsGlobal) {
+            eventTriggerBtn.style.display = 'flex';
             const remaining = lines - myUsedEventCount;
-            if (!isMyTurn) {
-                bingoButton.disabled = true;
-                bingoButton.textContent = "🚫 다른 유저의 턴";
-                bingoButton.style.backgroundColor = "#555";
-                return;
-            }
-            if (remaining > 0) {
-                bingoButton.disabled = false;
-                bingoButton.textContent = ` 이벤트 사용! (남은 횟수: ${remaining}회)`;
-                bingoButton.style.backgroundColor = "#2196F3";
-                bingoButton.style.cursor = "pointer";
+
+            if (isMyTurn && remaining > 0) {
+                eventTriggerBtn.disabled = false;
+                eventTriggerBtn.classList.add('active');
+                eventTriggerBtn.querySelector('.btn-text').textContent = `이벤트 사용 (${remaining})`;
             } else {
-                bingoButton.disabled = true;
-                bingoButton.textContent = `빙고 ${lines}줄 (이벤트 소진)`;
-                bingoButton.style.backgroundColor = "#ccc";
+                eventTriggerBtn.disabled = true;
+                eventTriggerBtn.classList.remove('active');
+                if (remaining <= 0) eventTriggerBtn.querySelector('.btn-text').textContent = `이벤트 소진`;
+                else eventTriggerBtn.querySelector('.btn-text').textContent = `상대 턴 대기`;
             }
         } else {
-            bingoButton.disabled = true;
-            bingoButton.textContent = lines >= 1 ? `빙고 ${lines}줄` : "진행 중...";
-            bingoButton.style.backgroundColor = "#ccc";
+            eventTriggerBtn.style.display = 'none'; // 이벤트 모드 OFF면 버튼 숨김
+        }
+
+        // 2. 승리 버튼 제어
+        if (lines >= targetLines) {
+            victoryBingoBtn.disabled = false;
+            victoryBingoBtn.classList.add('active');
+            victoryBingoBtn.querySelector('.btn-text').textContent = `BINGO!! (${lines}줄)`;
+        } else {
+            victoryBingoBtn.disabled = true;
+            victoryBingoBtn.classList.remove('active');
+            victoryBingoBtn.querySelector('.btn-text').textContent = lines >= 1 ? `${lines}줄 완성` : `BINGO!!`;
         }
     }
 
@@ -329,7 +341,7 @@
         winningIndices.forEach(index => {
             if (cells[index]) cells[index].classList.add('bingo-completed');
         });
-        updateBingoButton(count);
+        updateBingoActionButtons(count);
     }
 
     function renderBoard(boardData) {
@@ -441,12 +453,12 @@
 
             isMyReady = false;
             readyButton.textContent = "준비 완료";
-            readyButton.style.backgroundColor = "#3498db";
+            readyButton.style.background = "linear-gradient(135deg, #6366f1, #a855f7)";
+            readyButton.style.boxShadow = "0 4px 15px rgba(99, 102, 241, 0.3)";
             readyButton.disabled = false;
 
             document.querySelectorAll('.board-input').forEach(input => {
                 input.disabled = false;
-                input.style.backgroundColor = "#f9f9f9";
             });
 
             return;
@@ -477,17 +489,18 @@
 
         isMyReady = true;
         readyButton.textContent = "준비 해제";
-        readyButton.style.backgroundColor = "#e74c3c";
+        readyButton.style.background = "linear-gradient(135deg, #ff7675, #ee5253)";
+        readyButton.style.boxShadow = "0 4px 15px rgba(238, 82, 83, 0.3)";
 
         inputs.forEach(input => {
             input.disabled = true;
-            input.style.backgroundColor = "#e0e0e0";
         });
 
         socket.emit('submit theme board', {
             roomId: window.roomId,
             board: words,
-            name: window.myName
+            name: window.myName,
+            useEvents: useEventsGlobal
         });
     });
 
@@ -650,6 +663,7 @@
                 winLines: selectedLines,
                 turnOrder: selectedOrder,
                 turnTimeLimit: turnTime,
+                useEvents: document.getElementById('bingo-use-events')?.value === 'true',
                 presetWords: presetWords
             });
 
@@ -664,35 +678,21 @@
     }
 
     // 빙고 이벤트 리스너들
-    bingoButton.addEventListener('click', () => {
+    eventTriggerBtn.addEventListener('click', () => {
+        if (!isMyTurn || !window.useEventsGlobal) return;
         const { count } = getBingoLines(myBoard, calledNumbers);
-        bingoButton.disabled = true;
-        if (count >= targetLines) {
-            socket.emit('bingo declared', { name: window.myName });
-        } else if (count >= 1) {
-            if (!isMyTurn) {
-                bingoButton.disabled = true;
-                if (window.showToast) window.showToast("현재 내 턴이 아닙니다.", "warning");
-                else alert("내 턴이 아님");
-                return;
-            }
-            const remaining = count - myUsedEventCount;
-            if (remaining <= 0) {
-                bingoButton.disabled = false;
-                if (window.showToast) window.showToast("이벤트를 사용할 기회가 없습니다!", "warning");
-                else alert("이벤트를 사용할 기회가 없습니다!");
-                return;
-            }
-            if (confirm(`이벤트를 발동하시겠습니까? (남은 기회: ${remaining}회)`)) {
-                socket.emit('trigger event', { name: window.myName });
-            } else {
-                bingoButton.disabled = false;
-            }
+        const remaining = count - myUsedEventCount;
+        if (remaining > 0) {
+            socket.emit('trigger event', { name: window.myName });
         }
     });
 
-    // Event listeners for users removed here, handled by room.js calls
-    // socket.on('update user list', ...);
+    victoryBingoBtn.addEventListener('click', () => {
+        const { count } = getBingoLines(myBoard, calledNumbers);
+        if (count >= targetLines) {
+            socket.emit('bingo declared', { name: window.myName });
+        }
+    });
 
     socket.on('bingo progress update', (progressMap) => {
         currentProgressMap = progressMap;
@@ -734,13 +734,13 @@
         if (socket.id === currentTurnId) {
             isMyTurn = true;
             turnDisplay.textContent = "👉 당신의 차례입니다!";
-            turnDisplay.style.backgroundColor = "#e3f2fd";
+            turnDisplay.style.backgroundColor = "rgba(46, 204, 113, 0.15)";
             bingoBoard.classList.remove('inactive-board');
             bingoBoard.classList.add('active-board');
         } else {
             isMyTurn = false;
             turnDisplay.textContent = `⏳ ${currentTurnPlayerName}님의 차례...`;
-            turnDisplay.style.backgroundColor = "#f0f0f0";
+            turnDisplay.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
             bingoBoard.classList.add('inactive-board');
             bingoBoard.classList.remove('active-board');
         }
@@ -795,7 +795,7 @@
         } else {
             if (amIHost) {
                 setupArea.style.display = 'block';
-                manualStartArea.style.display = 'block'; // 호스트에게는 미리 시작 영역 노출 (비활성 상태)
+                manualStartArea.style.display = 'block';
                 hostManualStartBtn.disabled = true;
                 hostManualStartBtn.style.opacity = '0.6';
             } else {
@@ -810,8 +810,9 @@
     };
 
     socket.on('setup theme input', (data) => {
-        targetLines = data.winLines;
-        calledNumbers = [];
+        targetLines = data.winLines || 3;
+        useEventsGlobal = data.useEvents !== undefined ? data.useEvents : true;
+        
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
         readyStatusDisplay.style.display = 'block';
@@ -822,26 +823,40 @@
         bingoBoard.classList.remove('inactive-board');
         bingoBoard.classList.remove('active-board');
 
-        bingoButton.style.display = 'none';
+        bingoActionArea.style.display = 'none';
         isMyReady = false;
         readyButton.disabled = false;
         readyButton.textContent = "준비 완료";
-        readyButton.style.backgroundColor = "#3498db";
         readyButton.style.display = 'inline-block';
         readyButton.style.position = 'relative';
         readyButton.style.zIndex = '9999';
+        readyButton.style.background = 'linear-gradient(135deg, #6366f1, #a855f7)';
+        readyButton.style.color = '#fff';
+        readyButton.style.border = 'none';
+        readyButton.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.4)';
 
-        if (saveThemeBtn) saveThemeBtn.style.display = 'inline-block';
-        if (loadThemeBtn) loadThemeBtn.style.display = 'block';
+        if (saveThemeBtn) {
+            saveThemeBtn.style.display = 'inline-block';
+            saveThemeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            saveThemeBtn.style.backdropFilter = 'blur(10px)';
+            saveThemeBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+            saveThemeBtn.style.color = '#fff';
+        }
+        if (loadThemeBtn) {
+            loadThemeBtn.style.display = 'inline-block';
+            loadThemeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            loadThemeBtn.style.backdropFilter = 'blur(10px)';
+            loadThemeBtn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+            loadThemeBtn.style.color = '#fff';
+        }
 
         inputControls.style.display = 'block';
         inputControls.style.position = 'relative';
         inputControls.style.zIndex = '9999';
 
-        // [AI 단어 자동 채우기 및 랜덤 셔플 적용 (40단어 이상 지원)]
         let preset = data.presetWords || [];
         if (preset.length >= 25) {
-            preset = preset.sort(() => Math.random() - 0.5); // 40~50개를 섞은 뒤 앞의 25개만 사용됨
+            preset = preset.sort(() => Math.random() - 0.5);
         }
 
         for (let i = 0; i < 25; i++) {
@@ -851,14 +866,14 @@
             inputCell.maxLength = 15;
             inputCell.addEventListener('input', function () {
                 if (this.value.length > 15) {
-                    alert("15글자까지만 입력 가능합니다.");
+                    if (window.showToast) window.showToast("15글자까지만 입력 가능합니다.", "warning");
                     this.value = this.value.slice(0, 15);
                 }
             });
             if (preset[i]) inputCell.value = preset[i];
             bingoBoard.appendChild(inputCell);
         }
-        alert(`주제: '${data.topic}'\n25칸을 채워주세요. (목표: ${targetLines}줄)`);
+        showBigEvent('📋', '빙고판 채우기', `주제: ${data.topic || '자유 주제'}\n25칸을 채워주세요! (목표: ${targetLines}줄)`, 'info');
     });
 
     socket.on('start theme game', (data) => {
@@ -867,15 +882,15 @@
         if (loadThemeBtn) loadThemeBtn.style.display = 'none';
         inputControls.style.display = 'none';
         readyStatusDisplay.style.display = 'none';
-        manualStartArea.style.display = 'none'; // [Bug 5-2 FIX] 게임 시작 시 시작 버튼 영역 제거
+        manualStartArea.style.display = 'none';
         targetLines = data.winLines;
         calledNumbers = [];
         myUsedEventCount = 0;
         isGameStarted = true;
         renderBoard(data.board);
-        bingoButton.style.display = 'block';
-        bingoButton.style.position = 'relative';
-        bingoButton.style.zIndex = '9999';
+        bingoActionArea.style.display = 'flex';
+        bingoActionArea.style.position = 'relative';
+        bingoActionArea.style.zIndex = '9999';
 
         updateBoardVisuals();
         showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
@@ -895,9 +910,8 @@
     });
 
     socket.on('action failed', (msg) => {
-        alert(msg);
-        if (isMyTurn) bingoButton.disabled = false;
-        updateBingoButton(checkBingoLines(myBoard, calledNumbers));
+        if (window.showToast) window.showToast(msg, "error");
+        updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
     });
 
     socket.on('event happened', (data) => {
@@ -914,8 +928,6 @@
         updateBoardVisuals();
         if (turnTimerInterval) clearInterval(turnTimerInterval);
         manualStartArea.style.display = 'none';
-        // isGameStarted가 true면 셔플 이벤트(시공간 균열 등)로 인한 보드 갱신
-        // → "게임 시작!" 카드 표시 안 함 (event happened에서 이미 처리됨)
         if (!isGameStarted) {
             showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
         }
@@ -932,7 +944,6 @@
 
     socket.on('not all players ready', () => {
         if (amIHost) {
-            // [Refinement] 버튼만 비활성화
             hostManualStartBtn.disabled = true;
             hostManualStartBtn.style.opacity = '0.6';
             hostManualStartBtn.style.cursor = 'not-allowed';
@@ -944,7 +955,6 @@
         if (turnTimerInterval) clearInterval(turnTimerInterval);
         turnTimerBar.style.display = 'none';
 
-        // Render stats modal
         const resultTitle = document.getElementById('result-title');
         const resultStatHeader1 = document.getElementById('result-stat-header-1');
         const resultStatHeader2 = document.getElementById('result-stat-header-2');
@@ -955,7 +965,6 @@
         resultWinner.textContent = `👑 승자: ${data.winner}`;
         resultStatsBody.innerHTML = '';
 
-        // 닫기 버튼: 방장이 클릭하면 로비로 복귀
         if (closeResultBtn) {
             closeResultBtn.onclick = () => {
                 resultModal.style.display = 'none';
@@ -965,7 +974,6 @@
             };
         }
 
-        // Data should include stats for all players
         if (data.stats) {
             data.stats.forEach(stat => {
                 const tr = document.createElement('tr');
@@ -974,7 +982,11 @@
                 <td style="padding:10px; font-weight:bold;">${stat.bingoCount}줄</td>
                 <td style="padding:10px;">${stat.eventUsed}회</td>
             `;
-                if (stat.name === data.winner) tr.style.backgroundColor = '#fff9c4';
+                if (stat.name === data.winner) {
+                    tr.style.backgroundColor = 'rgba(241, 196, 15, 0.2)';
+                    tr.style.color = '#fffffe';
+                    tr.style.fontWeight = 'bold';
+                }
                 resultStatsBody.appendChild(tr);
             });
         }
@@ -1000,7 +1012,7 @@
     });
 
     socket.on('false bingo', (msg) => {
-        alert(`🚨 ${msg}`);
+        if (window.showToast) window.showToast(`🚨 ${msg}`, "error");
         if (isMyTurn) {
             bingoButton.disabled = false;
             updateBingoButton(checkBingoLines(myBoard, calledNumbers));
