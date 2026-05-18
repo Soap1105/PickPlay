@@ -44,7 +44,7 @@ module.exports = (io, socket, gameRooms) => {
         const player = room.players[playerId];
         const uncalledWords = player.board.filter(w => !room.calledNumbers.includes(w));
         if (uncalledWords.length === 0) {
-            io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다! 빙고판 완료!`);
+            io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다. 빙고판 완료.`);
             endGame(io, room, roomId, resolveFullBoardWinner(room));
             return;
         }
@@ -63,7 +63,6 @@ module.exports = (io, socket, gameRooms) => {
                 const randomWord = uncalledWords[Math.floor(Math.random() * uncalledWords.length)];
                 room.calledNumbers.push(randomWord);
                 io.to(roomId).emit('number called', randomWord);
-                io.to(roomId).emit('system message', `⏰ 시간 초과! ${player.name}님의 판에서 무작위로 '${randomWord}'가 선택되었습니다.`);
 
                 broadcastBingoProgress(io, room, roomId);
 
@@ -79,7 +78,7 @@ module.exports = (io, socket, gameRooms) => {
                 passTurn(room, roomId);
             } else {
                 // 선택할 단어가 없는 상태로 여기까지 왔다면 절대 턴을 넘기지 않고 즉시 게임 종료
-                io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다! 빙고판 완료!`);
+                io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다. 빙고판 완료.`);
                 endGame(io, room, roomId, resolveFullBoardWinner(room));
             }
         }, room.turnTimeLimit * 1000 + 500); // 0.5s buffer
@@ -94,7 +93,6 @@ module.exports = (io, socket, gameRooms) => {
 
         if (totalCount > 1 && readyCount === totalCount) {
             io.to(room.hostId).emit('all players ready');
-            io.to(roomId).emit('system message', `✅ 모든 플레이어가 준비되었습니다! 방장이 게임을 시작할 수 있습니다.`);
         } else {
             // [Refinement] 전원 준비 상태가 아니면 비활성화 유도
             io.to(room.hostId).emit('not all players ready');
@@ -137,7 +135,6 @@ module.exports = (io, socket, gameRooms) => {
             });
         });
         io.to(roomId).emit('update user list', getSortedUserList(room));
-        io.to(roomId).emit('system message', `🎨 주제 모드 설정: ${data.topic} (입력 시작!)`);
         updateReadyStatus(io, room, roomId);
     });
 
@@ -167,8 +164,7 @@ module.exports = (io, socket, gameRooms) => {
             room.status = 'PLAYING';
             room.gameStarted = true;
             io.to(roomId).emit('game status update', { started: true });
-            io.to(roomId).emit('system message', `🚀 빙고 출발! (주제: ${room.topic})`);
-
+            
             room.turnOrder = sortTurnOrder(room);
             room.currentTurnIndex = 0;
 
@@ -249,8 +245,9 @@ module.exports = (io, socket, gameRooms) => {
 
         const player = room.players[socket.id];
         const currentBingos = checkBingoLines(player.board, room.calledNumbers);
+        const maxEvents = Math.max(0, room.winLines - 1);
 
-        if (currentBingos <= player.usedEventCount) {
+        if (Math.min(currentBingos, maxEvents) <= player.usedEventCount) {
             socket.emit('action failed', '이벤트를 사용할 수 있는 빙고 횟수가 부족합니다!');
             return;
         }

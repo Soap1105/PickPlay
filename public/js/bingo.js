@@ -241,17 +241,8 @@
             infoDiv.appendChild(nickname);
             infoDiv.appendChild(statusRow);
 
-            if (amIHost && user.id !== socket.id && setupArea.style.display !== 'none') {
-                const kickBtn = document.createElement('button');
-                kickBtn.className = 'kick-btn';
-                kickBtn.textContent = '강퇴';
-                kickBtn.onclick = () => {
-                    window.showConfirm(`${user.name}님을 강퇴하시겠습니까?`, () => {
-                        socket.emit('kick user', user.id);
-                    });
-                };
-                card.appendChild(kickBtn);
-            }
+            const kickBtn = window.createKickButton(user, amIHost, socket.id, !isGameStarted);
+            if (kickBtn) card.appendChild(kickBtn);
 
             card.appendChild(avatarWrapper);
             card.appendChild(infoDiv);
@@ -275,11 +266,12 @@
         if (!isGameStarted) return;
 
         bingoActionArea.style.display = 'flex';
-        
+
         // 1. 이벤트 버튼 제어
         if (window.useEventsGlobal) {
             eventTriggerBtn.style.display = 'flex';
-            const remaining = lines - myUsedEventCount;
+            const maxEvents = Math.max(0, targetLines - 1);
+            const remaining = Math.min(lines, maxEvents) - myUsedEventCount;
 
             if (isMyTurn && remaining > 0) {
                 eventTriggerBtn.disabled = false;
@@ -288,7 +280,7 @@
             } else {
                 eventTriggerBtn.disabled = true;
                 eventTriggerBtn.classList.remove('active');
-                if (remaining <= 0) eventTriggerBtn.querySelector('.btn-text').textContent = `이벤트 소진`;
+                if (remaining <= 0) eventTriggerBtn.querySelector('.btn-text').textContent = `이벤트 사용!`;
                 else eventTriggerBtn.querySelector('.btn-text').textContent = `상대 턴 대기`;
             }
         } else {
@@ -299,11 +291,11 @@
         if (lines >= targetLines) {
             victoryBingoBtn.disabled = false;
             victoryBingoBtn.classList.add('active');
-            victoryBingoBtn.querySelector('.btn-text').textContent = `BINGO!! (${lines}줄)`;
+            victoryBingoBtn.querySelector('.btn-text').textContent = `빙고!`;
         } else {
             victoryBingoBtn.disabled = true;
             victoryBingoBtn.classList.remove('active');
-            victoryBingoBtn.querySelector('.btn-text').textContent = lines >= 1 ? `${lines}줄 완성` : `BINGO!!`;
+            victoryBingoBtn.querySelector('.btn-text').textContent = `빙고!`;
         }
     }
 
@@ -812,7 +804,7 @@
     socket.on('setup theme input', (data) => {
         targetLines = data.winLines || 3;
         useEventsGlobal = data.useEvents !== undefined ? data.useEvents : true;
-        
+
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
         readyStatusDisplay.style.display = 'block';
@@ -934,6 +926,7 @@
     });
 
     socket.on('all players ready', () => {
+        if (window.showToast) window.showToast('모든 플레이어가 준비됐습니다! 🎉', 'success');
         if (amIHost) {
             manualStartArea.style.display = 'block';
             hostManualStartBtn.disabled = false;
@@ -958,11 +951,11 @@
         const resultTitle = document.getElementById('result-title');
         const resultStatHeader1 = document.getElementById('result-stat-header-1');
         const resultStatHeader2 = document.getElementById('result-stat-header-2');
-        if (resultTitle) resultTitle.textContent = '🎯 테마 빙고 종료 🎯';
+        if (resultTitle) resultTitle.textContent = '게임 종료';
         if (resultStatHeader1) resultStatHeader1.textContent = "빙고 수";
         if (resultStatHeader2) resultStatHeader2.textContent = "이벤트 사용";
 
-        resultWinner.textContent = `👑 승자: ${data.winner}`;
+        resultWinner.textContent = `승자: ${data.winner}`;
         resultStatsBody.innerHTML = '';
 
         if (closeResultBtn) {

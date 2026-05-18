@@ -1,21 +1,315 @@
 /* =========================================
-   라이어 게임 전용 스타일
+   라이어 게임 전용 스타일 (Vibrant Dark Theme)
    ========================================= */
 
-/* 최후 변론 실시간 타이핑 - 글자 낙하 애니메이션 */
+/* 애니메이션 */
 @keyframes liarCharDrop {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-15px) scale(0.8); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* 커서 깜빡임 */
 @keyframes liarBlink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
 }
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulseTurn {
+    0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+}
+
+/* 라이어 타이머 UI */
+#liar-timer-ui {
+    background: rgba(15, 23, 42, 0.6);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 16px 24px;
+    border-radius: 16px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 20px;
+    display: none;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+#liar-timer-ui span {
+    font-family: 'Outfit', sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+#liar-timer-ui.timer-green { 
+    background: rgba(16, 185, 129, 0.15); 
+    border-color: rgba(16, 185, 129, 0.4); 
+    color: #34d399; 
+}
+#liar-timer-ui.timer-yellow { 
+    background: rgba(245, 158, 11, 0.15); 
+    border-color: rgba(245, 158, 11, 0.4); 
+    color: #fbbf24; 
+}
+#liar-timer-ui.timer-red { 
+    background: rgba(239, 68, 68, 0.15); 
+    border-color: rgba(239, 68, 68, 0.4); 
+    color: #f87171; 
+    animation: pulseTurn 1s infinite;
+}
+
+/* 공통 컨테이너 스타일 */
+.liar-glass-panel {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 32px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    animation: fadeInScale 0.4s ease-out;
+    color: #f1f5f9;
+}
+
+/* 역할 안내 카드 */
+.liar-role-card {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.liar-role-header {
+    font-size: 1.5rem;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.liar-role-badge {
+    display: inline-block;
+    padding: 8px 32px;
+    border-radius: 100px;
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.role-liar {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.role-citizen {
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.liar-category-label {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    margin-top: 24px;
+}
+
+.liar-category-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 8px 0;
+}
+
+.liar-word-label {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    margin-top: 24px;
+}
+
+.liar-word-value {
+    font-size: 4rem;
+    font-weight: 900;
+    letter-spacing: 8px;
+    margin: 12px 0;
+    background: linear-gradient(to bottom, #fff, #cbd5e1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.word-liar { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
+.word-citizen { color: #38bdf8 !important; -webkit-text-fill-color: #38bdf8 !important; }
+
+/* 힌트 리스트 */
+#live-hint-container {
+    margin-top: 40px;
+    text-align: left;
+}
+
+#live-hint-container h3 {
+    font-size: 1.25rem;
+    color: #cbd5e1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+}
+
+.liar-hint-list {
+    list-style: none;
+    padding: 0;
+}
+
+.liar-hint-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 4px solid #38bdf8;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    color: #e2e8f0;
+    transition: transform 0.2s;
+}
+
+.liar-hint-item:hover {
+    transform: translateX(5px);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.liar-hint-item strong {
+    color: #38bdf8;
+    margin-right: 8px;
+}
+
+/* 턴 제어 영역 */
+.liar-turn-panel {
+    margin-top: 32px;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.liar-turn-message {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.liar-input-group {
+    margin-top: 20px;
+}
+
+.liar-text-input {
+    width: 100%;
+    max-width: 400px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 14px 20px;
+    color: white;
+    font-size: 1.1rem;
+    outline: none;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+}
+
+.liar-text-input:focus {
+    border-color: #38bdf8;
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+}
+
+/* 투표 섹션 */
+.liar-voting-panel {
+    margin-top: 40px;
+}
+
+.liar-vote-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.liar-vote-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    color: #f1f5f9;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.liar-vote-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+}
+
+.liar-vote-btn i { font-size: 1.5rem; }
+
+/* 결과 패널 */
+.liar-result-panel {
+    text-align: center;
+}
+
+.liar-result-title {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 16px;
+}
+
+.liar-result-msg {
+    font-size: 1.5rem;
+    color: #cbd5e1;
+    margin-bottom: 32px;
+}
+
+.liar-final-reveal {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 32px 0;
+    flex-wrap: wrap;
+}
+
+.reveal-box {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px 40px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reveal-label {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.reveal-value {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.reveal-liar { color: #f87171; }
+.reveal-word { color: #38bdf8; }
+
+/* 실시간 타이핑 애니메이션 */
+.liar-char {
+    display: inline-block;
+    font-family: 'Outfit', sans-serif;
+}
+

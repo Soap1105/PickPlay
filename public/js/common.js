@@ -177,3 +177,26 @@ window.showConfirm = function(message, callback) {
 window.addChatMessage = addChatMessage;
 window.addSystemMessage = addSystemMessage;
 window.showToast = showToast;
+
+/**
+ * 공통 강퇴 버튼 생성 함수
+ * @param {Object} user - 강퇴 대상 유저 객체 {id, name, ...}
+ * @param {boolean} amIHost - 현재 사용자가 방장인지 여부
+ * @param {string} mySocketId - 현재 사용자의 소켓 ID
+ * @param {boolean} condition - 버튼을 표시할 추가 조건
+ * @returns {HTMLElement|null} 생성된 버튼 엘리먼트 또는 null
+ */
+window.createKickButton = function(user, amIHost, mySocketId, condition) {
+    if (amIHost && user.id !== mySocketId && condition) {
+        const kickBtn = document.createElement('button');
+        kickBtn.className = 'kick-btn';
+        kickBtn.textContent = '강퇴';
+        kickBtn.onclick = () => {
+            window.showConfirm(`${user.name}님을 강퇴하시겠습니까?`, () => {
+                socket.emit('kick user', user.id);
+            });
+        };
+        return kickBtn;
+    }
+    return null;
+};

@@ -165,22 +165,19 @@
         } else if (game === 'liar') {
             const hWinTarget = document.getElementById('win-target-select')?.value || '3';
 
-            modalIcon.textContent = '🕵️';
-            modalTitle.textContent = '라이어 게임 설정';
-            modalSubtitle.textContent = '목표 승수와 카테고리를 선택하세요';
+            modalTitle.textContent = '게임 설정';
             modalBody.innerHTML = `
                 <div class="smodal-section">
-                    <label class="smodal-label">🏆 목표 승수</label>
+                    <label class="smodal-label">목표 승수</label>
                     <select id="modal-liar-win-target" class="smodal-select">
                         <option value="2" ${hWinTarget === '2' ? 'selected' : ''}>2승</option>
-                        <option value="3" ${hWinTarget === '3' ? 'selected' : ''}>3승 (기본)</option>
+                        <option value="3" ${hWinTarget === '3' ? 'selected' : ''}>3승 </option>
                         <option value="4" ${hWinTarget === '4' ? 'selected' : ''}>4승</option>
-                        <option value="5" ${hWinTarget === '5' ? 'selected' : ''}>5승</option>
                     </select>
                 </div>
                 <div class="smodal-section">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <label class="smodal-label" style="margin:0;">📋 출제 카테고리</label>
+                        <label class="smodal-label" style="margin:0;">카테고리</label>
                         <div style="display:flex; gap:8px;">
                             <button id="liar-modal-all" class="smodal-small-btn smodal-btn-blue">모두 선택</button>
                             <button id="liar-modal-none" class="smodal-small-btn smodal-btn-red">모두 해제</button>
@@ -220,12 +217,10 @@
             const hShowTimerStr = document.getElementById('bomb-show-timer')?.value || 'true';
             const showTimerChecked = (hShowTimerStr === 'true');
 
-            modalIcon.textContent = '💣';
             modalTitle.textContent = '폭탄 돌리기 설정';
-            modalSubtitle.textContent = '생존 규칙과 게임 방식을 선택하세요';
             modalBody.innerHTML = `
                 <div class="smodal-section">
-                    <label class="smodal-label">❤️ 시작 하트 (목숨)</label>
+                    <label class="smodal-label">시작 목숨</label>
                     <div class="smodal-radio-group">
                         <label class="smodal-radio-card"><input type="radio" name="modal-bomb-hearts" value="1" ${hHearts === '1' ? 'checked' : ''}> <span>1개</span></label>
                         <label class="smodal-radio-card"><input type="radio" name="modal-bomb-hearts" value="2" ${hHearts === '2' ? 'checked' : ''}> <span>2개</span></label>
@@ -233,23 +228,23 @@
                     </div>
                 </div>
                 <div class="smodal-section">
-                    <label class="smodal-label">🎮 게임 모드</label>
+                    <label class="smodal-label">게임 모드</label>
                     <select id="modal-bomb-sub-mode" class="smodal-select">
-                        <option value="random" ${hSubMode === 'random' ? 'selected' : ''}>🎲 랜덤 서바이벌 (누구에게 튈지 모름)</option>
-                        <option value="tactical" ${hSubMode === 'tactical' ? 'selected' : ''}>🧠 전략 서바이벌 (지목 및 반사 가능)</option>
+                        <option value="random" ${hSubMode === 'random' ? 'selected' : ''}>랜덤 모드</option>
+                        <option value="tactical" ${hSubMode === 'tactical' ? 'selected' : ''}>전략 모드</option>
                     </select>
                     <p style="font-size:0.8rem; color:#aaa; margin: 6px 0 0;">전략 모드: 단어 뒤에 번호를 입력해 지목하거나, 빠른 답변으로 반사할 수 있습니다.</p>
                 </div>
                 <div class="smodal-section">
-                    <label class="smodal-label">🔥 폭탄 유지 시간</label>
+                    <label class="smodal-label">폭탄 시간</label>
                     <select id="modal-bomb-timer-range" class="smodal-select">
-                        <option value="short" ${hTimerRange === 'short' ? 'selected' : ''}>짧게 (15~30초) — 빠른 템포</option>
-                        <option value="medium" ${hTimerRange === 'medium' ? 'selected' : ''}>보통 (30~55초) — 기본</option>
-                        <option value="long" ${hTimerRange === 'long' ? 'selected' : ''}>길게 (50~80초) — 긴 호흡</option>
+                        <option value="short" ${hTimerRange === 'short' ? 'selected' : ''}>짧게 (15~30초) — 짧고 굵게</option>
+                        <option value="medium" ${hTimerRange === 'medium' ? 'selected' : ''}>보통 (30~55초) — 적당한 긴장감</option>
+                        <option value="long" ${hTimerRange === 'long' ? 'selected' : ''}>길게 (50~80초) — 길고 여유롭게</option>
                     </select>
                 </div>
                 <div class="smodal-section smodal-toggle-row">
-                    <label class="smodal-label" style="margin:0;">⏱️ 타이머 화면 표시</label>
+                    <label class="smodal-label" style="margin:0;">타이머 표시</label>
                     <label class="smodal-toggle">
                         <input type="checkbox" id="modal-bomb-show-timer" ${showTimerChecked ? 'checked' : ''}>
                         <span class="smodal-toggle-slider"></span>
@@ -257,7 +252,7 @@
                 </div>
                 <div class="smodal-section">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <label class="smodal-label" style="margin:0;">📋 출제 카테고리</label>
+                        <label class="smodal-label" style="margin:0;">카테고리</label>
                         <div style="display:flex; gap:8px;">
                             <button id="bomb-modal-all" class="smodal-small-btn smodal-btn-blue">모두 선택</button>
                             <button id="bomb-modal-none" class="smodal-small-btn smodal-btn-red">모두 해제</button>

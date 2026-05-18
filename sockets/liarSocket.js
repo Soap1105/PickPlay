@@ -75,17 +75,35 @@ module.exports = (io, socket, gameRooms) => {
 
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig.winTarget);
         socket.emit('system message', `목표 승수가 ${data.winTarget}승으로 설정되었습니다.`);
-
-        // 그리고 바로 최초 시작 처리
-        startRound(socket.roomId);
+        
+        // 카운트다운 후 시작
+        startLiarCountdown(socket.roomId);
     });
 
     // 다음 라운드 시작
     socket.on('next liar round', () => {
         const room = gameRooms[socket.roomId];
         if (!room || room.hostId !== socket.id) return;
-        startRound(socket.roomId);
+        startRound(socket.roomId); // Task 4-12: 카운트다운 생략
     });
+
+    function startLiarCountdown(roomId) {
+        const room = gameRooms[roomId];
+        if (!room) return;
+
+        io.to(roomId).emit('liar game countdown start', 3);
+        
+        let count = 3;
+        const interval = setInterval(() => {
+            count--;
+            if (count > 0) {
+                io.to(roomId).emit('liar game countdown tick', count);
+            } else {
+                clearInterval(interval);
+                startRound(roomId);
+            }
+        }, 1000);
+    }
 
     function startRound(roomId) {
         const room = gameRooms[roomId];
@@ -281,6 +299,7 @@ module.exports = (io, socket, gameRooms) => {
         const voterName = room.players[socket.id]?.name || '알수없음';
 
         io.to(socket.roomId).emit('system message', `[투표] ${voterName}님이 투표를 완료했습니다.`);
+        io.to(socket.roomId).emit('liar player voted', socket.id);
         io.to(socket.roomId).emit('vote updated', room.liarGame.votes); // 중간 결과 UI 업데이트용
 
         // 전원 투표 완료 시 결과 집계
@@ -456,6 +475,22 @@ module.exports = (io, socket, gameRooms) => {
         })).sort((a, b) => b.score - a.score);
 
         io.to(roomId).emit('round over', resultData);
+
+        // Task 4-4: 다음 라운드 자동 진행 (최종 종료가 아닐 때만)
+        if (!resultData.isFinalGameOver) {
+            let autoNextCount = 8; // 8초 후 자동 시작
+            const autoNextInterval = setInterval(() => {
+                autoNextCount--;
+                if (autoNextCount <= 0) {
+                    clearInterval(autoNextInterval);
+                    // 방이 여전히 ROUND_OVER 상태이고 유저가 3명 이상이면 시작
+                    const currentRoom = gameRooms[roomId];
+                    if (currentRoom && currentRoom.status === 'ROUND_OVER' && Object.keys(currentRoom.players).length >= 3) {
+                        startRound(roomId); // Task 4-12: 카운트다운 생략
+                    }
+                }
+            }, 1000);
+        }
     }
 
     socket.on('restart liar game', () => {

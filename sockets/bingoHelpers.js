@@ -32,11 +32,6 @@ function endGame(io, room, roomId, winnerName) {
     }));
 
     io.to(roomId).emit('game over', { winner: winnerName, stats });
-    if (winnerName === '무승부') {
-        io.to(roomId).emit('system message', `🤝 게임 종료! 모든 칸이 채워져 무승부로 처리되었습니다.`);
-    } else {
-        io.to(roomId).emit('system message', `🏆 게임 종료! 승자는 ${winnerName}님입니다!`);
-    }
 
     room.gameStarted = false;
     room.status = 'WAITING';

@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         *,
         *::before,
@@ -388,9 +389,8 @@
 
         // 저장된 값 복원
         const savedNickname = localStorage.getItem('pp_nickname') || '';
-        const savedEmoji = localStorage.getItem('pp_emoji') || '🐱';
-
-        let emojiIndex = EMOJIS.indexOf(savedEmoji);
+        const savedEmoji = localStorage.getItem('pp_emoji');
+        let emojiIndex = savedEmoji ? EMOJIS.indexOf(savedEmoji) : Math.floor(Math.random() * EMOJIS.length);
         if (emojiIndex < 0) emojiIndex = 0;
 
         function updateDisplay() {

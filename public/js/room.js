@@ -89,11 +89,6 @@ socket.on('update user list', (users) => {
         let hostCrown = user.id === socket.id && isHost ? '👑 ' : '';
         if (users[0] && users[0].id === user.id) hostCrown = '👑 '; // First user is host in sorted list
 
-        let kickBtnHTML = '';
-        if (isHost && user.id !== socket.id && window.gameType === 'lobby') {
-            kickBtnHTML = `<button class="kick-btn" onclick="kickUser('${user.id}')">강퇴</button>`;
-        }
-
         userDiv.innerHTML = `
             <div class="avatar-wrapper">
                 <div class="avatar">${user.avatar}</div>
@@ -101,17 +96,14 @@ socket.on('update user list', (users) => {
             <div class="user-info">
                 <div class="nickname">${hostCrown}${user.name}</div>
             </div>
-            ${kickBtnHTML}
         `;
+
+        const kickBtn = window.createKickButton(user, isHost, socket.id, window.gameType === 'lobby');
+        if (kickBtn) userDiv.appendChild(kickBtn);
+
         userGrid.appendChild(userDiv);
     });
 });
-
-function kickUser(userId) {
-    window.showConfirm(`"${userId}" 플레이어를 강퇴하시겠습니까?`, () => {
-        socket.emit('kick user', userId);
-    });
-}
 
 // Host selects a game
 gameSelectBtns.forEach(btn => {

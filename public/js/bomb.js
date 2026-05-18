@@ -10,12 +10,12 @@
     const bombResultMsg = document.getElementById('bomb-result-msg');
     const bombRoundResult = document.getElementById('bomb-round-result');
     const bombGraphic = document.getElementById('bomb-graphic');
-    
+
     const startGameBombBtn = document.getElementById('start-game-bomb');
     const openSettingsBombBtn = document.getElementById('open-settings-bomb');
     const nextBombRoundBtn = document.getElementById('next-bomb-round-btn');
     const returnLobbyBtns = document.querySelectorAll('.return-lobby-btn');
-    
+
     const resultModal = document.getElementById('result-modal');
     const resultTitle = document.getElementById('result-title');
     const resultWinner = document.getElementById('result-winner');
@@ -42,7 +42,7 @@
         const setupArea = bombContainer.querySelector('.bomb-setup');
         const waitingArea = bombContainer.querySelector('.bomb-waiting');
         const playerUI = bombContainer.querySelector('.bomb-player-ui');
-        
+
         window.currentBombTurnId = null; // 초기화
 
         if (isHost) {
@@ -52,7 +52,7 @@
             setupArea.style.display = 'none';
             if (waitingArea) waitingArea.style.display = 'block';
         }
-        
+
         if (playerUI) playerUI.style.display = 'none';
         bombInputArea.style.display = 'none';
         bombRoundResult.style.display = 'none';
@@ -92,9 +92,9 @@
             if (user.id === socket.id) slot.classList.add('is-me');
             if (isGameActive && window.currentBombTurnId === user.id) slot.classList.add('is-turn');
 
-            const heartCount = (window.bombHearts && window.bombHearts[user.id] !== undefined) 
-                               ? window.bombHearts[user.id] 
-                               : bombMaxHearts;
+            const heartCount = (window.bombHearts && window.bombHearts[user.id] !== undefined)
+                ? window.bombHearts[user.id]
+                : bombMaxHearts;
             const isDead = heartCount <= 0;
             if (isGameActive && isDead) slot.classList.add('is-dead');
 
@@ -138,7 +138,7 @@
             const hSubMode = document.getElementById('bomb-sub-mode')?.value || 'random';
             const hTimerRange = document.getElementById('bomb-timer-range')?.value || 'medium';
             const hShowTimerStr = document.getElementById('bomb-show-timer')?.value || 'true';
-            
+
             if (!window.bombSelectedCategories || window.bombSelectedCategories.length === 0) {
                 if (window.showToast) window.showToast('최소 한 개의 카테고리를 선택해야 합니다!', 'warning');
                 return;
@@ -191,19 +191,19 @@
         if (!scoreDisplay) return;
         scoreDisplay.style.display = 'none';
         scoreDisplay.innerHTML = '';
-        
+
         const sortedIds = Object.keys(hearts).sort();
         sortedIds.forEach((pid, index) => {
             const heartCount = hearts[pid];
             const pName = window.playerNames ? (window.playerNames[pid] || '...') : '...';
             const isMe = (pid === socket.id);
             const isDead = (heartCount <= 0);
-            
+
             const card = document.createElement('div');
             card.className = `player-score-card ${isMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
-            
+
             let heartHtml = '';
-            for(let i=0; i<bombMaxHearts; i++) {
+            for (let i = 0; i < bombMaxHearts; i++) {
                 if (i < heartCount) heartHtml += '❤️';
                 else heartHtml += '🖤';
             }
@@ -221,14 +221,14 @@
         isMyTurn = (turnId === socket.id);
         if (isMyTurn) {
             if (bombCurrentTurn) {
-                bombCurrentTurn.textContent = "👉 당신의 차례입니다! 빨리 입력하세요!";
+                bombCurrentTurn.textContent = "당신의 차례입니다!";
                 bombCurrentTurn.style.color = "#e74c3c";
             }
             if (bombInputArea) bombInputArea.style.display = 'block';
             if (bombWordInput) bombWordInput.focus();
         } else {
             if (bombCurrentTurn) {
-                bombCurrentTurn.textContent = "⏳ 다른 플레이어가 입력 중입니다...";
+                bombCurrentTurn.textContent = "다른 플레이어가 입력 중입니다...";
                 bombCurrentTurn.style.color = "#999";
             }
             if (bombInputArea) bombInputArea.style.display = 'none';
@@ -239,7 +239,7 @@
         const setupArea = bombContainer.querySelector('.bomb-setup');
         const waitingArea = bombContainer.querySelector('.bomb-waiting');
         const playerUI = bombContainer.querySelector('.bomb-player-ui');
-        
+
         if (setupArea) setupArea.style.display = 'none';
         if (waitingArea) waitingArea.style.display = 'none';
         if (playerUI) playerUI.style.display = 'block';
@@ -251,7 +251,7 @@
         bombRoundResult.style.display = 'none';
         if (bombUsedWordsList) bombUsedWordsList.innerHTML = '';
         if (bombCategory) bombCategory.textContent = `주제: ${data.category}`;
-        
+
         if (bombGraphic) {
             bombGraphic.className = 'bomb-ticking';
             bombGraphic.innerHTML = `
@@ -297,11 +297,11 @@
             bombUsedWordsList.insertBefore(wordSpan, bombUsedWordsList.firstChild);
             bombUsedWordsList.insertBefore(document.createTextNode(' '), wordSpan.nextSibling);
         }
-        
+
         if (reflect) {
             showCenterMessage(`🔄 ${senderName}님의 초고속 반사!`, '#3498db');
         }
-        
+
         // 턴 전환은 'bomb turn changed' 이벤트를 기다림
     });
 
@@ -321,8 +321,8 @@
     });
 
     socket.on('bomb exploded', (data) => {
-        const { loserId, loserName, message, isGameOver, winner, stats } = data;
-        
+        const { loserId, loserName, message, isGameOver, winner, stats, revealWord } = data;
+
         document.body.classList.add('bomb-screen-flash');
         setTimeout(() => document.body.classList.remove('bomb-screen-flash'), 500);
 
@@ -332,15 +332,24 @@
         }
         if (bombTimerText) bombTimerText.style.display = 'none';
 
-        if (bombResultMsg) bombResultMsg.textContent = message;
-        data_message_cache = message;
+        if (bombResultMsg) {
+            bombResultMsg.textContent = message;
+            // 남은 단어 힌트 표시
+            if (revealWord) {
+                const hintEl = document.createElement('div');
+                hintEl.style.cssText = 'margin-top: 10px; font-size: 0.95rem; color: #f1c40f; opacity: 0.85;';
+                hintEl.textContent = `💡 남은 단어: ${revealWord}`;
+                bombResultMsg.appendChild(hintEl);
+            }
+        }
+        data_message_cache = bombResultMsg ? bombResultMsg.innerHTML : message;
         if (bombRoundResult) bombRoundResult.style.display = 'block';
 
         if (isGameOver) {
             setTimeout(() => {
                 if (!resultModal) return;
-                resultTitle.textContent = "💣 폭탄 돌리기 종료 💣";
-                resultWinner.innerHTML = `🏆 최종 승자: <span style="font-size: 2rem;">${winner.name}</span> 🏆`;
+                resultTitle.textContent = "게임 종료";
+                resultWinner.innerHTML = `승자: <span style="font-size: 2rem;">${winner.name}</span>`;
                 if (resultStatHeader1) resultStatHeader1.textContent = "남은 하트";
                 if (resultStatHeader2) resultStatHeader2.textContent = "상태";
 
@@ -381,7 +390,7 @@
         msgEl.style.color = color;
         msgEl.style.opacity = '1';
         msgEl.style.display = 'block';
-        
+
         setTimeout(() => {
             msgEl.style.opacity = '0';
             setTimeout(() => { msgEl.style.display = 'none'; }, 500);
@@ -391,6 +400,37 @@
     socket.on('bomb next round countdown', (countdown) => {
         if (bombResultMsg) {
             bombResultMsg.innerHTML = `${data_message_cache}<br><span style="color: #f1c40f; font-size: 0.9rem; margin-top: 10px; display: block;">⏳ ${countdown}초 후 자동으로 다음 라운드가 시작됩니다.</span>`;
+        }
+    });
+
+    function showSpeechBubble(playerId, text) {
+        // 게임이 활성 상태인지 확인
+        const playerUI = bombContainer.querySelector('.bomb-player-ui');
+        if (!playerUI || playerUI.style.display !== 'block') return;
+
+        const slot = document.querySelector(`#bomb-arena-players .arena-player-slot[data-player-id="${playerId}"]`);
+        if (!slot) return;
+
+        // 기존 말풍선 제거
+        const existing = slot.querySelector('.speech-bubble');
+        if (existing) existing.remove();
+
+        const bubble = document.createElement('div');
+        bubble.className = 'speech-bubble';
+        // 텍스트 최대 20자 제한
+        bubble.textContent = text.length > 20 ? text.slice(0, 20) + '…' : text;
+        slot.appendChild(bubble);
+
+        // 3초 후 페이드아웃 제거
+        setTimeout(() => {
+            bubble.style.opacity = '0';
+            setTimeout(() => { if (bubble.parentNode) bubble.remove(); }, 400);
+        }, 3000);
+    }
+
+    socket.on('chat message', (data) => {
+        if (data.socketId) {
+            showSpeechBubble(data.socketId, data.message);
         }
     });
 

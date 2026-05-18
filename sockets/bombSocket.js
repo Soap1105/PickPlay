@@ -92,6 +92,12 @@ module.exports = (io, socket, gameRooms) => {
 
         console.log(`[Bomb] Exploded! Loser: ${loserName}(${loserId}). Remaining Hearts: ${room.bombGame.hearts[loserId]}`);
 
+        // 남은 단어 중 하나를 랜덤으로 공개
+        const remainingWords = room.bombGame.wordPool.filter(w => !room.bombGame.usedWords.includes(w));
+        const revealWord = remainingWords.length > 0
+            ? remainingWords[Math.floor(Math.random() * remainingWords.length)]
+            : null;
+
         // 생존자 체크
         const survivors = Object.keys(room.players).filter(pid => room.bombGame.hearts[pid] > 0);
         let finalWinner = null;
@@ -127,7 +133,8 @@ module.exports = (io, socket, gameRooms) => {
                     : `💥 퍼엉! ${loserName}님이 터졌습니다! 🛑 전원 탈락으로 무승부입니다.`,
                 isGameOver: true,
                 winner: finalWinner,
-                stats: stats
+                stats: stats,
+                revealWord: revealWord
             });
         } else {
             room.status = 'ROUND_OVER';
@@ -135,7 +142,8 @@ module.exports = (io, socket, gameRooms) => {
                 loserId: loserId,
                 loserName: loserName,
                 message: `💥 퍼엉! ${loserName}님의 하트가 깎였습니다! (남은 하트: ${room.bombGame.hearts[loserId]}개)`,
-                isGameOver: false
+                isGameOver: false,
+                revealWord: revealWord
             });
 
             // 5초 후 자동 다음 라운드
@@ -344,6 +352,16 @@ module.exports = (io, socket, gameRooms) => {
 
         room.bombGame.lastSenderId = socket.id;
 
+        // 단어 수락 - 메인 타이머 일시 정지 (턴 전환 딜레이 동안 시간이 흐르지 않도록)
+        if (room.bombGame.timerInterval) {
+            clearInterval(room.bombGame.timerInterval);
+            room.bombGame.timerInterval = null;
+        }
+        if (room.bombGame.turnTimeout) {
+            clearTimeout(room.bombGame.turnTimeout);
+            room.bombGame.turnTimeout = null;
+        }
+
         // 성공 이벤트 먼저 전송 (화면에 단어 표시)
         io.to(socket.roomId).emit('bomb word accepted', {
             word: cleanWord,
@@ -379,6 +397,28 @@ module.exports = (io, socket, gameRooms) => {
                     nextTurnId: nextPId
                 });
                 startTurnTimeout(socket.roomId); // 다음 사람 턴 타이머 시작
+
+                // 메인 타이머 재개 (남은 시간부터 이어서)
+                room.bombGame.timerInterval = setInterval(() => {
+                    const currentRoom = gameRooms[socket.roomId];
+                    if (!currentRoom || !currentRoom.bombGame) {
+                        clearInterval(room.bombGame.timerInterval);
+                        room.bombGame.timerInterval = null;
+                        return;
+                    }
+
+                    room.bombGame.timeLeft--;
+
+                    if (room.bombGame.timeLeft > 0) {
+                        io.to(socket.roomId).emit('bomb timer tick', { 
+                            timeLeft: room.bombGame.timeLeft,
+                            showTimer: room.bombGameConfig.showTimer
+                        });
+                    } else {
+                        clearBombTimer(socket.roomId);
+                        explodeBomb(socket.roomId);
+                    }
+                }, 1000);
             }
         }, 1000);
     });

@@ -288,9 +288,11 @@
     max-width: 600px;
     margin-left: auto;
     margin-right: auto;
-    overflow-x: auto;
+    overflow: hidden;
     white-space: nowrap;
     border: 1px dashed rgba(255, 255, 255, 0.1);
+    -webkit-mask-image: linear-gradient(to right, #000 75%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 75%, transparent 100%);
 }
 
 #bomb-words-list span {
@@ -356,4 +358,43 @@
 
 .return-lobby-btn:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+/* 폭탄 게임 채팅 말풍선 */
+.speech-bubble {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 30, 50, 0.92);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.4s ease;
+    animation: bubbleIn 0.2s ease;
+}
+
+.speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(30, 30, 50, 0.92);
+}
+
+@keyframes bubbleIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
 }
