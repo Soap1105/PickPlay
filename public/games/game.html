@@ -680,9 +680,11 @@
                     <h2 id="theme-title" style="display: none;"></h2>
                     <div id="turn-display" style="display: none;"></div>
                     <div id="turn-timer-bar"
-                        style="display: none; width: 100%; height: 5px; background: #eee; margin-top: -10px; margin-bottom: 10px; border-radius: 5px; overflow: hidden;">
+                        style="display: none; width: 100%; height: 40px; background: rgba(255,255,255,0.08); margin-top: 6px; margin-bottom: 10px; border-radius: 12px; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
                         <div id="turn-timer-progress"
-                            style="width: 100%; height: 100%; background: #e74c3c; transition: width 1s linear;"></div>
+                            style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #2ecc71; transition: width 0.1s linear;"></div>
+                        <span id="turn-timer-seconds"
+                            style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 1rem; font-weight: 800; color: #fff; z-index: 2; text-shadow: 0 1px 4px rgba(0,0,0,0.6); letter-spacing: 0.02em; pointer-events: none;"></span>
                     </div>
                     <div id="called-numbers-display"></div>
                     <div id="bingo-board"></div>

@@ -59,6 +59,9 @@
             const nickname = document.createElement('div');
             nickname.className = 'nickname';
             nickname.textContent = user.name;
+            if (window.getUserBadgeHtml) {
+                nickname.innerHTML += window.getUserBadgeHtml(user);
+            }
 
             infoDiv.appendChild(nickname);
 
@@ -171,14 +174,9 @@
             const winTarget = parseInt(document.getElementById('win-target-select')?.value || '3');
             const categories = window.liarSelectedCategories; 
             
-            if (!categories || categories.length === 0) {
-                if (window.showToast) window.showToast('최소 한 개의 카테고리를 선택해야 합니다!', 'warning');
-                return;
-            }
-            
             socket.emit('setup liar game', {
                 winTarget: winTarget,
-                categories: categories
+                categories: categories || []
             });
         });
     }
@@ -453,25 +451,140 @@
         if (liarTimerUI) liarTimerUI.style.display = 'none';
 
         if (result.isFinalGameOver) {
-            showLiarResultModal(result);
+            // [작업 4 통합 UI 개선] 최종 게임 종료 시, 모달 대신 메인 화면에 직접 스코어보드와 결과를 통합 렌더링
+            const hostDisplay = amIHost ? 'block' : 'none';
+            const guestDisplay = amIHost ? 'none' : 'block';
+
+            const btnHtml = `
+                <div style="margin-top: 36px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+                    <div style="display: flex; gap: 14px; justify-content: center; width: 100%; max-width: 400px;">
+                        <button id="liar-confirm-result-btn" class="start-btn" style="flex: 1; padding: 14px 28px; font-size: 1rem; background: linear-gradient(135deg, #34495e, #2c3e50); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                            확인 완료
+                        </button>
+                        ${amIHost ? `
+                        <button id="restart-liar-btn" class="start-btn" style="flex: 1; padding: 14px 28px; font-size: 1rem; background: linear-gradient(135deg, #e74c3c, #c0392b); box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);">
+                            게임 초기화
+                        </button>
+                        ` : ''}
+                    </div>
+                    ${!amIHost ? `
+                    <div style="color: #94a3b8; font-size: 0.9rem;">
+                        ⏳ 방장이 게임을 초기화할 때까지 대기해주세요.
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            playerUI.innerHTML = `
+                <div class="liar-glass-panel liar-result-panel" style="border-top: 8px solid #fbbf24; max-width: 650px; margin: 0 auto;">
+                    <div style="font-size: 4rem; text-align: center; margin-bottom: 10px; animation: emojiPop 0.5s ease-out;">🏆</div>
+                    <div class="liar-result-title" style="color: #fbbf24; font-size: 2.4rem; text-shadow: 0 0 20px rgba(251, 191, 36, 0.4); margin-bottom: 12px;">
+                        FINAL GAME OVER
+                    </div>
+                    <div style="margin: 20px 0 30px;">
+                        <h2 style="color: #fff; font-size: 1.6rem; margin: 0; line-height: 1.4;">
+                            ${result.finalMessage || '게임이 최종 종료되었습니다.'}
+                        </h2>
+                    </div>
+
+                    <div class="liar-final-reveal" style="margin: 24px 0; gap: 20px;">
+                        <div class="reveal-box" style="padding: 15px 30px; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);">
+                            <div class="reveal-label">마지막 진짜 라이어</div>
+                            <div class="reveal-value reveal-liar" style="font-size: 1.6rem;">${result.liarName}</div>
+                        </div>
+                        <div class="reveal-box" style="padding: 15px 30px; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3);">
+                            <div class="reveal-label">마지막 정답 단어</div>
+                            <div class="reveal-value reveal-word" style="font-size: 1.6rem;">${result.word}</div>
+                        </div>
+                    </div>
+
+                    <!-- 최종 스코어보드 -->
+                    <div style="width: 100%; margin-top: 30px; background: rgba(0,0,0,0.2); border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.04); border-bottom: 2px solid rgba(255,255,255,0.08);">
+                                    <th style="padding: 14px 18px; color: #94a3b8; font-size: 0.9rem; font-weight: bold;">순위</th>
+                                    <th style="padding: 14px 18px; color: #94a3b8; font-size: 0.9rem; font-weight: bold;">플레이어</th>
+                                    <th style="padding: 14px 18px; color: #94a3b8; font-size: 0.9rem; font-weight: bold;">최종 승수</th>
+                                    <th style="padding: 14px 18px; color: #94a3b8; font-size: 0.9rem; font-weight: bold;">마지막 역할</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${result.stats ? result.stats.map((stat, idx) => {
+                                    const isWinner = stat.score >= (window.winTarget || 3);
+                                    const rowBg = isWinner ? 'background: rgba(251, 191, 36, 0.08); font-weight: bold;' : 'border-bottom: 1px solid rgba(255,255,255,0.04);';
+                                    const nameColor = stat.id === socket.id ? 'color: #38bdf8;' : 'color: #f1f5f9;';
+                                    const roleColor = stat.isLiar ? '<span style="color:#ef4444; font-weight:700;">라이어</span>' : '<span style="color:#cbd5e1;">시민</span>';
+                                    const rankText = idx + 1;
+                                    return `
+                                        <tr style="${rowBg}">
+                                            <td style="padding: 14px 18px; color: ${isWinner ? '#fbbf24' : '#94a3b8'};">${rankText}위</td>
+                                            <td style="padding: 14px 18px; ${nameColor}">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
+                                            <td style="padding: 14px 18px; color: #fbbf24; font-size: 1.05rem;">${stat.score}승</td>
+                                            <td style="padding: 14px 18px;">${roleColor}</td>
+                                        </tr>
+                                    `;
+                                }).join('') : ''}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 마지막 라운드 제출 설명 -->
+                    ${result.turnOrder && result.turnOrder.length > 0 ? `
+                    <div class="liar-submissions-box" style="width: 100%; margin-top: 30px;">
+                        <h4 style="color: #94a3b8; margin-bottom: 14px; text-align: left;"><i class="fas fa-list-ul"></i> 마지막 라운드 제출 설명</h4>
+                        <div style="text-align: left; max-height: 180px; overflow-y: auto; padding-right: 8px;">
+                            ${result.turnOrder.map(pid => {
+                                const name = result.playerNames[pid] || '알수없음';
+                                const desc = result.submissions[pid] || '';
+                                return `
+                                    <div style="margin-bottom: 10px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.04);">
+                                        <strong style="color: #38bdf8;">${name}:</strong> 
+                                        <span style="color: #e2e8f0;">"${desc}"</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${btnHtml}
+                </div>
+            `;
+
+            setTimeout(() => {
+                const confirmBtn = document.getElementById('liar-confirm-result-btn');
+                if (confirmBtn) {
+                    confirmBtn.onclick = () => {
+                        socket.emit('confirm result');
+                        confirmBtn.disabled = true;
+                        confirmBtn.textContent = "확인 완료 ✓";
+                        confirmBtn.style.opacity = '0.6';
+                        confirmBtn.style.background = '#475569';
+                    };
+                }
+
+                const restartBtn = document.getElementById('restart-liar-btn');
+                if (restartBtn) {
+                    restartBtn.onclick = () => socket.emit('restart liar game');
+                }
+            }, 100);
+            return;
         }
 
-        const hostBtnId = result.isFinalGameOver ? 'restart-liar-btn' : 'next-round-btn';
-        const hostBtnText = result.isFinalGameOver ? '게임 초기화' : '다음 라운드 시작';
-        const hostBtnColor = result.isFinalGameOver ? '' : 'background:#3498db;';
+        const hostBtnId = 'next-round-btn';
+        const hostBtnText = '다음 라운드 시작';
+        const hostBtnColor = 'background:#3498db;';
 
         const hostBtnHtml = `<button id="${hostBtnId}" class="start-btn" style="${hostBtnColor} margin-top: 30px; width: auto; padding: 15px 40px;">${hostBtnText}</button>`;
-        const guestText = result.isFinalGameOver ? '방장이 게임을 초기화할 때까지 대기해주세요.' : ''; // Task 4-13
+        const guestText = ''; 
 
         const hostDisplay = amIHost ? 'block' : 'none';
         const guestDisplay = amIHost ? 'none' : 'block';
 
-        let autoNextMsg = '';
-        if (!result.isFinalGameOver) {
-            autoNextMsg = `<div id="auto-next-timer" style="margin-top: 15px; color: #94a3b8; font-size: 0.9rem;">
-                <span id="auto-next-seconds">8</span>초 후 다음 라운드가 자동으로 시작됩니다...
-            </div>`;
-        }
+        let autoNextMsg = `<div id="auto-next-timer" style="margin-top: 15px; color: #94a3b8; font-size: 0.9rem;">
+            <span id="auto-next-seconds">8</span>초 후 다음 라운드가 자동으로 시작됩니다...
+        </div>`;
 
         const btnHtml = `
             <div id="host-buttons" style="display: ${hostDisplay};">
@@ -486,11 +599,9 @@
         playerUI.innerHTML = `
         <div class="liar-glass-panel liar-result-panel" style="border-top: 8px solid ${result.citizensWon ? '#10b981' : '#ef4444'};">
             <div class="liar-result-title" style="color: ${result.citizensWon ? '#10b981' : '#ef4444'};">
-                ${result.isFinalGameOver ? 'FINAL GAME OVER' : 'ROUND OVER'}
+                ROUND OVER
             </div>
             <div class="liar-result-msg">${result.message}</div>
-            
-            ${result.isFinalGameOver ? `<h1 style="font-size: 3rem; color: #fbbf24; margin-bottom: 32px; text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);">${result.finalMessage}</h1>` : ''}
             
             <div class="liar-final-reveal">
                 <div class="reveal-box">
@@ -524,22 +635,17 @@
     `;
 
         setTimeout(() => {
-            const restartBtn = document.getElementById('restart-liar-btn');
-            if (restartBtn) restartBtn.onclick = () => socket.emit('restart liar game');
-
             const nextBtn = document.getElementById('next-round-btn');
             if (nextBtn) nextBtn.onclick = () => socket.emit('next liar round');
 
             // 자동 시작 카운트다운 타이머 (UI 표시용)
-            if (!result.isFinalGameOver) {
-                let seconds = 8;
-                const timerSpan = document.getElementById('auto-next-seconds');
-                const interval = setInterval(() => {
-                    seconds--;
-                    if (timerSpan) timerSpan.textContent = seconds;
-                    if (seconds <= 0) clearInterval(interval);
-                }, 1000);
-            }
+            let seconds = 8;
+            const timerSpan = document.getElementById('auto-next-seconds');
+            const interval = setInterval(() => {
+                seconds--;
+                if (timerSpan) timerSpan.textContent = seconds;
+                if (seconds <= 0) clearInterval(interval);
+            }, 1000);
         }, 100);
     });
 
@@ -607,8 +713,12 @@
     });
 
     socket.on('game restarted', () => {
+        window.liarVotes = {};
+        window.gameScores = {};
         liarGameStarted = false;
         playerUI.innerHTML = '';
+        if (liarTimerUI) liarTimerUI.style.display = 'none';
+
         if (amIHost) {
             setupArea.style.display = 'block';
             waitingArea.style.display = 'none';
@@ -618,6 +728,7 @@
         }
         if (window.gameType === 'liar' && currentUsers.length > 0) {
             window.updateLiarRoleUI(amIHost);
+            window.renderLiarUsers(currentUsers, amIHost);
         }
     });
 
@@ -671,6 +782,16 @@
             winnerHtml = `<div style="color: ${winColor}; font-size: 2.5rem; font-weight: 900; margin-bottom: 12px;">${winTeam}!</div>`;
         }
 
+        // [작업 4] 방장의 경우 게임 초기화 버튼을 띄우고 클릭 시 소켓 전송 및 모달 닫기
+        // 게스트의 경우 방장의 조작 대기 텍스트 표시
+        const controlHtml = amIHost
+            ? `<div style="margin-top: 28px; text-align: center;">
+                 <button class="start-btn" style="width: auto; padding: 12px 36px; font-size: 1rem;" onclick="socket.emit('restart liar game'); document.getElementById('result-modal').style.display='none';">게임 초기화</button>
+               </div>`
+            : `<div style="margin-top: 28px; text-align: center; color: #94a3b8; font-size: 0.95rem;">
+                 방장이 게임을 초기화할 때까지 대기해주세요.
+               </div>`;
+
         resultWinner.innerHTML = `
             ${winnerHtml}
             <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px;">
@@ -684,6 +805,7 @@
                     <div style="font-size: 1.2rem; color: #38bdf8; font-weight: bold;">${result.word}</div>
                 </div>
             </div>
+            ${controlHtml}
         `;
 
         if (resultStatHeader1) resultStatHeader1.textContent = "최종 승수";
@@ -709,9 +831,7 @@
 
         closeResultBtn.onclick = () => {
             resultModal.style.display = 'none';
-            if (amIHost) {
-                socket.emit('return to lobby');
-            }
+            socket.emit('confirm result');
         };
     }
 

@@ -44,7 +44,14 @@ exports.createTheme = async (req, res) => {
     }
 };
 
-// [NEW] AI 빙고 주제 자동 생성 (DB 캐싱 + 실시간 진행률 중계)
+// 방(Room)별 및 사용자별 AI 생성 쿨타임 관리 맵 (단위: ms)
+const AI_COOLDOWN_MAP = {
+    rooms: {}, // roomId: timestamp
+    users: {}  // userId: timestamp
+};
+const COOLDOWN_DURATION = 30 * 1000; // 30초
+
+// [NEW] AI 빙고 주제 자동 생성 (DB 캐싱 + 실시간 진행률 중계 + 서버 복합 쿨타임 보호)
 exports.generateThemeWords = async (req, res) => {
     const { title, userId, roomId } = req.body;
     const io = req.io;
@@ -74,10 +81,41 @@ exports.generateThemeWords = async (req, res) => {
             return res.json({ success: true, themeId: cachedTheme.id, words: cachedTheme.words, source: 'cache' });
         }
 
+        // 2. 쿨타임 검증 (캐시 미스로 인해 실제 AI 호출이 필요한 시점에만 검사)
+        const now = Date.now();
+        
+        // 방 기준 쿨타임 검사
+        if (roomId && AI_COOLDOWN_MAP.rooms[roomId]) {
+            const timePassed = now - AI_COOLDOWN_MAP.rooms[roomId];
+            if (timePassed < COOLDOWN_DURATION) {
+                const remaining = Math.ceil((COOLDOWN_DURATION - timePassed) / 1000);
+                reportProgress("쿨타임 대기 중...", 0);
+                return res.status(429).json({ 
+                    error: 'cooldown', 
+                    message: `AI 테마 생성 쿨타임 대기 중입니다. (남은 시간: ${remaining}초)`,
+                    remainingTime: remaining
+                });
+            }
+        }
+
+        // 유저 기준 쿨타임 검사
+        if (userId && AI_COOLDOWN_MAP.users[userId]) {
+            const timePassed = now - AI_COOLDOWN_MAP.users[userId];
+            if (timePassed < COOLDOWN_DURATION) {
+                const remaining = Math.ceil((COOLDOWN_DURATION - timePassed) / 1000);
+                reportProgress("쿨타임 대기 중...", 0);
+                return res.status(429).json({ 
+                    error: 'cooldown', 
+                    message: `과도한 요청 방지를 위해 쿨타임 대기 중입니다. (남은 시간: ${remaining}초)`,
+                    remainingTime: remaining
+                });
+            }
+        }
+
         reportProgress("AI 모델 호출 및 데이터 수집 중 (약 10~20초)...", 30);
         console.log(`[Cache Miss] '${title}' - AI에게 생성을 요청합니다.`);
         
-        // 2. DB에 없으면 Gemini 호출
+        // 3. DB에 없으면 Gemini 호출
         const aiResult = await geminiService.generateBingoWords(title);
 
         if (aiResult.status === "error") {
@@ -97,9 +135,14 @@ exports.generateThemeWords = async (req, res) => {
             }
             
             reportProgress("최종 결과 저장 중...", 90);
-            // 3. AI가 생성 성공 시 -> DB 저장
+            // 4. AI가 생성 성공 시 -> DB 저장
             const themeId = await ThemeModel.createTheme(userId, title, aiResult.words, 'System-GeminiAI');
             
+            // ★ AI 호출 최종 성공 시에만 쿨타임 타임스탬프 갱신 ★
+            const finalNow = Date.now();
+            if (roomId) AI_COOLDOWN_MAP.rooms[roomId] = finalNow;
+            if (userId) AI_COOLDOWN_MAP.users[userId] = finalNow;
+
             reportProgress("완료! 테마를 적용합니다.", 100);
             return res.json({ success: true, themeId, words: aiResult.words, source: 'ai' });
         } else {

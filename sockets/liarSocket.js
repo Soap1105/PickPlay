@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { getSortedUserList } = require('./utils');
 
 // 정적 카테고리/단어 DB를 메모리에 로드
 let liarWordsData = [];
@@ -57,6 +58,14 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[socket.roomId];
         if (!room || room.hostId !== socket.id) return;
 
+        // 결과 확인 중인 플레이어가 있는 경우 시작 차단
+        const unconfirmed = Object.values(room.players).filter(p => p.confirmedResult === false);
+        if (unconfirmed.length > 0) {
+            const names = unconfirmed.map(p => p.name).join(', ');
+            socket.emit('action failed', `아직 결과 확인 중인 플레이어가 있습니다: ${names}`);
+            return;
+        }
+
         const players = Object.keys(room.players);
         if (players.length < 3) {
             socket.emit('system message', '라이어 게임은 최소 3명 이상이어야 시작할 수 있습니다!');
@@ -71,6 +80,7 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.scores = {};
         for (let pid in room.players) {
             room.liarGame.scores[pid] = 0;
+            room.players[pid].confirmedResult = true;
         }
 
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig.winTarget);
@@ -452,6 +462,12 @@ module.exports = (io, socket, gameRooms) => {
             resultData.isFinalGameOver = true;
             resultData.finalMessage = `🎉 목표 점수(${target}승) 달성! 🏆 최종 우승자: ${winners.join(', ')}`;
             room.status = 'WAITING'; // 게임 끝나서 다시 셋업 대기
+
+            // 모든 참여자 확인 미완료 상태로 세팅 (결과 확인 중 배지 표시용)
+            Object.values(room.players).forEach(p => {
+                p.confirmedResult = false;
+            });
+            io.to(roomId).emit('update user list', getSortedUserList(room));
         } else {
             // 다음 라운드 진행 가능
             resultData.isFinalGameOver = false;

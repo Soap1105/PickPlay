@@ -119,6 +119,14 @@ module.exports = (io, socket, gameRooms) => {
 
         if (isGameOver) {
             room.status = 'WAITING';
+            
+            // 모든 참여자 확인 미완료 상태로 세팅 (결과 확인 중 배지 표시용)
+            Object.values(room.players).forEach(p => {
+                p.confirmedResult = false;
+            });
+            const { getSortedUserList } = require('./utils');
+            io.to(roomId).emit('update user list', getSortedUserList(room));
+
             const stats = Object.keys(room.players).map(pid => ({
                 id: pid,
                 name: room.players[pid].name,
@@ -175,6 +183,14 @@ module.exports = (io, socket, gameRooms) => {
     socket.on('setup bomb game', (data) => {
         const room = gameRooms[socket.roomId];
         if (!room || room.hostId !== socket.id) return;
+
+        // 결과 확인 중인 플레이어가 있는 경우 시작 차단
+        const unconfirmed = Object.values(room.players).filter(p => p.confirmedResult === false);
+        if (unconfirmed.length > 0) {
+            const names = unconfirmed.map(p => p.name).join(', ');
+            socket.emit('action failed', `아직 결과 확인 중인 플레이어가 있습니다: ${names}`);
+            return;
+        }
 
         const players = Object.keys(room.players);
         if (players.length < 2) {
@@ -451,21 +467,7 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[roomId];
         if (!room || room.mode !== 'bomb' || room.status === 'WAITING') return;
 
-        // 인원 부족 체크
-        const remainingPlayers = Object.keys(room.players);
-        if (remainingPlayers.length < 2) {
-            clearBombTimer(roomId);
-            clearNextRoundTimer(roomId);
-            room.status = 'WAITING';
-            io.to(roomId).emit('bomb exploded', {
-                loserId: null,
-                loserName: '시스템',
-                message: `🏃 참가자 부족으로 게임이 종료되었습니다.`,
-                isGameOver: true,
-                winner: { name: '없음' },
-                stats: []
-            });
-        } else if (room.bombGame && room.bombGame.currentTurnId === socket.id) {
+        if (room.bombGame && room.bombGame.currentTurnId === socket.id) {
             // 현재 턴인 사람이 나간 경우 즉시 폭발 처리
             clearBombTimer(roomId);
             explodeBomb(roomId);

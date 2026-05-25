@@ -99,6 +99,8 @@ function showToast(message, type = 'info') {
         container = document.createElement('div');
         container.id = 'toast-container';
         document.body.appendChild(container);
+    } else {
+        container.innerHTML = ''; // 기존 토스트 즉시 제거 (최대 1개 제한)
     }
 
     const toast = document.createElement('div');
@@ -200,3 +202,22 @@ window.createKickButton = function(user, amIHost, mySocketId, condition) {
     }
     return null;
 };
+
+/**
+ * 결과 확인 중 배지 생성 함수
+ * @param {Object} user - 유저 객체
+ * @returns {string} 배지 HTML 스트링 또는 빈 값
+ */
+window.getUserBadgeHtml = function (user) {
+    if (user.confirmedResult === false) {
+        return ` <span style="font-size: 0.72rem; color: #f1c40f; background: rgba(241, 196, 15, 0.12); border: 1px solid rgba(241, 196, 15, 0.25); padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: normal; white-space: nowrap;">⏳ 결과 확인 중</span>`;
+    }
+    return '';
+};
+
+// 공통 액션 실패 처리 (토스트 경고창 노출)
+socket.on('action failed', (msg) => {
+    if (window.gameType !== 'bingo') {
+        if (window.showToast) window.showToast(msg, 'warning');
+    }
+});

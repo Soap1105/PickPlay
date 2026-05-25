@@ -64,7 +64,8 @@ module.exports = (io, socket, gameRooms) => {
         room.players[socket.id] = {
             id: socket.id, board: [], ready: false, name: nickname,
             avatar: avatar,
-            isSkipped: false, skipCount: 0, usedEventCount: 0
+            isSkipped: false, skipCount: 0, usedEventCount: 0,
+            confirmedResult: true // [작업 3] 신규 접속 플레이어는 결과 확인 불필요하므로 true로 초기 세팅
         };
 
         room.joinOrder.push(socket.id);
@@ -240,6 +241,25 @@ module.exports = (io, socket, gameRooms) => {
         }
     });
 
+    socket.on('confirm result', () => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+
+        // [버그 수정] game changed: lobby를 여기서 보내면 컨테이너가 로비로 전환된 상태에서
+        // 방장이 곧바로 새 게임을 시작할 때 setup theme input을 받아도 화면이 안 바뀌는 문제 발생.
+        // 로비 전환은 클라이언트(bingo.js close-result-btn)에서 자체 처리하거나,
+        // 방장이 대기실로 돌아가기 버튼을 누를 때만 수행한다.
+
+        // confirmedResult = true 상태 업데이트
+        if (room.players[socket.id]) {
+            room.players[socket.id].confirmedResult = true;
+        }
+
+        // 방 전체에 유저 목록 갱신 (확인 중 배지 렌더링을 유도)
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+    });
+
     socket.on('disconnect', () => {
         const roomId = socket.roomId;
         if (roomId && gameRooms[roomId]) {
@@ -262,35 +282,80 @@ module.exports = (io, socket, gameRooms) => {
 
             io.to(roomId).emit('system message', `💨 ${leavingPlayerName}님이 퇴장하셨습니다.`);
 
-            if (room.mode === 'bingo') {
-                if (room.status === 'PLAYING') {
-                    const remainingPlayers = Object.keys(room.players);
-                    if (remainingPlayers.length === 1) {
-                        bingoHelpers.endGame(io, room, roomId, room.players[remainingPlayers[0]].name);
-                        io.to(roomId).emit('system message', `🏆 남은 플레이어가 1명뿐이라 ${room.players[remainingPlayers[0]].name}님이 자동 승리했습니다!`);
-                    } else if (remainingPlayers.length === 0) {
-                        bingoHelpers.endGame(io, room, roomId, '없음');
-                    } else {
-                        bingoHelpers.broadcastBingoProgress(io, room, roomId);
+            const remainingPlayers = Object.keys(room.players);
+
+            if (room.status !== 'WAITING') {
+                let isInsufficient = false;
+                let minRequired = 2;
+
+                if (room.mode === 'bingo' && remainingPlayers.length < 2) {
+                    isInsufficient = true;
+                    minRequired = 2;
+                    // 빙고 타이머/인터벌 정리
+                    if (room.numberInterval) {
+                        clearInterval(room.numberInterval);
+                        room.numberInterval = null;
                     }
-                } else {
-                    updateReadyStatus(io, room, roomId);
-                }
-            } else if (room.mode === 'liar') {
-                const remainingPlayers = Object.keys(room.players);
-                if (room.status !== 'WAITING' && remainingPlayers.length < 3) {
+                    if (room.turnTimer) {
+                        clearTimeout(room.turnTimer);
+                        room.turnTimer = null;
+                    }
+                } else if (room.mode === 'liar' && remainingPlayers.length < 3) {
+                    isInsufficient = true;
+                    minRequired = 3;
+                    // 라이어 타이머/인터벌 정리
                     if (room.liarGame && room.liarGame.timerInterval) {
                         clearInterval(room.liarGame.timerInterval);
                         room.liarGame.timerInterval = null;
                     }
                     io.to(roomId).emit('liar timer clear');
+                } else if (room.mode === 'bomb' && remainingPlayers.length < 2) {
+                    isInsufficient = true;
+                    minRequired = 2;
+                    // 폭탄 돌리기 타이머/인터벌 정리
+                    if (room.bombGame) {
+                        if (room.bombGame.timerInterval) {
+                            clearInterval(room.bombGame.timerInterval);
+                        }
+                        if (room.bombGame.turnTimeout) {
+                            clearTimeout(room.bombGame.turnTimeout);
+                        }
+                    }
+                    if (room.nextRoundTimeout) {
+                        clearInterval(room.nextRoundTimeout);
+                        room.nextRoundTimeout = null;
+                    }
+                }
+
+                if (isInsufficient) {
+                    room.mode = 'lobby';
                     room.status = 'WAITING';
-                    io.to(roomId).emit('round over', {
-                        isFinalGameOver: true,
-                        message: '인원수 부족 (강제 종료)',
-                        finalMessage: '게임 진행 최소 인원(3명)에 미달하여 대기실 상태로 롤백됩니다.',
-                        liarName: '-', word: '-', citizensWon: false
-                    });
+                    room.lobbyVotes = { bingo: 0, liar: 0 };
+                    room.votedUsers = {};
+
+                    if (room.voteTimer) {
+                        clearInterval(room.voteTimer);
+                        room.voteTimer = null;
+                    }
+                    room.voteTimeLeft = 0;
+
+                    // 게임 데이터 완전 파괴
+                    delete room.liarGame;
+                    delete room.bombGame;
+
+                    io.to(roomId).emit('game changed', 'lobby');
+                    io.to(roomId).emit('action failed', `🚫 인원이 부족하여 게임이 강제 종료되었습니다. (최소 필요 인원: ${minRequired}명)`);
+                    io.to(roomId).emit('update user list', getSortedUserList(room));
+                    return; // 로비 귀환 후 즉시 리턴하여 아래 불필요 흐름 스킵
+                }
+            }
+
+            // 인원이 부족하지 않은 경우 개별 게임 업데이트 처리
+            if (room.mode === 'bingo') {
+                if (room.status === 'PLAYING') {
+                    bingoHelpers.broadcastBingoProgress(io, room, roomId);
+                } else {
+                    updateReadyStatus(io, room, roomId);
                 }
             }
 

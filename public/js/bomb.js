@@ -139,17 +139,12 @@
             const hTimerRange = document.getElementById('bomb-timer-range')?.value || 'medium';
             const hShowTimerStr = document.getElementById('bomb-show-timer')?.value || 'true';
 
-            if (!window.bombSelectedCategories || window.bombSelectedCategories.length === 0) {
-                if (window.showToast) window.showToast('최소 한 개의 카테고리를 선택해야 합니다!', 'warning');
-                return;
-            }
-
             socket.emit('setup bomb game', {
                 hearts: hHearts,
                 subMode: hSubMode,
                 timerRange: hTimerRange,
                 showTimer: (hShowTimerStr === 'true'),
-                selectedCategories: window.bombSelectedCategories
+                selectedCategories: window.bombSelectedCategories || []
             });
         });
     }
@@ -174,6 +169,7 @@
             if (word) {
                 socket.emit('submit bomb word', word);
                 bombWordInput.value = '';
+                bombWordInput.disabled = true; // [1-5 버그 해결] 즉시 비활성화하여 딜레이 동안의 추가 입력 방지
             }
         }
     });
@@ -225,13 +221,21 @@
                 bombCurrentTurn.style.color = "#e74c3c";
             }
             if (bombInputArea) bombInputArea.style.display = 'block';
-            if (bombWordInput) bombWordInput.focus();
+            if (bombWordInput) {
+                bombWordInput.disabled = false; // [1-5 버그 해결] 자신의 차례일 때 활성화
+                bombWordInput.value = ''; // 찌꺼기 문자 보장 제거
+                bombWordInput.focus();
+            }
         } else {
             if (bombCurrentTurn) {
                 bombCurrentTurn.textContent = "다른 플레이어가 입력 중입니다...";
                 bombCurrentTurn.style.color = "#999";
             }
             if (bombInputArea) bombInputArea.style.display = 'none';
+            if (bombWordInput) {
+                bombWordInput.disabled = true; // [1-5 버그 해결] 차례가 아닐 때는 항상 차단
+                bombWordInput.value = ''; // 미완성 텍스트 파편 강제 삭제
+            }
         }
     }
 
@@ -371,7 +375,8 @@
                 if (closeResultBtn) {
                     closeResultBtn.onclick = () => {
                         resultModal.style.display = 'none';
-                        if (localIsHost) socket.emit('return to lobby from bomb');
+                        socket.emit('confirm result');
+                        window.initBombUI(localIsHost);
                     };
                 }
             }, 1500);

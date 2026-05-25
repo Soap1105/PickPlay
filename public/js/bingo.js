@@ -48,6 +48,7 @@
     const resultModal = document.getElementById('result-modal');
     const resultWinner = document.getElementById('result-winner');
     const resultStatsBody = document.getElementById('result-stats-body');
+    const closeResultBtn = document.getElementById('close-result-btn');
 
     // 1. 효과음
     const effectSound = new Audio('/call.mp3');
@@ -80,6 +81,8 @@
     let turnDuration = 0;
     let turnStartTime = 0;
     window.useEventsGlobal = true; // [전역화] 렌더링 함수들이 어디서든 참조 가능하게 변경
+    let pendingTurnUpdate = null;
+    let popupActive = false;
 
     function getUserId() {
         let userId = localStorage.getItem('bingo_user_id');
@@ -191,6 +194,9 @@
                     nickname.innerHTML += ' <span style="color:#2ecc71">✔</span>';
                     bingoReadyCount++;
                 }
+            }
+            if (window.getUserBadgeHtml) {
+                nickname.innerHTML += window.getUserBadgeHtml(user);
             }
 
             const statusRow = document.createElement('div');
@@ -583,6 +589,12 @@
 
     if (startGameBtn) {
         startGameBtn.addEventListener('click', async () => {
+            // [버그 방지] 결과창이 열려 있는 동안에는 AI 주제 생성 및 게임 시작 완전 차단
+            if (resultModal && resultModal.style.display === 'block') {
+                if (window.showToast) window.showToast('아직 결과를 확인 중인 플레이어가 있습니다.', 'warning');
+                return;
+            }
+
             const playersCount = document.querySelectorAll('.user-card').length;
             if (playersCount < 2) {
                 if (window.showToast) {
@@ -597,13 +609,55 @@
             const selectedOrder = document.getElementById('turn-order-select')?.value || 'host_first';
             const turnTime = parseInt(document.getElementById('turn-time-limit')?.value || '15');
             let topic = document.getElementById('theme-topic-input')?.value || '';
+            const themeInput = document.getElementById('theme-topic-input');
             let presetWords = [];
+
+            // 쿨타임 정의 및 연동 함수
+            function startLocalCooldown(seconds) {
+                if (window.aiCooldownInterval) clearInterval(window.aiCooldownInterval);
+                
+                startGameBtn.disabled = true;
+                if (themeInput) themeInput.disabled = true;
+                
+                let remaining = seconds;
+                startGameBtn.textContent = `AI 쿨타임 대기 (${remaining}초)...⏳`;
+                
+                window.aiCooldownInterval = setInterval(() => {
+                    remaining--;
+                    if (remaining <= 0) {
+                        clearInterval(window.aiCooldownInterval);
+                        window.aiCooldownInterval = null;
+                        window.aiCooldownEndTime = null;
+                        
+                        startGameBtn.textContent = "게임 시작";
+                        startGameBtn.disabled = false;
+                        if (themeInput) themeInput.disabled = false;
+                    } else {
+                        startGameBtn.textContent = `AI 쿨타임 대기 (${remaining}초)...⏳`;
+                    }
+                }, 1000);
+            }
+            window.startBingoAICooldown = startLocalCooldown;
+
+            // 로컬 쿨다운 검사
+            const localNow = Date.now();
+            if (window.aiCooldownEndTime && localNow < window.aiCooldownEndTime) {
+                const remaining = Math.ceil((window.aiCooldownEndTime - localNow) / 1000);
+                if (window.showToast) window.showToast(`AI 테마 생성 쿨타임 대기 중입니다. (${remaining}초 남음)`, 'warning');
+                return;
+            }
 
             // [AI 빙고 주제 구동부]
             if (topic && topic !== '자유 주제') {
+                // [입력값 검증] 한글 자음만으로 구성된 무의미한 입력 차단 (예: ㅋ, ㄷㄱ 등)
+                if (/^[ㄱ-ㅎ]+$/.test(topic.trim())) {
+                    if (window.showToast) window.showToast('자음만으로는 주제를 생성할 수 없어요. 단어나 카테고리를 입력해주세요! (예: K-POP, 한국 음식)', 'warning');
+                    return;
+                }
                 const originalText = startGameBtn.textContent;
                 startGameBtn.textContent = "AI가 단어를 고르는 중입니다...⏳";
                 startGameBtn.disabled = true;
+                if (themeInput) themeInput.disabled = true;
 
                 const progressContainer = document.getElementById('ai-progress-container');
                 const progressBar = document.getElementById('ai-progress-bar');
@@ -627,13 +681,34 @@
 
                     if (res.ok && data.success) {
                         presetWords = data.words;
+                        
+                        // 캐시 미스(실제 AI가 생성한 경우)에만 30초 로컬 쿨다운 적용
+                        if (data.source === 'ai') {
+                            window.aiCooldownEndTime = Date.now() + 30000;
+                            startLocalCooldown(30);
+                        } else {
+                            // 캐시 히트 시에는 즉시 입력창 및 버튼 원복
+                            startGameBtn.textContent = originalText;
+                            startGameBtn.disabled = false;
+                            if (themeInput) themeInput.disabled = false;
+                        }
+                        
                         setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 1000);
                     } else {
-                        const msg = "AI 생성 실패: " + (data.error || "알 수 없는 오류");
-                        if (window.showToast) window.showToast(msg, "error");
-                        else alert(msg);
-                        startGameBtn.textContent = originalText;
-                        startGameBtn.disabled = false;
+                        // 서버 측에서 쿨다운 에러(429)를 반환했을 때 대응
+                        if (res.status === 429 && data.error === 'cooldown') {
+                            const remaining = data.remainingTime || 30;
+                            window.aiCooldownEndTime = Date.now() + (remaining * 1000);
+                            startLocalCooldown(remaining);
+                        } else {
+                            // 일반 실패 시 즉시 입력 및 버튼 복구
+                            const msg = "AI 생성 실패: " + (data.error || "알 수 없는 오류");
+                            if (window.showToast) window.showToast(msg, "error");
+                            else alert(msg);
+                            startGameBtn.textContent = originalText;
+                            startGameBtn.disabled = false;
+                            if (themeInput) themeInput.disabled = false;
+                        }
                         if (progressContainer) progressContainer.style.display = 'none';
                         return;
                     }
@@ -642,11 +717,10 @@
                     else alert("서버 연결 오류가 발생했습니다.");
                     startGameBtn.textContent = originalText;
                     startGameBtn.disabled = false;
+                    if (themeInput) themeInput.disabled = false;
                     if (progressContainer) progressContainer.style.display = 'none';
                     return;
                 }
-                startGameBtn.textContent = originalText;
-                startGameBtn.disabled = false;
             }
 
             socket.emit('init theme mode', {
@@ -658,8 +732,8 @@
                 useEvents: document.getElementById('bingo-use-events')?.value === 'true',
                 presetWords: presetWords
             });
-
-            setupArea.style.display = 'none';
+            // setupArea는 서버가 'setup theme input'을 보낼 때 숨김 처리됨
+            // 여기서 미리 숨기면 서버가 action failed를 보낼 때 빈 화면이 되는 버그 발생
         });
     }
 
@@ -715,7 +789,7 @@
 
     socket.on('game status update', (data) => { isGameStarted = data.started; });
 
-    socket.on('turn update', (data) => {
+    function processTurnUpdate(data) {
         currentTurnId = data.currentTurnId;
         currentTurnPlayerName = data.currentTurnName;
         document.querySelectorAll('.user-card').forEach(c => c.classList.remove('current-turn'));
@@ -752,7 +826,46 @@
         }
 
         updateBoardVisuals();
+    }
+
+    socket.on('turn update', (data) => {
+        if (popupActive) {
+            pendingTurnUpdate = data;
+            return;
+        }
+        processTurnUpdate(data);
     });
+
+    // RGB 선형 보간 헬퍼: c1, c2 = [r, g, b], t = 0~1
+    function lerpColor(c1, c2, t) {
+        return [
+            Math.round(c1[0] + (c2[0] - c1[0]) * t),
+            Math.round(c1[1] + (c2[1] - c1[1]) * t),
+            Math.round(c1[2] + (c2[2] - c1[2]) * t)
+        ];
+    }
+
+    // percentage(0~100)에 따라 녹→황→적 그라디언트 문자열 반환
+    function getTimerGradient(percentage) {
+        const green  = [46, 204, 113];
+        const yellow = [241, 196, 15];
+        const red    = [231, 76, 60];
+
+        let base;
+        if (percentage >= 50) {
+            // 100% ~ 50%: 녹색 → 노랑
+            const t = 1 - (percentage - 50) / 50;
+            base = lerpColor(green, yellow, t);
+        } else {
+            // 50% ~ 0%: 노랑 → 빨강
+            const t = 1 - percentage / 50;
+            base = lerpColor(yellow, red, t);
+        }
+
+        // 그라디언트용: 같은 색의 75% 밝기 버전을 왼쪽에
+        const dark = base.map(v => Math.round(v * 0.72));
+        return `linear-gradient(90deg, rgb(${dark.join(',')}), rgb(${base.join(',')}))`;
+    }
 
     function updateTurnTimerUI() {
         const elapsed = (Date.now() - turnStartTime) / 1000;
@@ -760,12 +873,17 @@
         const percentage = (remaining / turnDuration) * 100;
         turnTimerProgress.style.width = percentage + '%';
 
-        // Color change when low time
-        if (percentage < 30) turnTimerProgress.style.backgroundColor = '#e74c3c';
-        else if (percentage < 60) turnTimerProgress.style.backgroundColor = '#f1c40f';
-        else turnTimerProgress.style.backgroundColor = '#2ecc71';
+        // RGB 실시간 보간으로 색상 부드럽게 전환
+        turnTimerProgress.style.background = getTimerGradient(percentage);
+
+        // 소수점 1자리 실시간 표시
+        const secondsSpan = document.getElementById('turn-timer-seconds');
+        if (secondsSpan) {
+            secondsSpan.textContent = remaining.toFixed(1) + '초';
+        }
 
         if (remaining <= 0) {
+            if (secondsSpan) secondsSpan.textContent = '0.0초';
             if (turnTimerInterval) clearInterval(turnTimerInterval);
         }
     }
@@ -790,6 +908,15 @@
                 manualStartArea.style.display = 'block';
                 hostManualStartBtn.disabled = true;
                 hostManualStartBtn.style.opacity = '0.6';
+                
+                // [1-8] 대기실 진입 시 AI 쿨타임이 남아있다면 로컬 카운트다운 타이머 연동 구동
+                const now = Date.now();
+                if (window.aiCooldownEndTime && now < window.aiCooldownEndTime) {
+                    const remaining = Math.ceil((window.aiCooldownEndTime - now) / 1000);
+                    if (typeof window.startBingoAICooldown === 'function') {
+                        window.startBingoAICooldown(remaining);
+                    }
+                }
             } else {
                 waitingArea.style.display = 'block';
             }
@@ -802,6 +929,48 @@
     };
 
     socket.on('setup theme input', (data) => {
+        // [작업 2] 이전 게임 잔류 변수 및 데이터 완벽 초기화
+        currentTurnId = "";
+        currentTurnPlayerName = "";
+        pendingTurnUpdate = null;
+        popupActive = false;
+        calledNumbers = [];
+        currentProgressMap = {};
+        myUsedEventCount = 0;
+        isMyTurn = false;
+
+        // 타이머 인터벌 해제
+        if (turnTimerInterval) { 
+            clearInterval(turnTimerInterval); 
+            turnTimerInterval = null; 
+        }
+
+        // UI 컴포넌트 강제 리셋 및 숨김 처리
+        if (turnDisplay) {
+            turnDisplay.style.display = 'none';
+            turnDisplay.textContent = '';
+        }
+        if (victoryBingoBtn) {
+            victoryBingoBtn.style.display = ''; // 버튼 숨김 해제
+            victoryBingoBtn.disabled = true;
+            victoryBingoBtn.classList.remove('active');
+        }
+        if (turnTimerBar) {
+            turnTimerBar.style.display = 'none';
+            const secondsSpan = document.getElementById('turn-timer-seconds');
+            if (secondsSpan) secondsSpan.textContent = '';
+        }
+        if (calledNumbersDisplay) {
+            calledNumbersDisplay.textContent = '';
+        }
+        updateTurnTrack([]);
+
+        // 결과 모달 닫기
+        const resultModal = document.getElementById('result-modal');
+        if (resultModal) {
+            resultModal.style.display = 'none';
+        }
+
         targetLines = data.winLines || 3;
         useEventsGlobal = data.useEvents !== undefined ? data.useEvents : true;
 
@@ -886,6 +1055,18 @@
 
         updateBoardVisuals();
         showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
+
+        popupActive = true;
+        setTimeout(() => {
+            popupActive = false;
+            // 팝업 종료 후 0.5초 뒤에 타이머 및 턴 표시 시작
+            setTimeout(() => {
+                if (pendingTurnUpdate) {
+                    processTurnUpdate(pendingTurnUpdate);
+                    pendingTurnUpdate = null;
+                }
+            }, 500);
+        }, 3000);
     });
 
     socket.on('number called', (number) => {
@@ -961,9 +1142,7 @@
         if (closeResultBtn) {
             closeResultBtn.onclick = () => {
                 resultModal.style.display = 'none';
-                if (amIHost) {
-                    socket.emit('return to lobby');
-                }
+                socket.emit('confirm result');
             };
         }
 
@@ -988,7 +1167,7 @@
 
         calledNumbersDisplay.textContent = '';
         bingoBoard.innerHTML = '';
-        bingoButton.style.display = 'none';
+        if (victoryBingoBtn) victoryBingoBtn.style.display = 'none';
         themeTitle.style.display = 'none';
         readyButton.style.display = 'none';
         if (saveThemeBtn) saveThemeBtn.style.display = 'none';
@@ -1002,13 +1181,16 @@
         bingoBoard.classList.remove('active-board');
         currentProgressMap = {};
         if (document.getElementById('turn-track')) document.getElementById('turn-track').style.display = 'none';
+
+        // 게임 종료 후 다시 게임 설정/대기 UI로 복귀
+        window.updateBingoRoleUI(amIHost);
     });
 
     socket.on('false bingo', (msg) => {
         if (window.showToast) window.showToast(`🚨 ${msg}`, "error");
         if (isMyTurn) {
-            bingoButton.disabled = false;
-            updateBingoButton(checkBingoLines(myBoard, calledNumbers));
+            if (victoryBingoBtn) victoryBingoBtn.disabled = false;
+            updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
         }
     });
 })();

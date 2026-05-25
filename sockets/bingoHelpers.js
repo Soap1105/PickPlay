@@ -45,6 +45,7 @@ function endGame(io, room, roomId, winnerName) {
         p.isSkipped = false;
         p.skipCount = 0;
         p.usedEventCount = 0;
+        p.confirmedResult = false; // [작업 3] 게임 종료 시 모든 참여자 확인 미완료 상태로 세팅
     });
 
     io.to(roomId).emit('update user list', getSortedUserList(room));

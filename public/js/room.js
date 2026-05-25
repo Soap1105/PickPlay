@@ -89,12 +89,14 @@ socket.on('update user list', (users) => {
         let hostCrown = user.id === socket.id && isHost ? '👑 ' : '';
         if (users[0] && users[0].id === user.id) hostCrown = '👑 '; // First user is host in sorted list
 
+        let badgeHtml = window.getUserBadgeHtml(user);
+
         userDiv.innerHTML = `
             <div class="avatar-wrapper">
                 <div class="avatar">${user.avatar}</div>
             </div>
             <div class="user-info">
-                <div class="nickname">${hostCrown}${user.name}</div>
+                <div class="nickname" style="display: flex; align-items: center;">${hostCrown}${user.name}${badgeHtml}</div>
             </div>
         `;
 
@@ -176,6 +178,9 @@ returnLobbyBtns.forEach(btn => {
 if (closeResultBtn) {
     closeResultBtn.addEventListener('click', () => {
         document.getElementById('result-modal').style.display = 'none';
+        // [버그 수정] 결과 확인 완료를 서버에 알림 → confirmedResult = true 처리
+        // 이걸 emit해야 방장이 '아직 결과 확인 중인 플레이어가 있습니다' 에러 없이 새 게임 시작 가능
+        socket.emit('confirm result');
     });
 }
 
@@ -188,6 +193,10 @@ socket.on('game changed', (newGameType) => {
         stylesheetLink.href = ""; 
         document.getElementById('game-title').textContent = "PickPlay 대기실";
         showContainer('lobby-container');
+        
+        // 결과 모달창 강제 숨김
+        const resModal = document.getElementById('result-modal');
+        if (resModal) resModal.style.display = 'none';
         
         // 게임 컨테이너 다크 배경 제거
         gameContainer.classList.remove('game-active', 'game-active-bingo', 'game-active-liar', 'game-active-bomb');

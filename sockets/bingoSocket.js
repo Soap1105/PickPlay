@@ -112,6 +112,14 @@ module.exports = (io, socket, gameRooms) => {
         if (socket.id !== room.hostId || room.status !== 'WAITING') return;
         if (Object.keys(room.players).length < 2) return;
 
+        // [작업 3] 아직 결과 확인 중인 플레이어가 있는 경우 방장의 새 게임 생성 차단
+        const unconfirmed = Object.values(room.players).filter(p => p.confirmedResult === false);
+        if (unconfirmed.length > 0) {
+            const names = unconfirmed.map(p => p.name).join(', ');
+            socket.emit('action failed', `아직 결과 확인 중인 플레이어가 있습니다: ${names}`);
+            return;
+        }
+
         room.status = 'INPUTTING';
         room.mode = 'bingo';
         room.topic = data.topic;
@@ -124,6 +132,7 @@ module.exports = (io, socket, gameRooms) => {
 
         const presetWords = data.presetWords || [];
         Object.values(room.players).forEach(p => {
+            p.confirmedResult = true;
             p.ready = false;
             p.usedEventCount = 0;
             p.skipCount = 0;
@@ -153,6 +162,10 @@ module.exports = (io, socket, gameRooms) => {
         checkReadyAndStart(room, data.roomId);
     });
 
+    // 게임 시작 팝업 애니메이션 지속 시간 (클라이언트와 동기화)
+    // bingo.js: popupActive = true → setTimeout 3000ms → false → setTimeout 500ms → processTurnUpdate
+    const FIRST_TURN_POPUP_DELAY_MS = 3500;
+
     socket.on('host manual start bingo', () => {
         const roomId = socket.roomId;
         if (!roomId || !gameRooms[roomId]) return;
@@ -164,7 +177,7 @@ module.exports = (io, socket, gameRooms) => {
             room.status = 'PLAYING';
             room.gameStarted = true;
             io.to(roomId).emit('game status update', { started: true });
-            
+
             room.turnOrder = sortTurnOrder(room);
             room.currentTurnIndex = 0;
 
@@ -185,7 +198,19 @@ module.exports = (io, socket, gameRooms) => {
                 currentTurnName: room.players[firstPlayerId].name,
                 turnTimeLimit: room.turnTimeLimit || 0
             });
-            startTurnTimer(room, roomId, firstPlayerId);
+
+            // 첫 턴만 팝업 지속 시간만큼 타이머 시작을 지연시킵니다.
+            // 클라이언트의 '게임 시작!' 팝업이 끝난 직후(3.5초) 서버 자동 체크 타이머가 동작하도록 동기화합니다.
+            if (room.turnTimeLimit > 0) {
+                setTimeout(() => {
+                    // 딜레이 도중 방이 사라지거나 게임이 종료됐을 경우 방어
+                    if (!gameRooms[roomId] || room.status !== 'PLAYING') return;
+                    startTurnTimer(room, roomId, firstPlayerId);
+                }, FIRST_TURN_POPUP_DELAY_MS);
+            } else {
+                startTurnTimer(room, roomId, firstPlayerId);
+            }
+
             broadcastBingoProgress(io, room, roomId);
         }
     });
