@@ -309,18 +309,20 @@
         const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
         const calledSet = new Set(calledNums.map(normalize));
         const winningIndices = new Set();
+        const lines = [];
         let count = 0;
         const checkLine = (indices) => {
             if (indices.every(index => calledSet.has(normalize(board[index])))) {
                 count++;
                 indices.forEach(idx => winningIndices.add(idx));
+                lines.push(indices);
             }
         };
         for (let i = 0; i < 5; i++) checkLine([i * 5, i * 5 + 1, i * 5 + 2, i * 5 + 3, i * 5 + 4]);
         for (let i = 0; i < 5; i++) checkLine([i, i + 5, i + 10, i + 15, i + 20]);
         checkLine([0, 6, 12, 18, 24]);
         checkLine([4, 8, 12, 16, 20]);
-        return { count, winningIndices: Array.from(winningIndices) };
+        return { count, winningIndices: Array.from(winningIndices), lines };
     }
 
     function checkBingoLines(board, calledNums) { return getBingoLines(board, calledNums).count; }
@@ -328,17 +330,47 @@
     function updateBoardVisuals() {
         const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
         const cells = document.querySelectorAll('.board-cell');
+
+        // 이미 완성됐거나 애니메이션 진행 중인 칸 인덱스를 모두 기억
+        const prevCompleted = new Set();
+        cells.forEach(cell => {
+            if (cell.classList.contains('bingo-completed') || cell.classList.contains('bingo-completing')) {
+                prevCompleted.add(parseInt(cell.dataset.index));
+            }
+        });
+
         cells.forEach(cell => {
             const word = cell.dataset.word;
             const isCalled = calledNumbers.some(num => normalize(num) === normalize(word));
             if (isCalled) cell.classList.add('checked');
             else cell.classList.remove('checked');
             cell.classList.remove('bingo-completed');
+            // 애니메이션 진행 중인 칸은 건드리지 않음 (연속 호출로 인한 중단 방지)
+            if (!cell.classList.contains('bingo-completing')) {
+                cell.classList.remove('bingo-completing');
+            }
         });
-        const { count, winningIndices } = getBingoLines(myBoard, calledNumbers);
-        winningIndices.forEach(index => {
-            if (cells[index]) cells[index].classList.add('bingo-completed');
+
+        const { count, lines } = getBingoLines(myBoard, calledNumbers);
+        const stampedIndices = new Set();
+
+        lines.forEach(lineIndices => {
+            // 해당 줄에 이전에 완성되지 않은 칸이 하나라도 있으면 새 줄 = 순차 애니메이션 실행
+            const isNewLine = lineIndices.some(idx => !prevCompleted.has(idx));
+            lineIndices.forEach((index, orderInLine) => {
+                if (!cells[index]) return;
+                cells[index].classList.add('bingo-completed');
+                if (isNewLine && !stampedIndices.has(index)) {
+                    stampedIndices.add(index);
+                    const delay = orderInLine * 90;
+                    cells[index].style.setProperty('--stamp-delay', `${delay}ms`);
+                    cells[index].classList.add('bingo-completing');
+                    // 애니메이션 종료 후 클래스 제거 (flashLine이 이어서 동작)
+                    setTimeout(() => cells[index].classList.remove('bingo-completing'), 500 + delay);
+                }
+            });
         });
+
         updateBingoActionButtons(count);
     }
 
