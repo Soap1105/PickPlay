@@ -130,6 +130,9 @@
                 span.style.transform = "scale(1.1)";
                 span.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
                 span.style.zIndex = "10";
+                if (user.id === socket.id) {
+                    span.classList.add('turn-track-mine');
+                }
             } else {
                 span.style.opacity = "0.6";
             }
@@ -380,8 +383,7 @@
         boardData.forEach((word, index) => {
             const cell = document.createElement('button');
             cell.classList.add('board-cell');
-            if (word.length > 11) cell.classList.add('text-small');
-            else if (word.length > 6) cell.classList.add('text-medium');
+
             cell.textContent = word;
             cell.dataset.word = word;
             cell.dataset.index = index;
@@ -831,12 +833,14 @@
 
         if (socket.id === currentTurnId) {
             isMyTurn = true;
+            turnDisplay.classList.add('my-turn-glow');
             turnDisplay.textContent = "👉 당신의 차례입니다!";
             turnDisplay.style.backgroundColor = "rgba(46, 204, 113, 0.15)";
             bingoBoard.classList.remove('inactive-board');
             bingoBoard.classList.add('active-board');
         } else {
             isMyTurn = false;
+            turnDisplay.classList.remove('my-turn-glow');
             turnDisplay.textContent = `⏳ ${currentTurnPlayerName}님의 차례...`;
             turnDisplay.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
             bingoBoard.classList.add('inactive-board');

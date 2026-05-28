@@ -1,2 +1,38 @@
 빙고에 스탬프 효과 추가.
 
+1. 이벤트 사용시 타이머 흐르는 버그.
+2. 빙고 ai 주제 설정시 로딩창 보이게 해주면 좋을듯
+3. 이벤트 벨런스 다시 잡아야 할듯 (빙고판 초기화 등 게임에 영향을 꽤 줄 수 있는 빙고 이벤트)
+4.  폭탄돌리기 주제 타이머 따로 만들기
+5. 폭탄 돌리기 게임 한 번 단어 잘 못 적으면 못적는 버그
+6. 폭탄돌리기 > 빙고 결과 확인 중 계속 뜨는 버그
+7. AI 생성 중 게임 나가고 들어왔을 때 처리 방법.
+8. 유령의 장난으로 뺏긴 단어에 패널티 부여.
+9. 빙고게임 이벤트 단어 한 번에 두 개 고를 수 있는 이벤트 만들기
+
+
+https://mixkit.co/free-sound-effects/notification/
+무료, 저작권 표시 불필요, 상업적 사용 가능
+검색어: "notification", "game notification", "alert"
+추천 파일: "Correct answer tone" 또는 "Game notification" 계열 (0.5초 미만 짧은 것)
+2순위: Pixabay Sound Effects
+
+https://pixabay.com/sound-effects/search/notification/
+마찬가지로 무료, 저작권 없음
+검색어: "ping", "ding", "notification"
+파일 받으면 your-turn.mp3 이름으로 /public/ 폴더에 넣으면 됩니다.
+
+---------------------------------------------------------
+■ [발표 준비 - presentation.html]
+
+presentation.html 완성 (c:\Users\choi\Desktop\PickPlay\)
+브라우저에서 열면 바로 발표 가능. →/← 키보드로 슬라이드 이동.
+
+⚠️ [TODO] 각 게임 슬라이드에 GIF 삽입 필요!
+   - ScreenToGif (무료) 으로 게임 화면 녹화 후 GIF 저장
+   - 추천 녹화 장면:
+     · 빙고: 줄 완성 → 스탬프 순서대로 튀어오르는 장면
+     · 빙고: 내 턴 됐을 때 초록 테두리 빛나는 장면
+     · 라이어: 최후 변론 글자 실시간 타이핑 장면
+     · 폭탄: 타이머 빨개지다가 폭탄 터지는 장면
+   - GIF 준비되면 AI한테 슬라이드 삽입 요청할 것

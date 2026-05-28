@@ -73,6 +73,7 @@
     flex-shrink: 0;
     position: relative;
     z-index: 1;
+    container-type: inline-size;
 }
 
 #bingo-board.inactive-board {
@@ -101,7 +102,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: clamp(0.55rem, 1.6cqw, 1.1rem);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -110,14 +111,6 @@
     color: rgba(255, 255, 255, 0.6);
     line-height: 1.2;
     text-align: center;
-}
-
-.board-cell.text-medium {
-    font-size: 1.0rem !important;
-}
-
-.board-cell.text-small {
-    font-size: 0.75rem !important;
 }
 
 .board-cell:hover {
@@ -610,4 +603,25 @@
 
 body.timeout-flash {
     animation: timeoutFlash 0.8s ease-out forwards;
+}
+
+/* 내 턴 알림 시각 효과 */
+#turn-display.my-turn-glow {
+    border-color: #2ecc71;
+    box-shadow: 0 0 12px rgba(46, 204, 113, 0.6);
+    animation: turnDisplayPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes turnDisplayPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(46, 204, 113, 0.4); border-color: rgba(46, 204, 113, 0.6); }
+    50% { box-shadow: 0 0 22px rgba(46, 204, 113, 0.9); border-color: #2ecc71; }
+}
+
+.turn-track-mine {
+    animation: myTurnPing 1s ease-in-out infinite;
+}
+
+@keyframes myTurnPing {
+    0%, 100% { box-shadow: 0 0 0px rgba(241, 196, 15, 0.3); }
+    50% { box-shadow: 0 0 14px rgba(241, 196, 15, 0.85); }
 }
