@@ -64,6 +64,7 @@ h1#game-title {
     color: white;
 }
 
+#my-status-bar { display: none !important; }
 #my-role-display { font-weight: bold; margin-bottom: 10px; color: rgba(255,255,255,0.7); }
 #ready-status-display { background-color: #34495e; color: #fffffe; padding: 5px 15px; border-radius: 15px; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1); }
 #setup-area, #waiting-area, #in-progress-area {

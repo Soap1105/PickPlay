@@ -146,6 +146,11 @@ module.exports = (io, socket, gameRooms) => {
             });
         } else {
             room.status = 'ROUND_OVER';
+            if (room.bombGame.roundCount) {
+                room.bombGame.roundCount++;
+            } else {
+                room.bombGame.roundCount = 2;
+            }
             io.to(roomId).emit('bomb exploded', {
                 loserId: loserId,
                 loserName: loserName,
@@ -210,7 +215,8 @@ module.exports = (io, socket, gameRooms) => {
         // 전체 점수 초기화
         room.bombGame = {
             hearts: {},
-            usedWords: []
+            usedWords: [],
+            roundCount: 1
         };
         players.forEach(pid => {
             room.bombGame.hearts[pid] = room.bombGameConfig.maxHearts;
@@ -268,13 +274,20 @@ module.exports = (io, socket, gameRooms) => {
         if (range === 'short') { min = 15; max = 30; }
         else if (range === 'long') { min = 50; max = 80; }
         else { min = 30; max = 55; }
-        const randomDuration = Math.floor(Math.random() * (max - min + 1)) + min;
         
+        // 라운드가 진행될수록 제한 시간이 줄어들도록 5초씩 패널티 적용 (최소 12초 보장)
+        const round = room.bombGame.roundCount || 1;
+        const penalty = (round - 1) * 5;
+        const randomDuration = Math.max(12, Math.floor(Math.random() * (max - min + 1)) + min - penalty);
+        
+        console.log(`[Bomb] Round ${round} started. Timer range: ${min}~${max}s (penalty: -${penalty}s). Resulting duration: ${randomDuration}s.`);
+
         io.to(roomId).emit('bomb round started', {
             category: room.bombGame.category,
             currentTurnId: room.bombGame.currentTurnId,
             showTimer: room.bombGameConfig.showTimer,
-            subMode: room.bombGameConfig.subMode
+            subMode: room.bombGameConfig.subMode,
+            roundCount: round
         });
 
         startBombTimer(roomId, randomDuration);

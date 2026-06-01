@@ -1,864 +1,1653 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PickPlay 발표</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PickPlay 발표</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  :root {
-    --green: #2ecc71;
-    --purple: #a855f7;
-    --blue: #3498db;
-    --yellow: #f1c40f;
-    --red: #e74c3c;
-    --bg: #080818;
-    --card: rgba(255,255,255,0.07);
-    --border: rgba(255,255,255,0.18);
-    --text: #f0f0ff;
-    --muted: rgba(255,255,255,0.72);
-  }
+    :root {
+      --green: #2ecc71;
+      --purple: #a855f7;
+      --blue: #3498db;
+      --yellow: #f1c40f;
+      --red: #e74c3c;
+      --bg: #080818;
+      --card: rgba(255, 255, 255, 0.07);
+      --border: rgba(255, 255, 255, 0.18);
+      --text: #f0f0ff;
+      --muted: rgba(255, 255, 255, 0.72);
+    }
 
-  html, body {
-    width: 100%; height: 100%;
-    background: var(--bg);
-    font-family: 'Outfit', sans-serif;
-    color: var(--text);
-    overflow: hidden;
-    user-select: none;
-  }
+    html {
+      font-size: clamp(14px, 1.1vw, 24px);
+    }
 
-  /* ── 슬라이드 컨테이너 ── */
-  #deck {
-    width: 100vw; height: 100vh;
-    position: relative;
-  }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      font-family: 'Outfit', sans-serif;
+      color: var(--text);
+      overflow: hidden;
+      user-select: none;
+    }
 
-  .slide {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    justify-content: center; align-items: center;
-    padding: 48px 80px;
-    opacity: 0;
-    transform: translateX(60px);
-    transition: opacity 0.5s ease, transform 0.5s ease;
-    pointer-events: none;
-  }
-  .slide.active {
-    opacity: 1; transform: translateX(0);
-    pointer-events: all;
-  }
-  .slide.exit-left {
-    opacity: 0; transform: translateX(-60px);
-  }
+    /* ── 슬라이드 컨테이너 ── */
+    #deck {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
 
-  /* ── 배경 파티클 캔버스 ── */
-  #bg-canvas {
-    position: fixed; inset: 0; z-index: -1;
-    pointer-events: none;
-  }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 4vh 6vw;
+      opacity: 0;
+      transform: translateX(60px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      pointer-events: none;
+    }
 
-  /* ── 네비게이션 ── */
-  #nav {
-    position: fixed; bottom: 28px; left: 50%;
-    transform: translateX(-50%);
-    display: flex; align-items: center; gap: 14px;
-    z-index: 100;
-  }
-  .nav-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--border);
-    border: 1px solid rgba(255,255,255,0.2);
-    cursor: pointer;
-    transition: all 0.3s;
-  }
-  .nav-dot.active {
-    background: var(--green);
-    box-shadow: 0 0 10px var(--green);
-    transform: scale(1.3);
-  }
-  .nav-btn {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text);
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 1rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-  }
-  .nav-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--green); }
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: all;
+    }
 
-  #slide-counter {
-    position: fixed; top: 24px; right: 32px;
-    font-size: 0.85rem; color: var(--muted);
-    letter-spacing: 1px;
-    z-index: 100;
-  }
+    .slide.exit-left {
+      opacity: 0;
+      transform: translateX(-60px);
+    }
 
-  /* ── 공통 타이포그래피 ── */
-  .slide-tag {
-    font-size: 0.75rem; font-weight: 700;
-    letter-spacing: 3px; text-transform: uppercase;
-    color: var(--green);
-    margin-bottom: 18px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .slide-tag::before, .slide-tag::after {
-    content: ''; flex: 0 0 24px; height: 1px;
-    background: var(--green);
-    opacity: 0.5;
-  }
+    .slide.exit-right {
+      opacity: 0;
+      transform: translateX(60px);
+    }
 
-  h1 { font-size: 5rem; font-weight: 900; line-height: 1.05; }
-  h2 { font-size: 3rem; font-weight: 800; line-height: 1.2; }
-  h3 { font-size: 1.5rem; font-weight: 700; }
+    /* ── 배경 파티클 캔버스 ── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
 
-  .accent-green { color: var(--green); }
-  .accent-purple { color: var(--purple); }
-  .accent-blue { color: var(--blue); }
-  .accent-yellow { color: var(--yellow); }
-  .muted { color: var(--muted); }
+    /* ── 네비게이션 ── */
+    #nav {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      z-index: 100;
+    }
 
-  /* ── 카드 ── */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px 28px;
-    transition: border-color 0.3s;
-  }
-  .card:hover { border-color: rgba(255,255,255,0.18); }
-  .card.green  { border-left: 3px solid var(--green); }
-  .card.purple { border-left: 3px solid var(--purple); }
-  .card.blue   { border-left: 3px solid var(--blue); }
-  .card.yellow { border-left: 3px solid var(--yellow); }
+    #dots {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-  /* ── 글로우 텍스트 ── */
-  .glow-green { text-shadow: 0 0 30px rgba(46,204,113,0.6); }
-  .glow-purple { text-shadow: 0 0 30px rgba(168,85,247,0.6); }
+    .nav-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--border);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
 
-  /* ── 배지 ── */
-  .badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 14px;
-    border-radius: 20px;
-    font-size: 0.8rem; font-weight: 700;
-    letter-spacing: 0.5px;
-  }
-  .badge-green  { background: rgba(46,204,113,0.15);  border: 1px solid rgba(46,204,113,0.4);  color: var(--green); }
-  .badge-purple { background: rgba(168,85,247,0.15);  border: 1px solid rgba(168,85,247,0.4); color: var(--purple); }
-  .badge-blue   { background: rgba(52,152,219,0.15);   border: 1px solid rgba(52,152,219,0.4);  color: var(--blue); }
-  .badge-yellow { background: rgba(241,196,15,0.15);   border: 1px solid rgba(241,196,15,0.4);  color: var(--yellow); }
+    .nav-dot.active {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      transform: scale(1.3);
+    }
 
-  /* ── 구분선 ── */
-  .divider {
-    width: 60px; height: 3px;
-    border-radius: 2px;
-    margin: 16px auto;
-  }
+    .nav-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
 
-  /* ── 그리드 ── */
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; width: 100%; }
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%; }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--green);
+    }
 
-  /* ── 슬라이드별 스타일 ── */
+    #slide-counter {
+      position: fixed;
+      top: 24px;
+      right: 32px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+      z-index: 100;
+    }
 
-  /* S1: 타이틀 */
-  #s1 { text-align: center; }
-  #s1 .logo-text {
-    font-size: 7rem; font-weight: 900;
-    letter-spacing: -2px;
-    background: linear-gradient(135deg, var(--green), #00ffaa, var(--purple));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 0 40px rgba(46,204,113,0.4));
-  }
-  #s1 .subtitle {
-    font-size: 1.5rem; color: var(--muted); margin-top: 12px;
-    letter-spacing: 1px;
-  }
-  #s1 .badges { display: flex; gap: 10px; justify-content: center; margin-top: 28px; }
-  #s1 .meta { margin-top: 48px; color: var(--muted); font-size: 1.05rem; }
+    /* ── 공통 타이포그래피 ── */
+    .slide-tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-  /* S2: 소개 */
-  #s2 { align-items: flex-start; }
-  #s2 .big-quote {
-    font-size: 2.2rem; font-weight: 700;
-    line-height: 1.4;
-    max-width: 700px;
-    margin-bottom: 36px;
-  }
-  #s2 .reason-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
-  #s2 .reason-list li {
-    display: flex; align-items: flex-start; gap: 16px;
-    font-size: 1.15rem;
-  }
-  #s2 .reason-list .icon {
-    font-size: 1.6rem; flex-shrink: 0; margin-top: 2px;
-  }
+    .slide-tag::before,
+    .slide-tag::after {
+      content: '';
+      flex: 0 0 24px;
+      height: 1px;
+      background: var(--green);
+      opacity: 0.5;
+    }
 
-  /* S3: 기술 스택 */
-  #s3 .stack-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px; width: 100%;
-    max-width: 900px;
-  }
-  #s3 .stack-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 22px 20px;
-    text-align: center;
-    transition: transform 0.2s, border-color 0.2s;
-  }
-  #s3 .stack-card:hover { transform: translateY(-4px); }
-  #s3 .stack-card .s-icon { font-size: 2.2rem; margin-bottom: 10px; }
-  #s3 .stack-card .s-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
-  #s3 .stack-card .s-desc { font-size: 0.9rem; color: var(--muted); }
+    h1 {
+      font-size: 5.5rem;
+      font-weight: 900;
+      line-height: 1.05;
+    }
 
-  /* S4~6: 게임 소개 */
-  .game-slide { align-items: flex-start; }
-  .game-header {
-    display: flex; align-items: center; gap: 20px;
-    margin-bottom: 28px;
-  }
-  .game-icon-big {
-    font-size: 3.5rem;
-    width: 80px; height: 80px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 20px;
-    flex-shrink: 0;
-  }
-  .feature-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
-  .feature-list li {
-    display: flex; align-items: flex-start; gap: 12px;
-    font-size: 1.05rem; line-height: 1.6;
-  }
-  .feature-list .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0; margin-top: 7px;
-  }
-  .highlight-box {
-    background: linear-gradient(135deg, rgba(46,204,113,0.08), rgba(168,85,247,0.08));
-    border: 1px solid rgba(46,204,113,0.2);
-    border-radius: 12px;
-    padding: 16px 20px;
-    font-size: 0.95rem;
-    margin-top: 20px;
-  }
+    h2 {
+      font-size: 3.6rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
 
-  /* S7: AI 흐름 */
-  #s7 .flow {
-    display: flex; align-items: center; gap: 12px;
-    width: 100%; margin-top: 24px; flex-wrap: wrap;
-    justify-content: center;
-  }
-  #s7 .flow-step {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 18px 22px;
-    text-align: center;
-    min-width: 160px;
-  }
-  #s7 .flow-step .f-icon { font-size: 1.8rem; margin-bottom: 8px; }
-  #s7 .flow-step .f-label { font-size: 0.95rem; font-weight: 700; }
-  #s7 .flow-step .f-sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
-  #s7 .arrow { font-size: 1.5rem; color: var(--muted); }
+    h3 {
+      font-size: 1.9rem;
+      font-weight: 700;
+    }
 
-  /* S8: 실시간 통신 */
-  #s8 .socket-diagram {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 20px;
-    align-items: center;
-    width: 100%;
-    max-width: 860px;
-    margin-top: 20px;
-  }
-  #s8 .node {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 22px;
-    text-align: center;
-  }
-  #s8 .node .n-icon { font-size: 2.5rem; margin-bottom: 10px; }
-  #s8 .node .n-label { font-size: 1rem; font-weight: 700; }
-  #s8 .socket-center {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-  }
-  #s8 .socket-center .sc-label {
-    font-size: 0.85rem; color: var(--green);
-    font-weight: 700; letter-spacing: 1px;
-  }
-  #s8 .event-list {
-    margin-top: 28px; width: 100%; max-width: 860px;
-  }
-  #s8 .event-list h3 { font-size: 1.1rem; color: var(--muted); margin-bottom: 12px; }
-  #s8 .event-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  #s8 .chip {
-    padding: 7px 16px; border-radius: 20px;
-    font-size: 0.88rem; font-weight: 600;
-    background: rgba(52,152,219,0.12);
-    border: 1px solid rgba(52,152,219,0.3);
-    color: var(--blue);
-  }
+    .accent-green {
+      color: var(--green);
+    }
 
-  /* S9: 도전 과제 */
-  #s9 .challenge-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    width: 100%;
-  }
-  #s9 .ch-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 22px 24px;
-  }
-  #s9 .ch-card .ch-top {
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 12px;
-  }
-  #s9 .ch-card .ch-icon { font-size: 1.6rem; }
-  #s9 .ch-card .ch-title { font-size: 1.05rem; font-weight: 700; }
-  #s9 .ch-card .problem {
-    font-size: 0.9rem; color: var(--muted);
-    margin-bottom: 10px; line-height: 1.65;
-  }
-  #s9 .ch-card .solution {
-    font-size: 0.93rem; line-height: 1.65;
-  }
-  #s9 .arrow-right { color: var(--green); font-weight: 700; margin-right: 4px; }
+    .accent-purple {
+      color: var(--purple);
+    }
 
-  /* S10: 마무리 */
-  #s10 { text-align: center; }
-  #s10 .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    width: 100%; margin: 32px 0;
-  }
-  #s10 .sum-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px 16px;
-    text-align: center;
-  }
-  #s10 .sum-card .s-num {
-    font-size: 2rem; font-weight: 900;
-    line-height: 1;
-  }
-  #s10 .sum-card .s-label {
-    font-size: 0.9rem; color: var(--muted);
-    margin-top: 6px;
-  }
-  #s10 .future { font-size: 0.9rem; color: var(--muted); margin-top: 8px; }
-  #s10 .future span { color: var(--text); font-weight: 600; }
-  #s10 .end-text {
-    font-size: 2.4rem; font-weight: 800;
-    margin-top: 28px;
-  }
+    .accent-blue {
+      color: var(--blue);
+    }
 
-  /* 진입 애니메이션 */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .slide.active .anim-1 { animation: fadeUp 0.5s 0.1s both; }
-  .slide.active .anim-2 { animation: fadeUp 0.5s 0.2s both; }
-  .slide.active .anim-3 { animation: fadeUp 0.5s 0.3s both; }
-  .slide.active .anim-4 { animation: fadeUp 0.5s 0.4s both; }
-  .slide.active .anim-5 { animation: fadeUp 0.5s 0.5s both; }
-  .slide.active .anim-6 { animation: fadeUp 0.5s 0.6s both; }
-</style>
+    .accent-yellow {
+      color: var(--yellow);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 24px;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .card.green {
+      border-left: 3px solid var(--green);
+    }
+
+    .card.purple {
+      border-left: 3px solid var(--purple);
+    }
+
+    .card.blue {
+      border-left: 3px solid var(--blue);
+    }
+
+    .card.yellow {
+      border-left: 3px solid var(--yellow);
+    }
+
+    /* ── 글로우 텍스트 ── */
+    .glow-green {
+      text-shadow: 0 0 30px rgba(46, 204, 113, 0.6);
+    }
+
+    .glow-purple {
+      text-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
+    }
+
+    /* ── 배지 ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-green {
+      background: rgba(46, 204, 113, 0.15);
+      border: 1px solid rgba(46, 204, 113, 0.4);
+      color: var(--green);
+    }
+
+    .badge-purple {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: var(--purple);
+    }
+
+    .badge-blue {
+      background: rgba(52, 152, 219, 0.15);
+      border: 1px solid rgba(52, 152, 219, 0.4);
+      color: var(--blue);
+    }
+
+    .badge-yellow {
+      background: rgba(241, 196, 15, 0.15);
+      border: 1px solid rgba(241, 196, 15, 0.4);
+      color: var(--yellow);
+    }
+
+    /* ── 구분선 ── */
+    .divider {
+      width: 60px;
+      height: 3px;
+      border-radius: 2px;
+      margin: 16px auto;
+    }
+
+    /* ── 그리드 ── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+      width: 100%;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      width: 100%;
+    }
+
+    /* ── 슬라이드별 스타일 ── */
+
+    /* S1: 타이틀 */
+    #s1 {
+      text-align: center;
+    }
+
+    #s1 .logo-text {
+      font-size: 7rem;
+      font-weight: 900;
+      letter-spacing: -2px;
+      background: linear-gradient(135deg, var(--green), #00ffaa, var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 40px rgba(46, 204, 113, 0.4));
+    }
+
+    #s1 .subtitle {
+      font-size: 1.5rem;
+      color: var(--muted);
+      margin-top: 12px;
+      letter-spacing: 1px;
+    }
+
+    #s1 .badges {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 28px;
+    }
+
+    #s1 .meta {
+      margin-top: 48px;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    /* S2: 소개 */
+    #s2 {
+      align-items: center;
+    }
+
+    #s2 .big-quote {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.4;
+      max-width: 580px;
+      margin-bottom: 0;
+      word-break: keep-all;
+    }
+
+    #s2 .reason-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #s2 .reason-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      font-size: 1.15rem;
+    }
+
+    #s2 .reason-list .icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* S3: 기술 스택 */
+    #s3 .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    #s3 .stack-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      text-align: center;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    #s3 .stack-card:hover {
+      transform: translateY(-4px);
+    }
+
+    #s3 .stack-card .s-icon {
+      font-size: 2.4rem;
+      margin-bottom: 8px;
+    }
+
+    #s3 .stack-card .s-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    #s3 .stack-card .s-desc {
+      font-size: 1.05rem;
+      color: var(--muted);
+    }
+
+    /* S4~6: 게임 소개 */
+    .game-slide {
+      align-items: center;
+    }
+
+    .game-slide>* {
+      width: 100%;
+      max-width: 1400px;
+    }
+
+    .game-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .game-icon-big {
+      font-size: 3.5rem;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 1.22rem;
+      line-height: 1.6;
+    }
+
+    .feature-list .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 9px;
+    }
+
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(46, 204, 113, 0.08), rgba(168, 85, 247, 0.08));
+      border: 1px solid rgba(46, 204, 113, 0.2);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 0.95rem;
+      margin-top: 20px;
+    }
+
+    /* S7: AI 흐름 */
+    #s7 .flow {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      margin-top: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #s7 .flow-step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      text-align: center;
+      min-width: 160px;
+    }
+
+    #s7 .flow-step .f-icon {
+      font-size: 2.0rem;
+      margin-bottom: 6px;
+    }
+
+    #s7 .flow-step .f-label {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    #s7 .flow-step .f-sub {
+      font-size: 1.05rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    #s7 .arrow {
+      font-size: 1.7rem;
+      color: var(--muted);
+    }
+
+    /* S8: 실시간 통신 */
+    #s8 .socket-diagram {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 20px;
+      align-items: center;
+      width: 100%;
+      max-width: 860px;
+      margin-top: 20px;
+    }
+
+    #s8 .node {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      text-align: center;
+    }
+
+    #s8 .node .n-icon {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    #s8 .node .n-label {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    #s8 .socket-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #s8 .socket-center .sc-label {
+      font-size: 0.85rem;
+      color: var(--green);
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    #s8 .event-list {
+      margin-top: 28px;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    #s8 .event-list h3 {
+      font-size: 1.1rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    #s8 .event-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    #s8 .chip {
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: rgba(52, 152, 219, 0.12);
+      border: 1px solid rgba(52, 152, 219, 0.3);
+      color: var(--blue);
+    }
+
+    /* S9: 도전 과제 */
+    #s9 .challenge-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      width: 100%;
+    }
+
+    #s9 .ch-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 20px;
+    }
+
+    #s9 .ch-card .ch-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    #s9 .ch-card .ch-icon {
+      font-size: 1.8rem;
+    }
+
+    #s9 .ch-card .ch-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    #s9 .ch-card .problem {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      line-height: 1.65;
+    }
+
+    #s9 .ch-card .solution {
+      font-size: 1.2rem;
+      line-height: 1.65;
+    }
+
+    #s9 .arrow-right {
+      color: var(--green);
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    /* S10: 마무리 */
+    #s10 {
+      text-align: center;
+    }
+
+    #s10 .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      width: 100%;
+      margin: 32px 0;
+    }
+
+    #s10 .sum-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 16px;
+      text-align: center;
+    }
+
+    #s10 .sum-card .s-num {
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    #s10 .sum-card .s-label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    #s10 .future {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    #s10 .future span {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    #s10 .end-text {
+      font-size: 2.4rem;
+      font-weight: 800;
+      margin-top: 28px;
+    }
+
+    /* ── 이미지 테두리 박스 핏 조절 ── */
+    .grid-2 img,
+    .grid-3 img {
+      max-width: 100% !important;
+      width: auto !important;
+    }
+
+    /* 진입 애니메이션 */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .slide.active .anim-1 {
+      animation: fadeUp 0.5s 0.1s both;
+    }
+
+    .slide.active .anim-2 {
+      animation: fadeUp 0.5s 0.2s both;
+    }
+
+    .slide.active .anim-3 {
+      animation: fadeUp 0.5s 0.3s both;
+    }
+
+    .slide.active .anim-4 {
+      animation: fadeUp 0.5s 0.4s both;
+    }
+
+    .slide.active .anim-5 {
+      animation: fadeUp 0.5s 0.5s both;
+    }
+
+    .slide.active .anim-6 {
+      animation: fadeUp 0.5s 0.6s both;
+    }
+  </style>
 </head>
+
 <body>
 
-<canvas id="bg-canvas"></canvas>
+  <canvas id="bg-canvas"></canvas>
 
-<div id="slide-counter"></div>
+  <div id="slide-counter"></div>
 
-<div id="deck">
+  <div id="deck">
 
-  <!-- ── SLIDE 1: 타이틀 ── -->
-  <div class="slide active" id="s1">
-    <div class="logo-text anim-1">PickPlay</div>
-    <div class="subtitle anim-2">실시간 멀티플레이어 웹 파티 게임 플랫폼</div>
-    <div class="badges anim-3">
-      <span class="badge badge-green">🎮 3가지 게임</span>
-      <span class="badge badge-blue">⚡ 실시간 멀티플레이</span>
-      <span class="badge badge-purple">🤖 AI 연동</span>
+    <!-- ── SLIDE 1: 타이틀 ── -->
+    <div class="slide active" id="s1">
+      <div class="logo-text anim-1">PickPlay</div>
+      <div class="subtitle anim-2">실시간 멀티플레이어 웹 파티 게임 플랫폼</div>
+      <div class="badges anim-3">
+        <span class="badge badge-green">3가지 게임</span>
+        <span class="badge badge-blue">실시간 멀티플레이</span>
+        <span class="badge badge-purple">AI 연동</span>
+      </div>
+      <div class="meta anim-4">202251002 권다원</div>
     </div>
-    <div class="meta anim-4">솔로 개발 프로젝트 &nbsp;·&nbsp; Node.js + Socket.io + Gemini API</div>
-  </div>
 
-  <!-- ── SLIDE 2: 프로젝트 소개 ── -->
-  <div class="slide" id="s2">
-    <div class="slide-tag anim-1">About</div>
-    <div class="big-quote anim-2">
-      "설치 없이, 링크 하나로<br>
-      <span class="accent-green">친구들과 바로 게임을.</span>"
-    </div>
-    <ul class="reason-list anim-3">
-      <li>
-        <span class="icon">🧩</span>
-        <div>
-          <strong>왜 만들었나?</strong><br>
-          <span class="muted">카카오게임 같은 브라우저 파티 게임을 직접 구현해보고 싶었습니다.<br>
-          별도 설치 없이 방 코드 하나로 즉시 접속, 실시간으로 함께 즐기는 게임을 목표로 했습니다.</span>
+    <!-- ── SLIDE 2: 프로젝트 소개 ── -->
+    <div class="slide" id="s2">
+      <div class="slide-tag anim-1">프로젝트 개요</div>
+      <div class="grid-2 anim-2"
+        style="grid-template-columns: 1.15fr 1fr; align-items: center; width: 100%; max-width: 1000px; gap: 48px;">
+        <div class="big-quote">
+          "설치 없이, 링크 하나로<br>
+          <span class="accent-green">친구들과 바로 게임을.</span>"
         </div>
-      </li>
-      <li>
-        <span class="icon">🌐</span>
-        <div>
-          <strong>어떻게 동작하나?</strong><br>
-          <span class="muted">방장이 방을 만들고 코드를 공유하면 플레이어들이 같은 방에 입장.<br>
-          서버가 모든 상태를 실시간으로 동기화해 함께 게임이 진행됩니다.</span>
-        </div>
-      </li>
-      <li>
-        <span class="icon">🤖</span>
-        <div>
-          <strong>AI가 들어간 이유?</strong><br>
-          <span class="muted">빙고 주제 단어를 매번 사람이 만들면 한계가 있어 Gemini API를 연동.<br>
-          어떤 주제든 25~50개 단어를 자동 생성해 무한히 새로운 게임이 가능합니다.</span>
-        </div>
-      </li>
-    </ul>
-  </div>
-
-  <!-- ── SLIDE 3: 기술 스택 ── -->
-  <div class="slide" id="s3">
-    <div class="slide-tag anim-1">Tech Stack</div>
-    <h2 class="anim-2" style="margin-bottom:32px;">사용 기술</h2>
-    <div class="stack-grid anim-3">
-      <div class="stack-card" style="border-top: 2px solid #68a063;">
-        <div class="s-icon">🟢</div>
-        <div class="s-name">Node.js + Express</div>
-        <div class="s-desc">서버 사이드 런타임 & REST API</div>
-      </div>
-      <div class="stack-card" style="border-top: 2px solid var(--blue);">
-        <div class="s-icon">⚡</div>
-        <div class="s-name">Socket.io</div>
-        <div class="s-desc">WebSocket 기반 실시간 양방향 통신</div>
-      </div>
-      <div class="stack-card" style="border-top: 2px solid #e8d44d;">
-        <div class="s-icon">🌐</div>
-        <div class="s-name">HTML / CSS / JS</div>
-        <div class="s-desc">Vanilla 프론트엔드, 프레임워크 없음</div>
-      </div>
-      <div class="stack-card" style="border-top: 2px solid var(--purple);">
-        <div class="s-icon">🤖</div>
-        <div class="s-name">Google Gemini API</div>
-        <div class="s-desc">AI 단어 생성 (빙고 주제 단어 자동 생성)</div>
-      </div>
-      <div class="stack-card" style="border-top: 2px solid #00aeff;">
-        <div class="s-icon">🗄️</div>
-        <div class="s-name">MySQL</div>
-        <div class="s-desc">AI 생성 주제 DB 캐싱으로 API 비용 절감</div>
-      </div>
-      <div class="stack-card" style="border-top: 2px solid var(--green);">
-        <div class="s-icon">🏗️</div>
-        <div class="s-name">1인 풀스택</div>
-        <div class="s-desc">기획 · 서버 · 클라이언트 · AI 연동 모두 직접 구현</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SLIDE 4: 빙고 게임 ── -->
-  <div class="slide game-slide" id="s4">
-    <div class="slide-tag anim-1">Game 01</div>
-    <div class="game-header anim-2">
-      <div class="game-icon-big" style="background: rgba(46,204,113,0.15);">🟩</div>
-      <div>
-        <h2>빙고 게임</h2>
-        <p class="muted" style="margin-top:6px; font-size:0.95rem;">AI가 만든 단어로 채우는 실시간 턴제 빙고</p>
-      </div>
-    </div>
-    <div class="grid-2 anim-3" style="max-width: 960px;">
-      <ul class="feature-list">
-        <li>
-          <span class="dot" style="background:var(--green);"></span>
-          <div><strong>AI 주제 단어 자동 생성</strong><br>
-          <span class="muted" style="font-size:0.88rem;">Gemini API가 주제에 맞는 단어 25~50개 생성, 5×5 빙고판 자동 배치</span></div>
-        </li>
-        <li>
-          <span class="dot" style="background:var(--blue);"></span>
-          <div><strong>실시간 순차 턴제</strong><br>
-          <span class="muted" style="font-size:0.88rem;">플레이어가 순서대로 돌아가며 단어를 선택, 모두의 화면에 즉시 반영</span></div>
-        </li>
-        <li>
-          <span class="dot" style="background:var(--yellow);"></span>
-          <div><strong>턴 타이머</strong><br>
-          <span class="muted" style="font-size:0.88rem;">제한 시간 내 선택하지 않으면 자동으로 다음 플레이어로 턴 이동</span></div>
-        </li>
-      </ul>
-      <ul class="feature-list">
-        <li>
-          <span class="dot" style="background:var(--purple);"></span>
-          <div><strong>이벤트 카드 시스템</strong><br>
-          <span class="muted" style="font-size:0.88rem;">빙고판 초기화, 단어 교환 등 특수 이벤트가 랜덤 발동해 게임에 변수 추가</span></div>
-        </li>
-        <li>
-          <span class="dot" style="background:var(--red);"></span>
-          <div><strong>줄 완성 스탬프 애니메이션</strong><br>
-          <span class="muted" style="font-size:0.88rem;">빙고 줄 완성 시 칸들이 순서대로 튀어오르는 타격감 있는 연출</span></div>
-        </li>
-        <li>
-          <span class="dot" style="background:var(--green);"></span>
-          <div><strong>내 턴 시각 강조</strong><br>
-          <span class="muted" style="font-size:0.88rem;">내 차례엔 빙고판이 초록 네온으로 빛나고 이름 칸이 노랗게 깜빡임</span></div>
-        </li>
-      </ul>
-    </div>
-    <div class="highlight-box anim-4" style="max-width:960px;">
-      💡 <strong>핵심:</strong> DB 캐싱으로 이미 생성한 주제는 API 비용 없이 즉시 재사용 &nbsp;|&nbsp; 30초 쿨타임으로 API 남용 이중 방어
-    </div>
-  </div>
-
-  <!-- ── SLIDE 5: 라이어 게임 ── -->
-  <div class="slide game-slide" id="s5">
-    <div class="slide-tag anim-1">Game 02</div>
-    <div class="game-header anim-2">
-      <div class="game-icon-big" style="background: rgba(168,85,247,0.15);">🕵️</div>
-      <div>
-        <h2>라이어 게임</h2>
-        <p class="muted" style="margin-top:6px; font-size:0.95rem;">제시어를 모르는 스파이를 찾아내는 소셜 추리 게임</p>
-      </div>
-    </div>
-    <div class="grid-2 anim-3" style="max-width:960px; margin-bottom:20px;">
-      <div class="card purple">
-        <h3 style="margin-bottom:12px;">🎮 게임 흐름</h3>
-        <div style="display:flex; flex-direction:column; gap:10px; font-size:0.9rem;">
-          <div>① <strong>주제 공개</strong> — 라이어만 제시어를 모른 채 시작</div>
-          <div>② <strong>순차 발언</strong> — 모두가 돌아가며 힌트 발언</div>
-          <div>③ <strong>실시간 투표</strong> — 라이어로 의심되는 사람에게 투표</div>
-          <div>④ <strong>최후 변론</strong> — 지목된 라이어의 마지막 해명 기회</div>
-          <div>⑤ <strong>최종 결과</strong> — 라이어 공개 & 승패 판정</div>
-        </div>
-      </div>
-      <div>
-        <ul class="feature-list">
+        <ul class="reason-list">
           <li>
-            <span class="dot" style="background:var(--purple);"></span>
-            <div><strong>실시간 타이핑 동기화</strong><br>
-            <span class="muted" style="font-size:0.88rem;">최후 변론 시 글자 한 자씩 다른 플레이어 화면에 실시간으로 나타나는 연출</span></div>
+            <div>
+              <strong class="accent-green" style="font-size: 1.25rem;">01. 왜 만들었나?</strong><br>
+              <span class="muted" style="margin-top: 6px; display: inline-block; line-height: 1.6;">갈틱폰이나 끄투처럼 설치 없이 웹
+                브라우저로 가볍고 간편하게 즐길 수 있는 킬링타임용 멀티플레이 파티 게임을 의도했습니다.</span>
+            </div>
           </li>
-          <li>
-            <span class="dot" style="background:var(--yellow);"></span>
-            <div><strong>3단계 타이머</strong><br>
-            <span class="muted" style="font-size:0.88rem;">초록 → 노랑 → 빨강 색상 전환으로 시간 압박감을 직관적으로 전달</span></div>
+          <li style="margin-top: 8px;">
+            <div>
+              <strong class="accent-blue" style="font-size: 1.25rem;">02. 어떻게 동작하나?</strong><br>
+              <span class="muted" style="margin-top: 6px; display: inline-block; line-height: 1.6;">방장이 게임방을 생성한 뒤 링크를
+                공유하면 다른 플레이어들이 동시 입장합니다. 중앙 서버에서 실시간 소켓으로 모든 상태를 동기화합니다.</span>
+            </div>
           </li>
-          <li>
-            <span class="dot" style="background:var(--blue);"></span>
-            <div><strong>단계별 UI 자동 전환</strong><br>
-            <span class="muted" style="font-size:0.88rem;">서버가 페이즈를 관리해 모든 플레이어 화면이 동시에 전환됨</span></div>
+          <li style="margin-top: 8px;">
+            <div>
+              <strong class="accent-purple" style="font-size: 1.25rem;">03. AI가 들어간 이유?</strong><br>
+              <span class="muted" style="margin-top: 6px; display: inline-block; line-height: 1.6;">주제 단어 풀을 사람이 매번 직접
+                기획해 입력하는 한계를 극복하고자 Gemini API를 연동하여, 어떤 주제든 수십 개의 정제된 단어를 실시간 자동 생성합니다.</span>
+            </div>
           </li>
         </ul>
       </div>
     </div>
-  </div>
 
-  <!-- ── SLIDE 6: 폭탄 돌리기 ── -->
-  <div class="slide game-slide" id="s6">
-    <div class="slide-tag anim-1">Game 03</div>
-    <div class="game-header anim-2">
-      <div class="game-icon-big" style="background: rgba(231,76,60,0.15);">💣</div>
-      <div>
-        <h2>폭탄 돌리기</h2>
-        <p class="muted" style="margin-top:6px; font-size:0.95rem;">시간 안에 단어를 완성하고 폭탄을 넘겨라!</p>
-      </div>
-    </div>
-    <div class="grid-3 anim-3" style="max-width:900px;">
-      <div class="card" style="border-left: 3px solid var(--red); text-align:center; padding:28px 20px;">
-        <div style="font-size:2rem; margin-bottom:10px;">⏱️</div>
-        <h3 style="margin-bottom:8px;">제한 시간</h3>
-        <p class="muted" style="font-size:0.88rem;">카운트다운이 끝나면 폭탄이 터집니다. 주어진 글자로 시작하는 단어를 빠르게 입력!</p>
-      </div>
-      <div class="card" style="border-left: 3px solid var(--yellow); text-align:center; padding:28px 20px;">
-        <div style="font-size:2rem; margin-bottom:10px;">🔥</div>
-        <h3 style="margin-bottom:8px;">탈락 방식</h3>
-        <p class="muted" style="font-size:0.88rem;">폭탄이 터진 플레이어는 탈락. 마지막 1인이 남을 때까지 진행됩니다.</p>
-      </div>
-      <div class="card" style="border-left: 3px solid var(--purple); text-align:center; padding:28px 20px;">
-        <div style="font-size:2rem; margin-bottom:10px;">📈</div>
-        <h3 style="margin-bottom:8px;">난이도 상승</h3>
-        <p class="muted" style="font-size:0.88rem;">라운드가 진행될수록 제한 시간이 줄어들어 긴장감이 점점 높아집니다.</p>
-      </div>
-    </div>
-    <div class="anim-4" style="margin-top:28px; font-size:1rem; color:var(--muted); text-align:center;">
-      세 게임 모두 <strong style="color:var(--text);">방 코드 하나</strong>로 입장 &nbsp;|&nbsp; 같은 방에서 연속 플레이 가능
-    </div>
-  </div>
-
-  <!-- ── SLIDE 7: AI 연동 ── -->
-  <div class="slide" id="s7">
-    <div class="slide-tag anim-1">Core Tech 01</div>
-    <h2 class="anim-2">AI 단어 생성 흐름</h2>
-    <p class="muted anim-2" style="margin-top:8px; font-size:0.95rem;">Google Gemini API를 활용한 무제한 주제 단어 자동 생성</p>
-    <div class="flow anim-3">
-      <div class="flow-step">
-        <div class="f-icon">🖊️</div>
-        <div class="f-label">주제 입력</div>
-        <div class="f-sub">예: "리그 오브 레전드"</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-step" style="border-color: rgba(46,204,113,0.3);">
-        <div class="f-icon">🛡️</div>
-        <div class="f-label">입력 검증</div>
-        <div class="f-sub">자음 단독 / 어뷰징 차단</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-step" style="border-color: rgba(168,85,247,0.3);">
-        <div class="f-icon">🗄️</div>
-        <div class="f-label">DB 캐시 확인</div>
-        <div class="f-sub">기존 주제면 즉시 반환</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-step" style="border-color: rgba(168,85,247,0.5);">
-        <div class="f-icon">🤖</div>
-        <div class="f-label">Gemini API 호출</div>
-        <div class="f-sub">단어 25~50개 생성</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-step" style="border-color: rgba(52,152,219,0.3);">
-        <div class="f-icon">💾</div>
-        <div class="f-label">DB 저장</div>
-        <div class="f-sub">다음 사용 시 무료 재사용</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-step" style="border-color: rgba(46,204,113,0.5);">
-        <div class="f-icon">🟩</div>
-        <div class="f-label">빙고판 배치</div>
-        <div class="f-sub">5×5 랜덤 배열 완성</div>
-      </div>
-    </div>
-    <div class="grid-2 anim-4" style="max-width:860px; margin-top:24px; gap:14px;">
-      <div class="card green" style="font-size:0.9rem;">
-        ✅ <strong>어뷰징 방지:</strong> 동일 방/유저 30초 쿨타임을 서버+클라이언트 이중 적용
-      </div>
-      <div class="card purple" style="font-size:0.9rem;">
-        💡 <strong>비용 최적화:</strong> 같은 주제는 DB에서 꺼내 API 호출 없이 즉시 게임 시작
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SLIDE 8: 실시간 통신 ── -->
-  <div class="slide" id="s8">
-    <div class="slide-tag anim-1">Core Tech 02</div>
-    <h2 class="anim-2">실시간 멀티플레이 구조</h2>
-    <p class="muted anim-2" style="margin-top:8px; font-size:0.95rem;">Socket.io WebSocket으로 모든 플레이어 상태를 실시간 동기화</p>
-    <div class="socket-diagram anim-3">
-      <div class="node" style="border-color: rgba(52,152,219,0.3);">
-        <div class="n-icon">👥</div>
-        <div class="n-label" style="color:var(--blue);">클라이언트 (플레이어들)</div>
-        <div style="font-size:0.8rem; color:var(--muted); margin-top:8px;">브라우저에서 게임 화면<br>이벤트 emit → 서버로 전송</div>
-      </div>
-      <div class="socket-center">
-        <div class="sc-label">Socket.io</div>
-        <div style="font-size:1.5rem;">⇄</div>
-        <div style="font-size:0.75rem; color:var(--muted);">WebSocket</div>
-      </div>
-      <div class="node" style="border-color: rgba(46,204,113,0.3);">
-        <div class="n-icon">🖥️</div>
-        <div class="n-label" style="color:var(--green);">서버 (Node.js)</div>
-        <div style="font-size:0.8rem; color:var(--muted); margin-top:8px;">게임 상태 관리<br>모든 클라이언트에 broadcast</div>
-      </div>
-    </div>
-    <div class="event-list anim-4">
-      <h3>주요 소켓 이벤트</h3>
-      <div class="event-chips">
-        <span class="chip">turn update</span>
-        <span class="chip">word called</span>
-        <span class="chip">bingo completed</span>
-        <span class="chip">player joined</span>
-        <span class="chip">game start</span>
-        <span class="chip">confirm result</span>
-        <span class="chip">liar vote</span>
-        <span class="chip">char drop</span>
-        <span class="chip">bomb pass</span>
-        <span class="chip">player eliminated</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SLIDE 9: 도전과 해결 ── -->
-  <div class="slide" id="s9">
-    <div class="slide-tag anim-1">Development</div>
-    <h2 class="anim-2" style="margin-bottom:28px;">개발 도전 과제 & 해결</h2>
-    <div class="challenge-grid anim-3">
-      <div class="ch-card" style="border-left: 3px solid var(--red);">
-        <div class="ch-top">
-          <span class="ch-icon">🤖</span>
-          <span class="ch-title">AI 어뷰징 방지</span>
+    <!-- ── SLIDE 3: 기술 스택 ── -->
+    <div class="slide" id="s3">
+      <div class="slide-tag anim-1">기술 스택</div>
+      <h2 class="anim-2" style="margin-bottom:32px;">사용 기술</h2>
+      <div class="stack-grid anim-3">
+        <div class="stack-card" style="border-top: 2px solid #68a063;">
+          <div class="s-name">Node.js + Express</div>
+          <div class="s-desc">서버 사이드 런타임 & REST API</div>
         </div>
-        <div class="problem">❌ 문제: 사용자가 "ㅋ" 같은 자음 입력 시 Gemini가 그대로 단어를 생성해버림. 연속 클릭 시 API 할당량 고갈.</div>
-        <div class="solution"><span class="arrow-right">→</span>클라이언트 자음 정규식 차단 + 서버 30초 쿨타임 이중 방어 + DB 캐싱으로 재요청 방지</div>
-      </div>
-      <div class="ch-card" style="border-left: 3px solid var(--yellow);">
-        <div class="ch-top">
-          <span class="ch-icon">🔄</span>
-          <span class="ch-title">게임 재시작 타이밍 동기화</span>
+        <div class="stack-card" style="border-top: 2px solid var(--blue);">
+          <div class="s-name">Socket.io</div>
+          <div class="s-desc">WebSocket 기반 실시간 양방향 통신</div>
         </div>
-        <div class="problem">❌ 문제: 결과창을 확인 중인 유저가 있는데 방장이 게임을 재시작하면 해당 유저가 게임에 참여 불가.</div>
-        <div class="solution"><span class="arrow-right">→</span>서버에서 confirmedResult 상태 관리, 모든 유저가 확인 완료해야 방장이 재시작 가능하도록 제어</div>
-      </div>
-      <div class="ch-card" style="border-left: 3px solid var(--blue);">
-        <div class="ch-top">
-          <span class="ch-icon">⚡</span>
-          <span class="ch-title">실시간 타이핑 동기화</span>
+        <div class="stack-card" style="border-top: 2px solid #e8d44d;">
+          <div class="s-name">HTML / CSS / JS</div>
+          <div class="s-desc">Vanilla 프론트엔드, 프레임워크 없음</div>
         </div>
-        <div class="problem">❌ 문제: 최후 변론 타이핑을 실시간으로 보여주려면 글자 입력마다 전체 DOM을 재렌더하면 성능 저하.</div>
-        <div class="solution"><span class="arrow-right">→</span>글자 추가 시 span만 추가하는 방식으로 DOM 재렌더 없이 최적화, 글자 낙하 애니메이션도 구현</div>
-      </div>
-      <div class="ch-card" style="border-left: 3px solid var(--purple);">
-        <div class="ch-top">
-          <span class="ch-icon">🛡️</span>
-          <span class="ch-title">쿨타임 시스템 설계</span>
+        <div class="stack-card" style="border-top: 2px solid var(--purple);">
+          <div class="s-name">Google Gemini API</div>
+          <div class="s-desc">AI 단어 생성 (빙고 주제 단어 자동 생성)</div>
         </div>
-        <div class="problem">❌ 문제: 게임 중 대기방 이탈 후 재입장 시 쿨타임 UI가 초기화되어 우회 가능.</div>
-        <div class="solution"><span class="arrow-right">→</span>서버 인메모리에 쿨타임 상태 보관, 재입장해도 남은 시간을 그대로 이어받아 적용</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SLIDE 10: 마무리 ── -->
-  <div class="slide" id="s10">
-    <div class="slide-tag anim-1">Wrap Up</div>
-    <h2 class="anim-2">완성도 & 앞으로</h2>
-    <div class="summary-grid anim-3">
-      <div class="sum-card">
-        <div class="s-num accent-green glow-green">3</div>
-        <div class="s-label">게임 수록</div>
-      </div>
-      <div class="sum-card">
-        <div class="s-num accent-blue">6+</div>
-        <div class="s-label">주요 기술 연동</div>
-      </div>
-      <div class="sum-card">
-        <div class="s-num accent-purple">1인</div>
-        <div class="s-label">풀스택 개발</div>
-      </div>
-      <div class="sum-card">
-        <div class="s-num accent-yellow">실시간</div>
-        <div class="s-label">멀티플레이</div>
-      </div>
-    </div>
-    <div class="anim-4" style="width:100%; max-width:800px;">
-      <div class="card" style="text-align:left; padding:20px 26px;">
-        <h3 style="margin-bottom:12px; font-size:1rem; color:var(--muted);">📋 추후 개선 계획</h3>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:0.88rem;">
-          <span class="badge badge-green">📱 모바일 반응형</span>
-          <span class="badge badge-blue">🎲 단어 리롤 시스템</span>
-          <span class="badge badge-purple">🎯 이벤트 밸런스 조정</span>
-          <span class="badge badge-yellow">⏱️ 폭탄 타이머 고도화</span>
+        <div class="stack-card" style="border-top: 2px solid #00aeff;">
+          <div class="s-name">MySQL</div>
+          <div class="s-desc">AI 생성 주제 DB 캐싱으로 API 비용 절감</div>
+        </div>
+        <div class="stack-card" style="border-top: 2px solid var(--green);">
+          <div class="s-name">1인 풀스택</div>
+          <div class="s-desc">기획 · 서버 · 클라이언트 · AI 연동 모두 직접 구현</div>
         </div>
       </div>
     </div>
-    <div class="end-text anim-5">
-      감사합니다 &nbsp;<span class="accent-green glow-green">🎮</span>
+
+    <!-- ── SLIDE 4: 빙고 게임 ── -->
+    <div class="slide game-slide" id="s4">
+      <div class="slide-tag anim-1">게임 01</div>
+      <div class="game-header anim-2">
+        <div>
+          <h2>빙고 게임</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">AI가 만든 단어로 채우는 실시간 턴제 빙고</p>
+        </div>
+      </div>
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.8fr 1.7fr; align-items: center; gap: 48px;">
+        <ul class="feature-list" style="display: flex; flex-direction: column; gap: 12px;">
+          <li>
+            <span class="dot" style="background:var(--green);"></span>
+            <div><strong>AI 주제 단어 자동 생성</strong><br>
+              <span class="muted" style="font-size:0.88rem;">Gemini API가 주제에 맞는 단어 생성 후 5×5 빙고판 자동 배치</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--blue);"></span>
+            <div><strong>실시간 순차 턴제 & 타이머</strong><br>
+              <span class="muted" style="font-size:0.88rem;">순서대로 단어를 선택하고 즉시 동기화, 시간 초과 시 다음 턴 자동 이동</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--purple);"></span>
+            <div><strong>역전용 특수 이벤트 4종 (액티브 스킬)</strong><br>
+              <span class="muted" style="font-size:0.88rem;">빙고 1줄 완성 시마다 게이지 충전 및 직접 시전, 판세를 흔드는 변수 제공</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--red);"></span>
+            <div><strong>시각적 효과 및 타격감</strong><br>
+              <span class="muted" style="font-size:0.88rem;">줄 완성 스탬프 애니메이션 및 내 차례 초록 네온 강조 연출</span>
+            </div>
+          </li>
+        </ul>
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/Silde4.gif"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(46,204,113,0.25); object-fit: contain; max-height: 520px;">
+        </div>
+      </div>
+      <div class="highlight-box anim-4" style="max-width: 1400px; width: 100%; margin-top: 20px;">
+        <strong>핵심:</strong> DB 캐싱으로 이미 생성한 주제는 API 비용 없이 즉시 재사용 &nbsp;|&nbsp; 30초 쿨타임으로 API 남용 이중 방어
+      </div>
     </div>
-    <div class="muted anim-5" style="margin-top:10px; font-size:0.9rem;">PickPlay — 브라우저만 있으면 어디서든</div>
+
+
+    <!-- ── SLIDE 5: 빙고 이벤트 01 (차원 뒤틀림) ── -->
+    <div class="slide" id="s4-event-distortion">
+      <div class="slide-tag anim-1">게임 01 — 이벤트 01</div>
+      <div class="game-header anim-2" style="max-width: 1400px; width: 100%;">
+        <div>
+          <h2>차원 뒤틀림 (Dimension Distortion)</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">빙고판 전체의 판도를 순식간에 뒤엎는 차원 이동 현상</p>
+        </div>
+      </div>
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.8fr 1.7fr; align-items: center; gap: 48px;">
+        <ul class="feature-list" style="display: flex; flex-direction: column; gap: 14px;">
+          <li>
+            <span class="dot" style="background:var(--blue);"></span>
+            <div><strong>전체 빙고 칸 무작위 셔플</strong><br>
+              <span class="muted" style="font-size:0.88rem;">25개 칸의 단어 배치 위치를 전부 섞어 기존에 세워둔 빌드를 강제 재조정</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--purple);"></span>
+            <div><strong>체크 강제 무효화</strong><br>
+              <span class="muted" style="font-size:0.88rem;">기존에 이미 체크되었던 칸 중 무작위 1~2개의 체크를 해제하여 흐름 지연</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--red);"></span>
+            <div><strong>역전 찬스 제공</strong><br>
+              <span class="muted" style="font-size:0.88rem;">상대방의 완성 직전 라인을 분쇄하고 자신에게 유리한 위치 선점 기회 부여</span>
+            </div>
+          </li>
+        </ul>
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/event_distortion.gif" alt="event_distortion.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(52,152,219,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span style="font-size: 2.2rem;">🌀</span>
+            <span>🎥 event_distortion.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 플레이어 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: 빙고 이벤트 02 (시간 왜곡) ── -->
+    <div class="slide" id="s4-event-time-warp">
+      <div class="slide-tag anim-1">게임 01 — 이벤트 02</div>
+      <div class="game-header anim-2" style="max-width: 1400px; width: 100%;">
+        <div>
+          <h2>시간 왜곡 (Time Warp)</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">자신의 차례를 미세하게 쪼개어 단어를 연속으로 선택하는 전략적 시간 가속</p>
+        </div>
+      </div>
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.8fr 1.7fr; align-items: center; gap: 48px;">
+        <ul class="feature-list" style="display: flex; flex-direction: column; gap: 14px;">
+          <li>
+            <span class="dot" style="background:var(--yellow);"></span>
+            <div><strong>시간 왜곡 연속 선택</strong><br>
+              <span class="muted" style="font-size:0.88rem;">내 차례에 단어 1개 선택 후 턴이 넘어가지 않고 연속으로 1개 더 선택 가능</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--green);"></span>
+            <div><strong>속전속결 라인 점령</strong><br>
+              <span class="muted" style="font-size:0.88rem;">동시에 가로/세로 핵심 요충지 두 칸을 점령하여 적극적인 1줄 빙고 완성 유도</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--red);"></span>
+            <div><strong>제한 시간의 압박</strong><br>
+              <span class="muted" style="font-size:0.88rem;">시간 왜곡 상태에서도 턴 타이머는 1회 제한을 그대로 공유하여 극적인 결정 유도</span>
+            </div>
+          </li>
+        </ul>
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/event_time_warp.gif" alt="event_time_warp.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(241,196,15,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span style="font-size: 2.2rem;">⏳</span>
+            <span>🎥 event_time_warp.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 플레이어 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 7: 빙고 이벤트 03 (유령의 장난) ── -->
+    <div class="slide" id="s4-event-ghost">
+      <div class="slide-tag anim-1">게임 01 — 이벤트 03</div>
+      <div class="game-header anim-2" style="max-width: 1400px; width: 100%;">
+        <div>
+          <h2>유령의 장난 (Ghost Mischief)</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">상대방의 중요 요충지 선택을 막아버리는 일시적 차단</p>
+        </div>
+      </div>
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.8fr 1.7fr; align-items: center; gap: 48px;">
+        <ul class="feature-list" style="display: flex; flex-direction: column; gap: 14px;">
+          <li>
+            <span class="dot" style="background:var(--purple);"></span>
+            <div><strong>선택 불가능 잠금 칸 생성</strong><br>
+              <span class="muted" style="font-size:0.88rem;">상대 플레이어들의 빙고판 무작위 칸에 유령 잠금을 걸어 선택 불가능화</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--blue);"></span>
+            <div><strong>인위적 길목 우회 유도</strong><br>
+              <span class="muted" style="font-size:0.88rem;">상대가 당장 눌러야 하는 빙고 완성 지점을 방해하여 타 경로를 강제함</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--red);"></span>
+            <div><strong>턴 시간 낭비 유도</strong><br>
+              <span class="muted" style="font-size:0.88rem;">상대방의 줄 완성을 지연시키는 사이 내가 먼저 줄을 완성할 기회 확보</span>
+            </div>
+          </li>
+        </ul>
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/event_ghost.gif" alt="event_ghost.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(168,85,247,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span style="font-size: 2.2rem;">👻</span>
+            <span>🎥 event_ghost.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 플레이어 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 8: 빙고 이벤트 04 (블랙홀) ── -->
+    <div class="slide" id="s4-event-black-hole">
+      <div class="slide-tag anim-1">게임 01 — 이벤트 04</div>
+      <div class="game-header anim-2" style="max-width: 1400px; width: 100%;">
+        <div>
+          <h2>블랙홀 (Black Hole)</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">지목한 상대방의 다음 차례(턴)를 강제로 건너뛰게 만드는 전략적 방해 이벤트</p>
+        </div>
+      </div>
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.8fr 1.7fr; align-items: center; gap: 48px;">
+        <ul class="feature-list" style="display: flex; flex-direction: column; gap: 14px;">
+          <li>
+            <span class="dot" style="background:var(--red);"></span>
+            <div><strong>지정 타깃 다음 턴 강제 스킵</strong><br>
+              <span class="muted" style="font-size:0.88rem;">발동자가 직접 지목한 상대 플레이어의 다음 차례(턴)를 통째로 1회 무효화</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--yellow);"></span>
+            <div><strong>직접 지정 저격 방식 도입</strong><br>
+              <span class="muted" style="font-size:0.88rem;">기존의 랜덤 선택(자신 포함) 방식을 탈피하여, 자신을 제외한 특정 라이벌을 지명 타깃팅</span>
+            </div>
+          </li>
+          <li>
+            <span class="dot" style="background:var(--purple);"></span>
+            <div><strong>실시간 타깃 선택 팝업</strong><br>
+              <span class="muted" style="font-size:0.88rem;">발동 시 15초 제한 시간의 보라색 테마 선택 UI 노출, 타임아웃 시 자동 무작위 스킵 처리</span>
+            </div>
+          </li>
+        </ul>
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/event_black_hole.gif" alt="event_black_hole.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(231,76,60,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span style="font-size: 2.2rem;">🕳️</span>
+            <span>🎥 event_black_hole.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 플레이어 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: 라이어 게임 설명 ── -->
+    <div class="slide game-slide" id="s5-intro">
+      <div class="slide-tag anim-1">게임 02 — 설명</div>
+      <div class="game-header anim-2" style="margin-bottom: 24px;">
+        <div>
+          <h2>라이어 게임 소개 및 규칙</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">스파이(라이어)와 시민들 간의 고도의 심리전 및 추리 게임</p>
+        </div>
+      </div>
+
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.95fr 1.55fr; align-items: center; gap: 48px;">
+
+        <!-- 좌측: 상세 설명 카드 (세로형 정돈, 이모지 완전 소거) -->
+        <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+
+          <div class="card purple"
+            style="padding: 16px 20px; border-left: 4px solid var(--purple); background: rgba(168, 85, 247, 0.02); border-color: rgba(168, 85, 247, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--purple); font-weight: 800;">역할과 제시어 분배</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">게임이 시작되면 모든 플레이어에게 역할이 무작위 분배됩니다. 시민은 카테고리와
+              제시어를 확인하지만, 라이어는 카테고리만 제공받고 구체적인 제시어는 알 수 없습니다.</p>
+          </div>
+
+          <div class="card blue"
+            style="padding: 16px 20px; border-left: 4px solid var(--blue); background: rgba(52, 152, 219, 0.02); border-color: rgba(52, 152, 219, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--blue); font-weight: 800;">정체 은폐와 단서 추론</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">플레이어들은 번갈아 가며 제시어에 대한 힌트를 설명합니다. 라이어는 자신의 정체를
+              숨기며 시민들의 단서를 취합해 제시어를 신속하게 추론해야 합니다.</p>
+          </div>
+
+          <div class="card green"
+            style="padding: 16px 20px; border-left: 4px solid var(--green); background: rgba(46, 204, 113, 0.02); border-color: rgba(46, 204, 113, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--green); font-weight: 800;">검거 투표와 역전 기회</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">설명이 완료되면 모든 유저가 라이어 지목 투표를 수행합니다. 라이어가 검거되어도
+              마지막 제시어 맞추기에 성공하면 라이어가 최종 역전 승리를 쟁취합니다.</p>
+          </div>
+
+        </div>
+
+        <!-- 우측: 대화면 라이어 게임 규칙 플레이 GIF 영역 (520px 고화질 스케일 완벽 대칭) -->
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/LiarRules.gif" alt="LiarRules.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(168,85,247,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span>🎥 LiarRules.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 라이어 게임 규칙 설명 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: 라이어 게임 ── -->
+    <div class="slide game-slide" id="s5">
+      <div class="slide-tag anim-1">게임 02</div>
+      <div class="game-header anim-2" style="margin-bottom: 24px;">
+        <div>
+          <h2>라이어 게임</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">제시어를 모르는 스파이를 찾아내는 소셜 추리 게임</p>
+        </div>
+      </div>
+
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.95fr 1.55fr; align-items: center; gap: 48px;">
+
+        <!-- 좌측: 세로형 분기 순서도 (이모지 완전 소거, 3번에서 분기) -->
+        <div
+          style="display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 14px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 16px;">
+          <div
+            style="font-weight: 800; font-size: 0.8rem; color: var(--purple); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+            게임 흐름도</div>
+
+          <!-- Step 1 -->
+          <div class="card purple"
+            style="width: 100%; text-align: center; padding: 10px; border-color: rgba(168, 85, 247, 0.35); background: rgba(168, 85, 247, 0.03);">
+            <div style="font-weight: 800; font-size: 0.95rem; color: var(--purple);">1. 정체 확인</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">나만 볼 수 있는 3D 플립 역할 카드</div>
+          </div>
+
+          <div style="font-size: 1.1rem; color: var(--purple); font-weight: 800; margin: -4px 0;">↓</div>
+
+          <!-- Step 2 -->
+          <div class="card blue"
+            style="width: 100%; text-align: center; padding: 10px; border-color: rgba(52, 152, 219, 0.35); background: rgba(52, 152, 219, 0.03);">
+            <div style="font-weight: 800; font-size: 0.95rem; color: var(--blue);">2. 힌트 설명</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">카드의 제시어를 눈치껏 설명</div>
+          </div>
+
+          <div style="font-size: 1.1rem; color: var(--blue); font-weight: 800; margin: -4px 0;">↓</div>
+
+          <!-- Step 3 (추리 분기점) -->
+          <div class="card yellow"
+            style="width: 100%; text-align: center; padding: 10px; border-color: rgba(241, 196, 15, 0.35); background: rgba(241, 196, 15, 0.03);">
+            <div style="font-weight: 800; font-size: 0.95rem; color: var(--yellow);">3. 라이어 추리</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">라이어로 의심되는 플레이어 지목 클릭</div>
+          </div>
+
+          <!-- 3번 바로 아래에서 분기되는 가이드 텍스트 -->
+          <div style="display: flex; width: 100%; justify-content: space-between; padding: 0 10px; margin: 4px 0 -4px;">
+            <span style="color: var(--green); font-size: 0.78rem; font-weight: 800;">추리 성공 ↙</span>
+            <span style="color: var(--red); font-size: 0.78rem; font-weight: 800;">↘ 추리 실패</span>
+          </div>
+
+          <!-- 하단 분기형 카드 영역 -->
+          <div style="display: flex; gap: 10px; width: 100%; margin-top: 4px;">
+
+            <!-- 성공 경로 -->
+            <div
+              style="flex: 1.1; display: flex; flex-direction: column; gap: 6px; background: rgba(46, 204, 113, 0.03); border: 1px dashed rgba(46, 204, 113, 0.25); padding: 8px; border-radius: 10px; align-items: center;">
+              <div
+                style="font-size: 0.65rem; color: var(--green); font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                Success Path</div>
+
+              <div class="card green"
+                style="width: 100%; padding: 6px; text-align: center; border-color: rgba(46, 204, 113, 0.3); font-size: 0.8rem;">
+                <div style="font-weight: 800; color: var(--green);">4. 최후 변론</div>
+                <div style="font-size: 0.65rem; color: var(--muted); margin-top: 1px;">실시간 타이핑 중계</div>
+              </div>
+
+              <div style="font-size: 0.8rem; color: var(--green); margin: -4px 0;">↓</div>
+
+              <div class="card green"
+                style="width: 100%; padding: 6px; text-align: center; border-color: rgba(46, 204, 113, 0.3); font-size: 0.8rem;">
+                <div style="font-weight: 800; color: var(--green);">5. 결과 발표</div>
+                <div style="font-size: 0.65rem; color: var(--muted); margin-top: 1px;">역전승 또는 시민승</div>
+              </div>
+            </div>
+
+            <!-- 실패 경로 (3 -> 5 직행) -->
+            <div
+              style="flex: 0.9; display: flex; flex-direction: column; gap: 6px; background: rgba(231, 76, 60, 0.03); border: 1px dashed rgba(231, 76, 60, 0.25); padding: 8px; border-radius: 10px; align-items: center; justify-content: center;">
+              <div
+                style="font-size: 0.65rem; color: var(--red); font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                Failure Path</div>
+
+              <div class="card red"
+                style="width: 100%; padding: 12px 6px; text-align: center; border-color: rgba(231, 76, 60, 0.3); font-size: 0.8rem; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                <div style="font-weight: 800; color: var(--red);">5. 결과 발표</div>
+                <div style="font-size: 0.65rem; color: var(--muted); margin-top: 2px;">오검거로 인한<br>라이어의 완벽 승리</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 우측: 대화면 핵심 플레이 GIF 영역 (Bingo 게임과 완전 대칭으로 520px 고화질 스케일 확보) -->
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/LiarGameplay.gif" alt="LiarGameplay.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(168,85,247,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span>🎥 LiarGameplay.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 라이어 게임 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6.5: 라이어 게임 주요 특징 ── -->
+    <div class="slide game-slide" id="s5-features">
+      <div class="slide-tag anim-1">게임 02 — 주요 특징</div>
+      <div class="game-header anim-2" style="margin-bottom: 24px;">
+        <div>
+          <h2>라이어 게임 주요 특징</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">실시간 소켓 통신과 3D 그래픽 기술을 활용한 디테일한 연출</p>
+        </div>
+      </div>
+
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.95fr 1.55fr; align-items: center; gap: 48px;">
+
+        <!-- 좌측: 상세 피처 설명 카드 (세로형 정돈, 이모지 완전 소거) -->
+        <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+
+          <div class="card purple"
+            style="padding: 16px 20px; border-left: 4px solid var(--purple); background: rgba(168, 85, 247, 0.02); border-color: rgba(168, 85, 247, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--purple); font-weight: 800;">3D 카드 플립 역할 확인
+            </h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">본인의 카드를 클릭하여 180도 회전하는 3D 입체 카드 인터랙션으로 자신의
+              역할(시민/라이어)과 카테고리 제시어를 은밀하게 확인합니다.</p>
+          </div>
+
+          <div class="card blue"
+            style="padding: 16px 20px; border-left: 4px solid var(--blue); background: rgba(52, 152, 219, 0.02); border-color: rgba(52, 152, 219, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--blue); font-weight: 800;">실시간 타이핑 동기화</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">지목된 라이어가 최후 변론이나 역전 정답을 입력할 때, 자음과 모음 하나까지 다른
+              모든 플레이어 화면에 실시간 문자 낙하 애니메이션과 함께 라이브 중계됩니다.</p>
+          </div>
+
+          <div class="card green"
+            style="padding: 16px 20px; border-left: 4px solid var(--green); background: rgba(46, 204, 113, 0.02); border-color: rgba(46, 204, 113, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--green); font-weight: 800;">몰입감 극대화 레이아웃</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">오른쪽 채팅 사이드바를 완전히 제거하고 플레이어 카드 바로 위로 피어오르는 머리 위
+              말풍선 톡으로 소통 방식을 전환하여 게임 진행 몰입도를 극한으로 끌어올렸습니다.</p>
+          </div>
+
+        </div>
+
+        <!-- 우측: 대화면 라이어 게임 보완 플레이 GIF 영역 (520px 고화질 스케일 완벽 대칭) -->
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/LiarFeatures.gif" alt="LiarFeatures.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(168,85,247,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span>🎥 LiarFeatures.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 라이어 게임 추가 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: 폭탄 돌리기 ── -->
+    <div class="slide game-slide" id="s6">
+      <div class="slide-tag anim-1">게임 03</div>
+      <div class="game-header anim-2" style="margin-bottom: 24px;">
+        <div>
+          <h2>폭탄 돌리기</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">주제에 맞는 단어를 빠르게 연상하고 다음 주자에게 폭탄을 넘기는 순발력 게임</p>
+        </div>
+      </div>
+
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.95fr 1.55fr; align-items: center; gap: 48px;">
+
+        <!-- 좌측: 세로형 핵심 규칙 카드 (이모지 완전 소거) -->
+        <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+
+          <div class="card red"
+            style="padding: 16px 20px; border-left: 4px solid var(--red); background: rgba(231, 76, 60, 0.02); border-color: rgba(231, 76, 60, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--red); font-weight: 800;">제한 시간의 압박</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">주어진 글자로 시작하는 올바른 주제 단어 입력 즉시 턴이 넘어가며 폭탄 오브젝트가
+              다음 플레이어에게 이동합니다.</p>
+          </div>
+
+          <div class="card yellow"
+            style="padding: 16px 20px; border-left: 4px solid var(--yellow); background: rgba(241, 196, 15, 0.02); border-color: rgba(241, 196, 15, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--yellow); font-weight: 800;">서바이벌 탈락 방식</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">째깍거리는 시간이 만료되어 폭탄이 폭발하는 순간 턴을 소유한 플레이어는 하트
+              라이프를 한 칸 잃게 됩니다.</p>
+          </div>
+
+          <div class="card purple"
+            style="padding: 16px 20px; border-left: 4px solid var(--purple); background: rgba(168, 85, 247, 0.02); border-color: rgba(168, 85, 247, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--purple); font-weight: 800;">점진적 속도 상승</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">라운드가 진행되고 생존자가 압축될수록 폭탄의 턴별 만료 속도가 급격하게 줄어들어
+              말초적인 긴장감을 극대화합니다.</p>
+          </div>
+
+        </div>
+
+        <!-- 우측: 대화면 폭탄 돌리기 플레이 GIF 영역 (520px 고화질 스케일 완벽 대칭) -->
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/BombGameplay.gif" alt="BombGameplay.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(231,76,60,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span>🎥 BombGameplay.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 폭탄 돌리기 게임 작동 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── SLIDE 11.5: 폭탄 돌리기 서브 모드 ── -->
+    <div class="slide game-slide" id="s6-modes">
+      <div class="slide-tag anim-1">게임 03 — 서브 모드</div>
+      <div class="game-header anim-2" style="margin-bottom: 24px;">
+        <div>
+          <h2>폭탄 돌리기 서브 모드 및 전략</h2>
+          <p class="muted" style="margin-top:6px; font-size:0.95rem;">플레이어 성향에 따른 일반 모드와 고도화된 전략 모드의 대치</p>
+        </div>
+      </div>
+
+      <div class="grid-2 anim-3"
+        style="max-width: 1400px; width: 100%; grid-template-columns: 0.95fr 1.55fr; align-items: center; gap: 48px;">
+
+        <!-- 좌측: 서브 모드 상세 설명 카드 (세로형 정돈, 이모지 완전 소거) -->
+        <div style="display: flex; flex-direction: column; gap: 14px; width: 100%;">
+
+          <div class="card red"
+            style="padding: 16px 20px; border-left: 4px solid var(--red); background: rgba(231, 76, 60, 0.02); border-color: rgba(231, 76, 60, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--red); font-weight: 800;">일반 모드</h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">단어 입력 시 다음 턴의 주자가 무작위로 선택되어 넘어갑니다. 예측 불허한 흐름을
+              통해 캐주얼한 예능성과 파티 게임 특유의 억까 재미를 선사합니다.</p>
+          </div>
+
+          <div class="card purple"
+            style="padding: 16px 20px; border-left: 4px solid var(--purple); background: rgba(168, 85, 247, 0.02); border-color: rgba(168, 85, 247, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--purple); font-weight: 800;">전략 모드 및 원클릭 지목
+            </h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">클릭 한 번으로 원하는 생존 대상을 저격 지목하여 폭탄을 패스합니다. 매 턴 지목
+              자동 초기화 및 체크 토글 해제를 결합해 정교한 눈치싸움을 유도합니다.</p>
+          </div>
+
+          <div class="card yellow"
+            style="padding: 16px 20px; border-left: 4px solid var(--yellow); background: rgba(241, 196, 15, 0.02); border-color: rgba(241, 196, 15, 0.25);">
+            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--yellow); font-weight: 800;">예측 불가한 과열 타이밍
+            </h3>
+            <p class="muted" style="font-size: 0.8rem; line-height: 1.5;">폭탄의 속도가 빨라지며 과열(빨간색 변환)되는 임계치 초를 매 라운드 무작위
+              생성합니다. 뻔한 흐름을 타파하고 고유의 쫄깃한 긴장도를 높였습니다.</p>
+          </div>
+
+        </div>
+
+        <!-- 우측: 대화면 폭탄 돌리기 전략 모드 플레이 GIF 영역 (520px 고화질 스케일 완벽 대칭) -->
+        <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+          <img src="Screenshot/14Week/BombTactical.gif" alt="BombTactical.gif"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 20px rgba(231,76,60,0.25); object-fit: contain; max-height: 520px;">
+          <div
+            style="display: none; justify-content: center; align-items: center; width: 100%; height: 460px; border-radius: 12px; border: 1px dashed var(--border); background: var(--card); color: var(--muted); font-size: 0.9rem; flex-direction: column; gap: 8px;">
+            <span>🎥 BombTactical.gif</span>
+            <span style="font-size: 0.75rem; opacity: 0.7;">(녹화된 폭탄 돌리기 전략 모드 GIF를 넣으면 활성화됩니다)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── SLIDE 7: AI 연동 ── -->
+    <div class="slide" id="s7">
+      <div class="slide-tag anim-1">핵심 기술 01</div>
+      <h2 class="anim-2">AI 단어 생성 흐름</h2>
+      <p class="muted anim-2" style="margin-top:8px; font-size:0.95rem;">Google Gemini API를 활용한 무제한 주제 단어 자동 생성</p>
+      <div class="flow anim-3">
+        <div class="flow-step">
+          <div class="f-label">주제 입력</div>
+          <div class="f-sub">예: "리그 오브 레전드"</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(46,204,113,0.3);">
+          <div class="f-label">입력 검증</div>
+          <div class="f-sub">자음 단독 / 어뷰징 차단</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(168,85,247,0.3);">
+          <div class="f-label">DB 캐시 확인</div>
+          <div class="f-sub">기존 주제면 즉시 반환</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(168,85,247,0.5);">
+          <div class="f-label">Gemini API 호출</div>
+          <div class="f-sub">단어 30~50개 생성</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(52,152,219,0.3);">
+          <div class="f-label">DB 저장</div>
+          <div class="f-sub">다음 사용 시 무료 재사용</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-step" style="border-color: rgba(46,204,113,0.5);">
+          <div class="f-label">빙고판 배치</div>
+          <div class="f-sub">5×5 랜덤 배열 완성</div>
+        </div>
+      </div>
+      <div class="grid-2 anim-4" style="max-width:860px; margin-top:24px; gap:14px;">
+        <div class="card green" style="font-size:0.9rem;">
+          <strong>어뷰징 방지:</strong> 동일 방/유저 30초 쿨타임을 서버+클라이언트 이중 적용
+        </div>
+        <div class="card purple" style="font-size:0.9rem;">
+          <strong>비용 최적화:</strong> 같은 주제는 DB에서 꺼내 API 호출 없이 즉시 게임 시작
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 8: 실시간 통신 ── -->
+    <div class="slide" id="s8">
+      <div class="slide-tag anim-1">핵심 기술 02</div>
+      <h2 class="anim-2">실시간 멀티플레이 구조</h2>
+      <p class="muted anim-2" style="margin-top:8px; font-size:0.95rem;">Socket.io WebSocket으로 모든 플레이어 상태를 실시간 동기화</p>
+      <div class="socket-diagram anim-3">
+        <div class="node" style="border-color: rgba(52,152,219,0.3);">
+          <div class="n-icon">👥</div>
+          <div class="n-label" style="color:var(--blue);">클라이언트 (플레이어들)</div>
+          <div style="font-size:0.8rem; color:var(--muted); margin-top:8px;">브라우저에서 게임 화면<br>이벤트 emit → 서버로 전송</div>
+        </div>
+        <div class="socket-center">
+          <div class="sc-label">Socket.io</div>
+          <div style="font-size:1.5rem;">⇄</div>
+          <div style="font-size:0.75rem; color:var(--muted);">WebSocket</div>
+        </div>
+        <div class="node" style="border-color: rgba(46,204,113,0.3);">
+          <div class="n-icon">🖥️</div>
+          <div class="n-label" style="color:var(--green);">서버 (Node.js)</div>
+          <div style="font-size:0.8rem; color:var(--muted); margin-top:8px;">게임 상태 관리<br>모든 클라이언트에 broadcast</div>
+        </div>
+      </div>
+      <div class="event-list anim-4">
+        <h3>주요 소켓 이벤트</h3>
+        <div class="event-chips">
+          <span class="chip">turn update</span>
+          <span class="chip">word called</span>
+          <span class="chip">bingo completed</span>
+          <span class="chip">player joined</span>
+          <span class="chip">game start</span>
+          <span class="chip">confirm result</span>
+          <span class="chip">liar vote</span>
+          <span class="chip">char drop</span>
+          <span class="chip">bomb pass</span>
+          <span class="chip">player eliminated</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 9: 도전과 해결 ── -->
+    <div class="slide" id="s9">
+      <div class="slide-tag anim-1">개발 도전 과제</div>
+      <h2 class="anim-2" style="margin-bottom:28px;">개발 도전 과제 & 해결</h2>
+      <div class="challenge-grid anim-3">
+        <div class="ch-card" style="border-left: 3px solid var(--red);">
+          <div class="ch-top">
+            <span class="ch-title">AI 어뷰징 방지</span>
+          </div>
+          <div class="problem">문제: 사용자가 "ㅋ" 같은 자음 입력 시 Gemini가 그대로 단어를 생성해버림. 연속 클릭 시 API 할당량 고갈.</div>
+          <div class="solution"><span class="arrow-right">→</span>클라이언트 자음 정규식 차단 + 서버 30초 쿨타임 이중 방어 + DB 캐싱으로 재요청 방지
+          </div>
+        </div>
+        <div class="ch-card" style="border-left: 3px solid var(--yellow);">
+          <div class="ch-top">
+            <span class="ch-title">게임 재시작 타이밍 동기화</span>
+          </div>
+          <div class="problem">문제: 결과창을 확인 중인 유저가 있는데 방장이 게임을 재시작하면 해당 유저가 게임에 참여 불가.</div>
+          <div class="solution"><span class="arrow-right">→</span>서버에서 confirmedResult 상태 관리, 모든 유저가 확인 완료해야 방장이 재시작
+            가능하도록 제어</div>
+        </div>
+        <div class="ch-card" style="border-left: 3px solid var(--blue);">
+          <div class="ch-top">
+            <span class="ch-title">실시간 타이핑 동기화</span>
+          </div>
+          <div class="problem">문제: 최후 변론 타이핑을 실시간으로 보여주려면 글자 입력마다 전체 DOM을 재렌더하면 성능 저하.</div>
+          <div class="solution"><span class="arrow-right">→</span>글자 추가 시 span만 추가하는 방식으로 DOM 재렌더 없이 최적화, 글자 낙하 애니메이션도
+            구현
+          </div>
+        </div>
+        <div class="ch-card" style="border-left: 3px solid var(--purple);">
+          <div class="ch-top">
+            <span class="ch-title">쿨타임 시스템 설계</span>
+          </div>
+          <div class="problem">문제: 게임 중 대기방 이탈 후 재입장 시 쿨타임 UI가 초기화되어 우회 가능.</div>
+          <div class="solution"><span class="arrow-right">→</span>서버 인메모리에 쿨타임 상태 보관, 재입장해도 남은 시간을 그대로 이어받아 적용</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 12: 종합 시연 영상 ── -->
+    <div class="slide" id="s-demo-video">
+      <div class="slide-tag anim-1">Demonstration</div>
+      <h2 class="anim-2" style="margin-bottom:24px;">종합 시연 영상</h2>
+      <div class="anim-3"
+        style="width: 100%; max-width: 960px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 0 30px rgba(46,204,113,0.15); background: #000; aspect-ratio: 16/9;">
+
+        <!-- 유튜브 시연 영상 임베드 -->
+        <iframe src="https://www.youtube-nocookie.com/embed/7hRZN7hq9UQ" title="PickPlay 시연 영상" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+
+      </div>
+      <div class="anim-4" style="margin-top: 24px;">
+        <a href="https://www.youtube.com/watch?v=7hRZN7hq9UQ" target="_blank" class="badge badge-green" style="text-decoration: none; padding: 8px 24px; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;" onmouseover="this.style.background='rgba(46, 204, 113, 0.3)'" onmouseout="this.style.background='rgba(46, 204, 113, 0.15)'">
+          <span>📺 YouTube에서 직접 보기</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 10: 마무리 ── -->
+    <div class="slide" id="s10">
+      <div class="slide-tag anim-1">마무리 및 계획</div>
+      <h2 class="anim-2">완성도 & 앞으로</h2>
+      <div class="summary-grid anim-3" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="sum-card">
+          <div class="s-num accent-green glow-green">3</div>
+          <div class="s-label">게임 수록</div>
+        </div>
+        <div class="sum-card">
+          <div class="s-num accent-purple">1인</div>
+          <div class="s-label">풀스택 개발</div>
+        </div>
+        <div class="sum-card">
+          <div class="s-num accent-yellow">실시간</div>
+          <div class="s-label">멀티플레이</div>
+        </div>
+      </div>
+      <div class="anim-4" style="width:100%; max-width:800px;">
+        <div class="card" style="text-align:left; padding:20px 26px;">
+          <h3 style="margin-bottom:12px; font-size:1rem; color:var(--muted);">📋 추후 개선 계획</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:0.88rem;">
+            <span class="badge badge-purple">🎮 추가 파티게임 콘텐츠 확장</span>
+            <span class="badge badge-yellow">🎯 플레이 데이터 기반 밸런스 개선</span>
+          </div>
+        </div>
+      </div>
+      <div class="end-text anim-5">
+        감사합니다
+      </div>
+    </div>
+
   </div>
 
-</div>
+  <!-- ── 네비게이션 ── -->
+  <div id="nav">
+    <button class="nav-btn" id="prev-btn">←</button>
+    <div id="dots"></div>
+    <button class="nav-btn" id="next-btn">→</button>
+  </div>
 
-<!-- ── 네비게이션 ── -->
-<div id="nav">
-  <button class="nav-btn" id="prev-btn">←</button>
-  <div id="dots"></div>
-  <button class="nav-btn" id="next-btn">→</button>
-</div>
+  <script>
+    // ── 파티클 배경 ──
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, particles;
 
-<script>
-  // ── 파티클 배경 ──
-  const canvas = document.getElementById('bg-canvas');
-  const ctx = canvas.getContext('2d');
-  let W, H, particles;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
 
-  function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  }
+    function initParticles() {
+      particles = Array.from({ length: 80 }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        r: Math.random() * 1.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15,
+        a: Math.random() * 0.4 + 0.1
+      }));
+    }
 
-  function initParticles() {
-    particles = Array.from({ length: 80 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.5 + 0.3,
-      vx: (Math.random() - 0.5) * 0.15,
-      vy: (Math.random() - 0.5) * 0.15,
-      a: Math.random() * 0.4 + 0.1
-    }));
-  }
+    function drawParticles() {
+      ctx.clearRect(0, 0, W, H);
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+        ctx.fill();
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      });
+      requestAnimationFrame(drawParticles);
+    }
 
-  function drawParticles() {
-    ctx.clearRect(0, 0, W, H);
-    particles.forEach(p => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${p.a})`;
-      ctx.fill();
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    resize(); initParticles(); drawParticles();
+    window.addEventListener('resize', () => { resize(); initParticles(); });
+
+    // ── 슬라이드 로직 ──
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const dotsEl = document.getElementById('dots');
+    const counter = document.getElementById('slide-counter');
+    let cur = 0;
+
+    // 도트 생성
+    slides.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'nav-dot' + (i === 0 ? ' active' : '');
+      d.addEventListener('click', () => go(i));
+      dotsEl.appendChild(d);
     });
-    requestAnimationFrame(drawParticles);
-  }
 
-  resize(); initParticles(); drawParticles();
-  window.addEventListener('resize', () => { resize(); initParticles(); });
+    function go(next) {
+      if (next < 0 || next >= slides.length || next === cur) return;
+      const dir = next > cur ? 1 : -1;
+      slides[cur].classList.remove('active');
+      slides[cur].classList.add(dir > 0 ? 'exit-left' : 'exit-right');
+      setTimeout(() => slides[cur].classList.remove('exit-left', 'exit-right'), 500);
+      cur = next;
+      slides[cur].classList.add('active');
+      document.querySelectorAll('.nav-dot').forEach((d, i) =>
+        d.classList.toggle('active', i === cur));
+      counter.textContent = `${cur + 1} / ${slides.length}`;
+    }
 
-  // ── 슬라이드 로직 ──
-  const slides = Array.from(document.querySelectorAll('.slide'));
-  const dotsEl = document.getElementById('dots');
-  const counter = document.getElementById('slide-counter');
-  let cur = 0;
+    counter.textContent = `1 / ${slides.length}`;
+    document.getElementById('prev-btn').addEventListener('click', () => go(cur - 1));
+    document.getElementById('next-btn').addEventListener('click', () => go(cur + 1));
 
-  // 도트 생성
-  slides.forEach((_, i) => {
-    const d = document.createElement('div');
-    d.className = 'nav-dot' + (i === 0 ? ' active' : '');
-    d.addEventListener('click', () => go(i));
-    dotsEl.appendChild(d);
-  });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
+    });
 
-  function go(next) {
-    if (next < 0 || next >= slides.length || next === cur) return;
-    const dir = next > cur ? 1 : -1;
-    slides[cur].classList.remove('active');
-    slides[cur].classList.add(dir > 0 ? 'exit-left' : 'exit-right');
-    setTimeout(() => slides[cur].classList.remove('exit-left', 'exit-right'), 500);
-    cur = next;
-    slides[cur].classList.add('active');
-    document.querySelectorAll('.nav-dot').forEach((d, i) =>
-      d.classList.toggle('active', i === cur));
-    counter.textContent = `${cur + 1} / ${slides.length}`;
-  }
-
-  counter.textContent = `1 / ${slides.length}`;
-  document.getElementById('prev-btn').addEventListener('click', () => go(cur - 1));
-  document.getElementById('next-btn').addEventListener('click', () => go(cur + 1));
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
-  });
-
-  // 클릭으로 다음 슬라이드 (버튼 제외)
-  document.getElementById('deck').addEventListener('click', e => {
-    if (!e.target.closest('#nav') && !e.target.closest('.nav-btn')) go(cur + 1);
-  });
-</script>
+    // 클릭으로 다음 슬라이드 (버튼 제외)
+    document.getElementById('deck').addEventListener('click', e => {
+      if (!e.target.closest('#nav') && !e.target.closest('.nav-btn')) go(cur + 1);
+    });
+  </script>
 </body>
+
 </html>

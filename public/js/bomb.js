@@ -29,6 +29,10 @@
     let currentBombUsers = [];
     let data_message_cache = "";
     let bombMaxHearts = 3; // 실제 설정값 추적
+    let selectedTargetId = null;
+    let currentSubMode = 'random';
+    let redThreshold = 3;
+    let fastThreshold = 7;
 
     function getCirclePosition(index, total, radiusPx) {
         const angle = (2 * Math.PI * index / total) - (Math.PI / 2); // 12시 방향 시작
@@ -98,6 +102,14 @@
             const isDead = heartCount <= 0;
             if (isGameActive && isDead) slot.classList.add('is-dead');
 
+            // 전략 모드 지목 GUI 관련 클래스 추가
+            if (isGameActive && currentSubMode === 'tactical' && isMyTurn && user.id !== socket.id && !isDead) {
+                slot.classList.add('is-selectable');
+                if (selectedTargetId === user.id) {
+                    slot.classList.add('is-targeted');
+                }
+            }
+
             // 하트 HTML
             let heartsHtml = '';
             if (isGameActive) {
@@ -165,14 +177,47 @@
 
     bombWordInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && isMyTurn) {
-            const word = bombWordInput.value.trim();
+            let word = bombWordInput.value.trim();
             if (word) {
+                if (currentSubMode === 'tactical' && selectedTargetId) {
+                    const sortedIds = Object.keys(window.bombHearts || {}).sort();
+                    const idx = sortedIds.indexOf(selectedTargetId);
+                    if (idx !== -1) {
+                        word = `${word} ${idx + 1}`;
+                    }
+                }
                 socket.emit('submit bomb word', word);
                 bombWordInput.value = '';
                 bombWordInput.disabled = true; // [1-5 버그 해결] 즉시 비활성화하여 딜레이 동안의 추가 입력 방지
             }
         }
     });
+
+    const arenaPlayers = document.getElementById('bomb-arena-players');
+    if (arenaPlayers) {
+        arenaPlayers.addEventListener('click', (e) => {
+            if (!isMyTurn || currentSubMode !== 'tactical') return;
+
+            const slot = e.target.closest('.arena-player-slot');
+            if (!slot) return;
+
+            const targetId = slot.dataset.playerId;
+            if (targetId === socket.id) return; // 자신 지목 불가
+
+            const heartCount = (window.bombHearts && window.bombHearts[targetId] !== undefined)
+                ? window.bombHearts[targetId]
+                : bombMaxHearts;
+            if (heartCount <= 0) return; // 탈락자 지목 불가
+
+            if (selectedTargetId === targetId) {
+                selectedTargetId = null; // 지목 해제 (토글)
+            } else {
+                selectedTargetId = targetId;
+            }
+
+            if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
+        });
+    }
 
     socket.on('bomb hearts updated', (data) => {
         const hearts = data.hearts;
@@ -215,7 +260,10 @@
 
     function updateTurnInternal(turnId) {
         isMyTurn = (turnId === socket.id);
+        
+        // 내 턴이 돌아올 때마다 지목 타깃은 깨끗하게 무조건 초기화 (체크 해제 상태)
         if (isMyTurn) {
+            selectedTargetId = null;
             if (bombCurrentTurn) {
                 bombCurrentTurn.textContent = "당신의 차례입니다!";
                 bombCurrentTurn.style.color = "#e74c3c";
@@ -227,6 +275,7 @@
                 bombWordInput.focus();
             }
         } else {
+            selectedTargetId = null; // 내 차례가 아닐 때도 초기화
             if (bombCurrentTurn) {
                 bombCurrentTurn.textContent = "다른 플레이어가 입력 중입니다...";
                 bombCurrentTurn.style.color = "#999";
@@ -251,6 +300,13 @@
         // 사이드바 숨김
         const sidebar = document.getElementById('right-sidebar');
         if (sidebar) sidebar.classList.add('bomb-game-active');
+
+        // 서브 모드 저장
+        currentSubMode = data.subMode || 'random';
+
+        // 폭탄 비주얼 가속 임계값 실시간 랜덤화 (뻔한 타이밍 타파)
+        redThreshold = Math.floor(Math.random() * 4) + 2;   // 2 ~ 5초 사이 랜덤
+        fastThreshold = Math.floor(Math.random() * 5) + 7;  // 7 ~ 11초 사이 랜덤
 
         bombRoundResult.style.display = 'none';
         if (bombUsedWordsList) bombUsedWordsList.innerHTML = '';
@@ -277,11 +333,11 @@
         if (bombTimerText) {
             bombTimerText.style.display = 'block';
             bombTimerText.textContent = `${data.timeLeft}초`;
-            if (data.timeLeft <= 3) {
+            if (data.timeLeft <= redThreshold) {
                 if (bombGraphic) bombGraphic.className = 'bomb-super-fast';
                 bombTimerText.style.color = '#e74c3c';
                 bombTimerText.style.transform = 'scale(1.3)';
-            } else if (data.timeLeft <= 7) {
+            } else if (data.timeLeft <= fastThreshold) {
                 if (bombGraphic) bombGraphic.className = 'bomb-fast-ticking';
                 bombTimerText.style.color = '#e67e22';
                 bombTimerText.style.transform = 'scale(1.1)';
@@ -318,6 +374,12 @@
 
     socket.on('bomb invalid word', (msg) => {
         if (window.showToast) window.showToast(msg, 'error');
+        // [5번 버그 수정] 틀린 단어 제출 시 인풋 재활성화 (턴이 안 넘어가므로 직접 복구)
+        if (isMyTurn && bombWordInput) {
+            bombWordInput.disabled = false;
+            bombWordInput.value = '';
+            bombWordInput.focus();
+        }
     });
 
     socket.on('bomb all words used', (data) => {

@@ -398,3 +398,21 @@
     from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
     to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
 }
+
+/* --- 전략 모드 지목 GUI 스타일 --- */
+.arena-player-slot.is-selectable {
+    cursor: pointer;
+}
+
+.arena-player-slot.is-selectable:hover .arena-avatar-wrap {
+    border-color: #a855f7;
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    transform: scale(1.08);
+}
+
+.arena-player-slot.is-targeted .arena-avatar-wrap {
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.25), 0 0 30px rgba(168, 85, 247, 0.6) !important;
+    background: rgba(168, 85, 247, 0.15) !important;
+    transform: scale(1.12);
+}

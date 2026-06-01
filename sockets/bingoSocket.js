@@ -6,6 +6,17 @@ module.exports = (io, socket, gameRooms) => {
     function passTurn(room, roomId) {
         if (room.mode !== 'bingo') return;
 
+        // [유령의 장난] lockedWords 턴 카운트 차감
+        if (room.lockedWords && Object.keys(room.lockedWords).length > 0) {
+            for (const word of Object.keys(room.lockedWords)) {
+                room.lockedWords[word]--;
+                if (room.lockedWords[word] <= 0) {
+                    delete room.lockedWords[word];
+                }
+            }
+            io.to(roomId).emit('locked words updated', room.lockedWords);
+        }
+
         let loopCount = 0;
         const maxLoops = 500; // 스킵 중첩으로 인한 무한 루프 탈출(Halt) 방지
 
@@ -39,7 +50,7 @@ module.exports = (io, socket, gameRooms) => {
     function startTurnTimer(room, roomId, playerId) {
         if (room.turnTimer) clearTimeout(room.turnTimer);
 
-        // 유저 요청 반영: 차례가 와도 누를 단어가 전혀 없다면(25칸 이미 다 참) 
+        // 유저 요청 반영: 차례가 와도 누를 단어가 전혀 없다면(25칸 이미 다 참)
         // 바보같이 타이머를 돌리지 말고 그 자리에서 즉시 게임을 종료시킵니다.
         const player = room.players[playerId];
         const uncalledWords = player.board.filter(w => !room.calledNumbers.includes(w));
@@ -129,6 +140,8 @@ module.exports = (io, socket, gameRooms) => {
         room.useEvents = data.useEvents !== undefined ? data.useEvents : true;
         room.calledNumbers = [];
         room.turnTimer = null;
+        room.lockedWords = {};
+        room.timeWarpRemaining = 0;
 
         const presetWords = data.presetWords || [];
         Object.values(room.players).forEach(p => {
@@ -241,6 +254,12 @@ module.exports = (io, socket, gameRooms) => {
             return;
         }
 
+        // [유령의 장난] 잠긴 단어 선택 차단
+        if (room.lockedWords && room.lockedWords[data.word] !== undefined) {
+            socket.emit('action failed', `'${data.word}'은(는) 유령에게 잠겨있습니다! (${room.lockedWords[data.word]}턴 후 해제)`);
+            return;
+        }
+
         room.calledNumbers.push(data.word);
         io.to(data.roomId).emit('number called', data.word);
 
@@ -253,6 +272,14 @@ module.exports = (io, socket, gameRooms) => {
         const maxTurns = new Set(Object.values(room.players).map(p => p.board).flat()).size;
         if (anyBoardFull || room.calledNumbers.length >= maxTurns) {
             endGame(io, room, data.roomId, resolveFullBoardWinner(room));
+            return;
+        }
+
+        // [시간 왜곡] 추가 선택 처리
+        if (room.timeWarpRemaining > 0) {
+            room.timeWarpRemaining--;
+            io.to(data.roomId).emit('time warp next');
+            startTurnTimer(room, data.roomId, socket.id);
             return;
         }
 
@@ -284,67 +311,95 @@ module.exports = (io, socket, gameRooms) => {
         const eventType = Math.floor(Math.random() * 4);
 
         if (eventType === 0) {
-            io.to(roomId).emit('event happened', { type: 'shuffle', icon: '🌀', title: '차원 뒤틀림!', msg: `차원이 꼬여 ${playerName}님이 판을 뒤섞었습니다!` });
-            io.to(roomId).emit('system message', `🌀 [이벤트] 시공간이 뒤틀려 모든 빙고판이 섞였습니다!`);
+            // 🌀 차원 뒤틀림: 모든 플레이어 판 셔플 + calledNumbers 2~3개 삭제
             Object.keys(room.players).forEach(pId => {
                 const newBoard = shuffleArray([...room.players[pId].board]);
                 room.players[pId].board = newBoard;
                 io.to(pId).emit('update board', newBoard);
             });
+
+            const removeCount = Math.min(room.calledNumbers.length, 2 + Math.floor(Math.random() * 2));
+            const removedWords = [];
+            for (let i = 0; i < removeCount; i++) {
+                const removeIdx = Math.floor(Math.random() * room.calledNumbers.length);
+                removedWords.push(room.calledNumbers.splice(removeIdx, 1)[0]);
+            }
+
+            const removedMsg = removedWords.length > 0
+                ? `\n체크된 '${removedWords.join(', ')}' 단어도 사라졌습니다!`
+                : '';
+
+            io.to(roomId).emit('event happened', {
+                type: 'shuffle', icon: '🌀', title: '차원 뒤틀림!',
+                msg: `차원이 꼬여 ${playerName}님이 판을 뒤섞었습니다!${removedMsg}`
+            });
+            io.to(roomId).emit('system message', `🌀 [이벤트] 모든 빙고판이 섞였습니다!${removedWords.length > 0 ? ` '${removedWords.join(', ')}' 체크가 취소됩니다.` : ''}`);
+
+            if (removedWords.length > 0) {
+                io.to(roomId).emit('server called numbers', room.calledNumbers);
+            }
+
             io.to(roomId).emit('update user list', getSortedUserList(room));
             if (room.turnTimer) clearTimeout(room.turnTimer);
             broadcastBingoProgress(io, room, roomId);
             passTurn(room, roomId);
 
         } else if (eventType === 1) {
-            let globalPool = [];
-            Object.values(room.players).forEach(p => {
-                const pUncalled = p.board.filter(w => !room.calledNumbers.includes(w));
-                globalPool.push(...pUncalled);
+            // ⏳ 시간 왜곡: 이번 턴에 단어 2번 선택
+            room.timeWarpRemaining = 1;
+            if (room.turnTimer) clearTimeout(room.turnTimer);
+            io.to(roomId).emit('event happened', {
+                type: 'time-warp', icon: '⏳', title: '시간 왜곡!',
+                msg: `${playerName}님이 시공간을 비틀어 시간 왜곡을 일으켰습니다!\n이번 차례에 단어를 하나 더 선택하세요!`
             });
-            globalPool = [...new Set(globalPool)];
-
-            if (globalPool.length > 0) {
-                const luckyWord = globalPool[Math.floor(Math.random() * globalPool.length)];
-                room.calledNumbers.push(luckyWord);
-                io.to(roomId).emit('event happened', { type: 'bonus', icon: '🎲', title: '운명의 단어!', msg: `${playerName}님이 '${luckyWord}'를 뽑았습니다!` });
-                io.to(roomId).emit('system message', `🎲 [이벤트] ${playerName}님이 운명의 단어 '${luckyWord}'를 뽑았습니다!`);
-                io.to(roomId).emit('number called', luckyWord);
-                broadcastBingoProgress(io, room, roomId);
-
-                // [Full Board Winner Check]
-                let anyBoardFull = false;
-                Object.values(room.players).forEach(p => { if (checkBingoLines(p.board, room.calledNumbers) === 12) anyBoardFull = true; });
-                const maxTurns = new Set(Object.values(room.players).map(p => p.board).flat()).size;
-                if (anyBoardFull || room.calledNumbers.length >= maxTurns) {
-                    endGame(io, room, roomId, resolveFullBoardWinner(room));
-                    return;
-                }
-
-                passTurn(room, roomId);
-            } else {
-                io.to(roomId).emit('event happened', { type: 'none', icon: '😅', title: '꽝!', msg: '빈 칸이 없네요.' });
-                passTurn(room, roomId);
-            }
+            io.to(roomId).emit('system message', `⏳ [이벤트] ${playerName}님이 시간 왜곡을 발동하여 단어를 하나 더 선택할 수 있게 되었습니다!`);
+            // [1번 버그 수정] 클라이언트 타이머 리셋을 위해 turn update emit (턴은 현재 플레이어 유지)
+            io.to(roomId).emit('turn update', {
+                currentTurnId: socket.id,
+                currentTurnName: playerName,
+                turnTimeLimit: room.turnTimeLimit || 0
+            });
+            startTurnTimer(room, roomId, socket.id);
 
         } else if (eventType === 2) {
-            const allPlayerIds = Object.keys(room.players);
-            const targetId = allPlayerIds[Math.floor(Math.random() * allPlayerIds.length)];
-            const targetName = room.players[targetId].name;
+            // 🕳️ 블랙홀: 발동자가 직접 타깃 선택 (자기 자신 제외)
+            const candidateIds = Object.keys(room.players).filter(id => id !== socket.id);
 
-            room.players[targetId].skipCount += 1;
+            if (candidateIds.length === 0) {
+                io.to(roomId).emit('event happened', {
+                    type: 'none', icon: '🕳️', title: '블랙홀 실패', msg: '타깃이 없어 블랙홀이 사라졌습니다!'
+                });
+                passTurn(room, roomId);
+            } else {
+                const candidates = candidateIds.map(id => ({ id, name: room.players[id].name }));
+                room.awaitingBlackholeTarget = true;
+                if (room.turnTimer) clearTimeout(room.turnTimer);
 
-            io.to(roomId).emit('update user list', getSortedUserList(room));
-            io.to(roomId).emit('event happened', {
-                type: 'bomb',
-                icon: '🕳️',
-                title: '블랙홀!',
-                msg: `${playerName}님이 블랙홀을 소환하여 ${targetName}님을 빨아들였습니다!`
-            });
-            io.to(roomId).emit('system message', `🕳️ [이벤트] ${targetName}님이 블랙홀에 빠졌습니다. (누적 스킵: ${room.players[targetId].skipCount}회)`);
-            passTurn(room, roomId);
+                // 15초 타임아웃: 자동 랜덤 선택
+                room.blackholeTimer = setTimeout(() => {
+                    if (!gameRooms[roomId] || !room.awaitingBlackholeTarget) return;
+                    room.awaitingBlackholeTarget = false;
+
+                    const randomId = candidateIds[Math.floor(Math.random() * candidateIds.length)];
+                    const targetName = room.players[randomId].name;
+                    room.players[randomId].skipCount += 1;
+
+                    io.to(roomId).emit('update user list', getSortedUserList(room));
+                    io.to(roomId).emit('blackhole target confirmed', { targetName, timedOut: true });
+                    io.to(roomId).emit('event happened', {
+                        type: 'bomb', icon: '🕳️', title: '블랙홀!',
+                        msg: `시간 초과! ${targetName}님이 블랙홀에 빨려들어갔습니다!`
+                    });
+                    io.to(roomId).emit('system message', `🕳️ [이벤트] 시간 초과 - ${targetName}님이 블랙홀에 빠졌습니다. (누적 스킵: ${room.players[randomId].skipCount}회)`);
+                    passTurn(room, roomId);
+                }, 15000);
+
+                io.to(socket.id).emit('select skip target', { candidates });
+                io.to(roomId).emit('system message', `🕳️ [이벤트] ${playerName}님이 블랙홀을 소환했습니다! 타깃을 선택 중... (15초)`);
+            }
 
         } else {
+            // 👻 유령의 장난: calledNumbers에서 3개 삭제 후 1~2턴 잠금
             if (room.calledNumbers.length > 0) {
                 const removedWords = [];
                 for (let i = 0; i < 3; i++) {
@@ -353,11 +408,16 @@ module.exports = (io, socket, gameRooms) => {
                     removedWords.push(room.calledNumbers.splice(removeIdx, 1)[0]);
                 }
 
+                if (!room.lockedWords) room.lockedWords = {};
+                removedWords.forEach(word => {
+                    room.lockedWords[word] = 1 + Math.floor(Math.random() * 2);
+                });
+                io.to(roomId).emit('locked words updated', room.lockedWords);
                 io.to(roomId).emit('server called numbers', room.calledNumbers);
 
                 const wordMsg = removedWords.join(', ');
-                io.to(roomId).emit('event happened', { type: 'bad', icon: '👻', title: '유령의 장난!', msg: `체크된 단어 ${removedWords.length}개가 사라집니다!` });
-                io.to(roomId).emit('system message', `👻 [이벤트] 유령이 '${wordMsg}' 단어를 훔쳐갔습니다!`);
+                io.to(roomId).emit('event happened', { type: 'bad', icon: '👻', title: '유령의 장난!', msg: `'${wordMsg}' 단어가 사라지고\n1~2턴간 선택 불가 상태가 됩니다!` });
+                io.to(roomId).emit('system message', `👻 [이벤트] 유령이 '${wordMsg}' 단어를 훔쳐갔습니다! 잠시 선택 불가 상태입니다.`);
 
                 broadcastBingoProgress(io, room, roomId);
                 passTurn(room, roomId);
@@ -366,6 +426,42 @@ module.exports = (io, socket, gameRooms) => {
                 passTurn(room, roomId);
             }
         }
+    });
+
+    socket.on('skip target selected', (data) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+
+        if (!room || room.status !== 'PLAYING' || room.mode !== 'bingo') return;
+        if (!room.awaitingBlackholeTarget) return; // 이미 처리됨(타임아웃 등) 방어
+        if (socket.id !== room.turnOrder[room.currentTurnIndex]) return; // 발동자만 처리
+
+        const targetId = data.targetId;
+        if (!room.players[targetId] || targetId === socket.id) {
+            socket.emit('action failed', '유효하지 않은 타깃입니다.');
+            return;
+        }
+
+        // 타임아웃 취소
+        if (room.blackholeTimer) {
+            clearTimeout(room.blackholeTimer);
+            room.blackholeTimer = null;
+        }
+        room.awaitingBlackholeTarget = false;
+
+        const senderName = room.players[socket.id].name;
+        const targetName = room.players[targetId].name;
+        room.players[targetId].skipCount += 1;
+
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+        io.to(roomId).emit('blackhole target confirmed', { targetName, timedOut: false });
+        io.to(roomId).emit('event happened', {
+            type: 'bomb', icon: '🕳️', title: '블랙홀!',
+            msg: `${senderName}님이 블랙홀을 소환하여\n${targetName}님을 빨아들였습니다!`
+        });
+        io.to(roomId).emit('system message', `🕳️ [이벤트] ${targetName}님이 블랙홀에 빠졌습니다. (누적 스킵: ${room.players[targetId].skipCount}회)`);
+        passTurn(room, roomId);
     });
 
     socket.on('bingo declared', (data) => {

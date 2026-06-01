@@ -77,7 +77,11 @@ module.exports = (io, socket, gameRooms) => {
             winTarget: data.winTarget || 3,
             allowedCategories: data.categories || []
         };
+        if (!room.liarGame) {
+            room.liarGame = { scores: {}, votes: {}, submissions: {}, liarHistory: [] };
+        }
         room.liarGame.scores = {};
+        room.liarGame.liarHistory = []; // 셋업 시 최근 라이어 이력 초기화
         for (let pid in room.players) {
             room.liarGame.scores[pid] = 0;
             room.players[pid].confirmedResult = true;
@@ -86,8 +90,8 @@ module.exports = (io, socket, gameRooms) => {
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig.winTarget);
         socket.emit('system message', `목표 승수가 ${data.winTarget}승으로 설정되었습니다.`);
         
-        // 카운트다운 후 시작
-        startLiarCountdown(socket.roomId);
+        // 카운트다운 없이 즉시 라운드 시작
+        startRound(socket.roomId);
     });
 
     // 다음 라운드 시작
@@ -133,6 +137,9 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.word = null;
         room.liarGame.votes = {};
         room.liarGame.submissions = {};
+        if (!room.liarGame.liarHistory) {
+            room.liarGame.liarHistory = [];
+        }
 
         // 방장이 선택한 카테고리 풀 필터링
         let pool = liarWordsData;
@@ -148,8 +155,35 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.category = pickedCategoryObj.category;
         room.liarGame.word = pickedWord;
 
-        const liarIndex = Math.floor(Math.random() * players.length);
-        room.liarGame.liarId = players[liarIndex];
+        // 1판 기억식 가중치 기반 라이어 선정 시스템
+        const immediatePastLiar = room.liarGame.liarHistory[room.liarGame.liarHistory.length - 1] || null;
+        
+        const weights = players.map(pid => {
+            if (pid === immediatePastLiar) {
+                return 0.25; // 직전 판 라이어는 가중치 0.25로 감소
+            }
+            return 1.00; // 걸린 적 없거나 한 판 쉰 유저는 가중치 1.00 유지
+        });
+        
+        const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+        let randomVal = Math.random() * totalWeight;
+        let selectedLiarId = players[players.length - 1]; // fallback
+        
+        for (let i = 0; i < players.length; i++) {
+            randomVal -= weights[i];
+            if (randomVal <= 0) {
+                selectedLiarId = players[i];
+                break;
+            }
+        }
+        
+        room.liarGame.liarId = selectedLiarId;
+        room.liarGame.liarHistory.push(selectedLiarId);
+        
+        // 최근 이력은 5개까지만 안전하게 유지 (메모리 제어)
+        if (room.liarGame.liarHistory.length > 5) {
+            room.liarGame.liarHistory.shift();
+        }
 
         players.forEach(playerId => {
             const isLiar = (playerId === room.liarGame.liarId);
@@ -172,8 +206,10 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.currentTurnIndex = 0;
         room.liarGame.anonymousMapping = turnOrder; // 0번 인덱스 -> 'A', ...
 
-        // 첫 번째 턴 시작
-        sendNextTurn(roomId);
+        // 첫 턴 시작 전에 7초 동안 각자 역할을 확인할 시간을 줌
+        startLiarTimer(roomId, "역할 확인", 7, () => {
+            sendNextTurn(roomId);
+        });
     }
 
     // 다음 플레이어에게 입력 권한을 넘기는 함수
@@ -262,7 +298,7 @@ module.exports = (io, socket, gameRooms) => {
         
         // 투표 단계 전환 알림
         io.to(roomId).emit('liar voting phase start');
-        io.to(roomId).emit('system message', '모든 설명이 수집되었습니다! 이제 라이어를 투표해주세요. (제한시간: 45초)');
+        // io.to(roomId).emit('system message', '모든 설명이 수집되었습니다! 이제 라이어를 투표해주세요. (제한시간: 45초)');
 
         // 투표 시간 45초 제어
         startLiarTimer(roomId, "라이어 투표", 45, () => {
@@ -308,7 +344,7 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.votes[socket.id] = targetId;
         const voterName = room.players[socket.id]?.name || '알수없음';
 
-        io.to(socket.roomId).emit('system message', `[투표] ${voterName}님이 투표를 완료했습니다.`);
+        // io.to(socket.roomId).emit('system message', `[투표] ${voterName}님이 투표를 완료했습니다.`);
         io.to(socket.roomId).emit('liar player voted', socket.id);
         io.to(socket.roomId).emit('vote updated', room.liarGame.votes); // 중간 결과 UI 업데이트용
 
@@ -325,67 +361,83 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[roomId];
         if (!room) return;
 
-        const voteCounts = {};
-        for (let v in room.liarGame.votes) {
-            const t = room.liarGame.votes[v];
-            voteCounts[t] = (voteCounts[t] || 0) + 1;
-        }
+        // 1. 모든 유저에게 투표 결과 화살표 레이저를 그리라고 신호 전송 (스포일러 방지 쇼다운 페이즈)
+        io.to(roomId).emit('liar showdown start', { votes: room.liarGame.votes });
+        // io.to(roomId).emit('system message', '🗳️ 투표 완료! 쇼다운 결과를 분석하는 중입니다...');
 
-        // 최다 득표자 찾기
-        let maxVotes = 0;
-        let maxTarget = null;
-        let isTie = false;
+        // 2. 3.5초 지연 시간(레이저 드로잉 감상 및 긴장감 유도)을 가진 후 본 결과 판정 진행
+        setTimeout(() => {
+            const currentRoom = gameRooms[roomId];
+            if (!currentRoom || !currentRoom.liarGame) return;
 
-        for (let t in voteCounts) {
-            if (voteCounts[t] > maxVotes) {
-                maxVotes = voteCounts[t];
-                maxTarget = t;
-                isTie = false;
-            } else if (voteCounts[t] === maxVotes) {
-                isTie = true;
+            const voteCounts = {};
+            for (let v in currentRoom.liarGame.votes) {
+                const t = currentRoom.liarGame.votes[v];
+                voteCounts[t] = (voteCounts[t] || 0) + 1;
             }
-        }
 
-        // 결과 판정 (투표 종료)
-        if (isTie || maxTarget !== room.liarGame.liarId) {
-            // 라이어 방어 성공 (동표이거나 엉뚱한 사람 지목됨)
-            const targetName = isTie ? '동표' : room.players[maxTarget]?.name;
-            const resultMsg = isTie ?
-                `동표입니다! 라이어가 무사히 살아남았습니다.` :
-                `의심받은 ${targetName}님은 선량한 시민이었습니다! 진짜 라이어는 ${room.players[room.liarGame.liarId]?.name}님입니다.`;
+            // 최다 득표자 찾기
+            let maxVotes = 0;
+            let maxTarget = null;
+            let isTie = false;
 
-            // 라이어 1점 획득 (시민은 0점)
-            room.liarGame.scores[room.liarGame.liarId] = (room.liarGame.scores[room.liarGame.liarId] || 0) + 1;
+            for (let t in voteCounts) {
+                if (voteCounts[t] > maxVotes) {
+                    maxVotes = voteCounts[t];
+                    maxTarget = t;
+                    isTie = false;
+                } else if (voteCounts[t] === maxVotes) {
+                    isTie = true;
+                }
+            }
 
-            handleRoundEnd(roomId, {
-                message: resultMsg,
-                liarName: room.players[room.liarGame.liarId]?.name,
-                word: room.liarGame.word,
-                citizensWon: false
-            });
+            // 결과 판정 (투표 종료)
+            if (isTie || maxTarget !== currentRoom.liarGame.liarId) {
+                // 라이어 방어 성공 (동표이거나 엉뚱한 사람 지목됨)
+                const targetName = isTie ? '동표' : currentRoom.players[maxTarget]?.name;
+                const resultMsg = isTie ?
+                    `동표입니다! 라이어가 무사히 살아남았습니다.` :
+                    `의심받은 ${targetName}님은 선량한 시민이었습니다! 진짜 라이어는 ${currentRoom.players[currentRoom.liarGame.liarId]?.name}님입니다.`;
 
-        } else {
-            // 라이어 검거 성공 -> 최후 변론으로 이동
-            room.status = 'final_guess';
-            io.to(roomId).emit('system message', `🚨 투표 결과, ${room.players[room.liarGame.liarId]?.name}님이 라이어로 검거되었습니다! (제한시간: 30초)`);
-            io.to(roomId).emit('final guess phase', { liarId: room.liarGame.liarId, liarName: room.players[room.liarGame.liarId]?.name });
+                // 라이어 1점 획득 (시민은 0점)
+                currentRoom.liarGame.scores[currentRoom.liarGame.liarId] = (currentRoom.liarGame.scores[currentRoom.liarGame.liarId] || 0) + 1;
 
-            // 최후 변론 30초 타이머
-            startLiarTimer(roomId, "최후 변론", 30, () => {
-                const currentRoom = gameRooms[roomId];
-                if (!currentRoom || currentRoom.status !== 'final_guess') return;
-
-                io.to(roomId).emit('system message', `라이어(${currentRoom.players[currentRoom.liarGame.liarId]?.name})가 제한 시간 내에 정답을 제출하지 못했습니다!`);
-                
-                // 시간 초과 시 오답(시민 승리) 처리
                 handleRoundEnd(roomId, {
-                    message: `라이어가 시간 초과로 변론을 포기했습니다. 시민들이 승리했습니다!`,
+                    message: resultMsg,
                     liarName: currentRoom.players[currentRoom.liarGame.liarId]?.name,
                     word: currentRoom.liarGame.word,
-                    citizensWon: true
+                    citizensWon: false,
+                    votes: currentRoom.liarGame.votes
                 });
-            });
-        }
+
+            } else {
+                // 라이어 검거 성공 -> 최후 변론으로 이동
+                currentRoom.status = 'final_guess';
+                // io.to(roomId).emit('system message', `🚨 투표 결과, ${currentRoom.players[currentRoom.liarGame.liarId]?.name}님이 라이어로 검거되었습니다! (제한시간: 30초)`);
+                io.to(roomId).emit('final guess phase', { 
+                    liarId: currentRoom.liarGame.liarId, 
+                    liarName: currentRoom.players[currentRoom.liarGame.liarId]?.name,
+                    category: currentRoom.liarGame.category
+                });
+
+                // 최후 변론 30초 타이머
+                startLiarTimer(roomId, "최후 변론", 30, () => {
+                    const latestRoom = gameRooms[roomId];
+                    if (!latestRoom || latestRoom.status !== 'final_guess') return;
+
+                    // io.to(roomId).emit('system message', `라이어(${latestRoom.players[latestRoom.liarGame.liarId]?.name})가 제한 시간 내에 정답을 제출하지 못했습니다!`);
+                    
+                    // 시간 초과 시 오답(시민 승리) 처리
+                    handleRoundEnd(roomId, {
+                        message: `라이어가 시간 초과로 변론을 포기했습니다. 시민들이 승리했습니다!`,
+                        liarName: latestRoom.players[latestRoom.liarGame.liarId]?.name,
+                        word: latestRoom.liarGame.word,
+                        citizensWon: true,
+                        votes: latestRoom.liarGame.votes
+                    });
+                });
+            }
+        }, 3500);
     }
 
     // 라이어 최후 변론 실시간 타이핑 중계
@@ -406,7 +458,7 @@ module.exports = (io, socket, gameRooms) => {
 
         clearLiarTimer(socket.roomId); // 정답 제출 완료 시 타이머 즉시 정지
 
-        io.to(socket.roomId).emit('system message', `라이어(${room.players[socket.id]?.name})의 최후 정답: "${guessWord}"`);
+        // io.to(socket.roomId).emit('system message', `라이어(${room.players[socket.id]?.name})의 최후 정답: "${guessWord}"`);
 
         let citizensWon = false;
         let resultMsg = "";
@@ -435,7 +487,8 @@ module.exports = (io, socket, gameRooms) => {
             message: resultMsg,
             liarName: room.players[room.liarGame.liarId]?.name,
             word: room.liarGame.word,
-            citizensWon: citizensWon
+            citizensWon: citizensWon,
+            votes: room.liarGame.votes
         });
     });
 
@@ -492,21 +545,7 @@ module.exports = (io, socket, gameRooms) => {
 
         io.to(roomId).emit('round over', resultData);
 
-        // Task 4-4: 다음 라운드 자동 진행 (최종 종료가 아닐 때만)
-        if (!resultData.isFinalGameOver) {
-            let autoNextCount = 8; // 8초 후 자동 시작
-            const autoNextInterval = setInterval(() => {
-                autoNextCount--;
-                if (autoNextCount <= 0) {
-                    clearInterval(autoNextInterval);
-                    // 방이 여전히 ROUND_OVER 상태이고 유저가 3명 이상이면 시작
-                    const currentRoom = gameRooms[roomId];
-                    if (currentRoom && currentRoom.status === 'ROUND_OVER' && Object.keys(currentRoom.players).length >= 3) {
-                        startRound(roomId); // Task 4-12: 카운트다운 생략
-                    }
-                }
-            }, 1000);
-        }
+        // 방장의 수동 "다음 라운드 시작" 버튼 클릭에 의한 진행으로 변경 (자동 다음 라운드 예약 타이머 삭제)
     }
 
     socket.on('restart liar game', () => {
@@ -520,7 +559,8 @@ module.exports = (io, socket, gameRooms) => {
         room.status = 'WAITING';
         room.liarGame = {
             scores: {},
-            liarId: null, category: null, word: null, votes: {}, submissions: {}
+            liarId: null, category: null, word: null, votes: {}, submissions: {},
+            liarHistory: [] // 최근 라이어 이력 완벽 소거
         };
         for (let pid in room.players) {
             room.liarGame.scores[pid] = 0;

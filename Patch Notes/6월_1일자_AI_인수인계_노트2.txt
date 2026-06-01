@@ -1,0 +1,91 @@
+======================================================================
+                  PickPlay 6월 1일자 AI 개발 인수인계 노트 2
+======================================================================
+
+이 문서는 토큰 제한 상황에 대비하여, 6월 1일자 2차 세션에서 진행 완료한 핫픽스 사항을 상세히 보고하고,
+새롭게 발견된 "라이어 정답 입력창 찌그러짐 현상" 및 "실시간 타이핑 화면 우측 뚫림 버그"에 대한
+원인 분석과 완벽한 교정 설계 스펙(CSS/JS 코드 명세)을 후속 개발 세션(또는 후속 AI)에 즉각적으로 인계하기 위해 작성되었습니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 1. 금일 완료한 핫픽스 작업 리포트 (2026-06-01 2차 세션 완료)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ [라이어 게임] 한글 입력 시 백스페이스(Backspace) 키 씹힘 현상 완치
+  - 원인 분석: 기존 설명 입력창(`#desc-input`) 및 역전 제출창(`#final-guess-input`)의 키 리스너가 `onkeydown`으로 바인딩되어 있어, Windows Chrome 환경의 한글 IME(입력기) 조합 프로세스와 물리적으로 충돌하며 백스페이스 이벤트를 집어삼켜 글자가 안 지워지는 결함이 있었습니다.
+  - 해결 조치: 
+    - `public/js/liar.js` 내의 두 입력 필드 키 리스너를 표준 `addEventListener('keyup')` 리스너로 전면 리팩터링 및 교체했습니다.
+    - 이를 통해 한글 자모음 조합 흐름을 온전히 보호하고, 백스페이스를 통한 글자 삭제가 지연 없이 부드럽게 실시간으로 작동함을 완벽히 보장했습니다.
+
+■ [라이어 게임] 역전 제출(최후 변론) 화면 내 제시어 카테고리 정보 긴급 보완
+  - 원인 분석: 투표로 지목당한 라이어가 최후에 제시어를 맞추는 대역전(최후 변론) 페이즈에 진입했을 때, 현재 라운드의 제시어 카테고리 정보가 어디에도 보이지 않아 정답을 추리하는 것이 구조적으로 불가능한 밸런스 붕괴가 있었습니다.
+  - 해결 조치:
+    - 백엔드 소켓(`sockets/liarSocket.js`): 최후 변론 격발 소켓 신호인 `final guess phase`를 emit할 때 현재 라운드의 카테고리 정보(`room.liarGame.category`)를 페이로드에 명시적으로 추가하여 전송하도록 보완했습니다.
+    - 프론트엔드 스크립트(`public/js/liar.js`): 수신한 카테고리 데이터(`data.category`)를 활용하여 라이어 본인의 정답 입력 화면 상단에 옐로우 톤의 굵고 선명한 폰트로 **"제시어 카테고리: [학용품]"** 등 카테고리를 큼직하게 띄워주도록 화면 설계를 보강했습니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 2. 새롭게 발견된 2가지 UI 버그 분석 및 해결 설계 명세 (차기 즉시 반영 건)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+차기 작업자는 아래의 명확한 원인 분석 및 해결 코드 명세를 참고하여 Contiguous 격리 수정 원칙에 따라 즉각적인 패치를 수행해주시기 바랍니다.
+
+----------------------------------------------------------------------
+ 버그 ① : "라이어 본인이 정답을 칠 때 무엇을 적고 있는지 안 보임 (입력창 극단적 찌그러짐)"
+----------------------------------------------------------------------
+■ 원인 분석
+  - 라이어 최후의 정답 입력창 `#final-guess-input`은 부모 컨테이너 `.liar-input-group` (flex layout) 하단에 배치되어 있습니다.
+  - 하지만 CSS 및 인라인 스타일 상에서 `flex: 1;`만 지정되어 있고 **최소 가로폭(`min-width`)에 대한 보장이 없어**, 우측의 큼직한 "역전 제출" 버튼에 밀려 가로 크기가 `[]` 모양의 매우 좁은 형태(수십 픽셀)로 극단적으로 수축(shrink)되어 찌그러졌습니다.
+  - 이로 인해 라이어가 글자를 입력하여도 입력 필드가 너무 좁아 자신이 지금 무엇을 적고 있는지 글자가 눈에 전혀 보이지 않는 현상이 발생했습니다.
+
+■ 해결 코드 명세
+  - `public/js/liar.js` 내 `final guess phase` 이벤트 핸들러(L550~) 내의 `final-guess-input` 요소에 **`min-width: 250px; width: 100%;`** 스타일을 추가 바인딩하여 flex 구조 하에서도 찌그러지지 않고 넓고 정연하게 펼쳐지도록 수정합니다.
+
+  [수정 전 (L557~L560)]
+  ```javascript
+  <div class="liar-input-group" style="display: flex; gap: 10px; margin-top: 0;">
+      <input type="text" id="final-guess-input" class="liar-text-input" style="font-size: 1.15rem; border-color: #ef4444; margin-bottom:0; flex:1;" placeholder="추리한 제시어 정답을 입력하세요..." autocomplete="off">
+      <button id="final-guess-btn" class="start-btn" style="background: #ef4444; padding: 0 24px; font-weight:800;">역전 제출</button>
+  </div>
+  ```
+
+  [수정 후 (보정 적용)]
+  ```javascript
+  <div class="liar-input-group" style="display: flex; gap: 10px; margin-top: 0; width: 100%; max-width: 500px; margin-left: auto; margin-right: auto;">
+      <input type="text" id="final-guess-input" class="liar-text-input" style="font-size: 1.1rem; border-color: #ef4444; margin-bottom:0; flex: 1; min-width: 280px; width: 100%;" placeholder="추리한 제시어 정답을 입력하세요..." autocomplete="off">
+      <button id="final-guess-btn" class="start-btn" style="background: #ef4444; padding: 0 24px; font-weight:800; width: auto; white-space: nowrap;">역전 제출</button>
+  </div>
+  ```
+
+----------------------------------------------------------------------
+ 버그 ② : "라이어 정답 타이핑 중계 영역이 길어질 경우 우측 화면을 뚫고 지나감"
+----------------------------------------------------------------------
+■ 원인 분석
+  - 라이어가 정답을 길게 타이핑할 때, 나머지 시민들 화면에 실시간으로 중계되는 글자 보드 영역인 `#live-typing-chars` 컨테이너에 자동 줄바꿈(`flex-wrap: wrap`) 및 단어 끊기(`word-break`) 설정이 누락되어 있습니다.
+  - 이로 인해 라이어가 글자를 길게 적으면 개별 문자 `.liar-char` 들이 1열로 끊임없이 우측 가로 방향으로 팽창하여 결국 화면 레이아웃 경계를 침범하고 뚫어버리는 심각한 비주얼 결함이 발생합니다.
+
+■ 해결 코드 명세
+  - `public/js/liar.js` 내 `final guess phase` 이벤트 핸들러(L594~) 내의 `#live-typing-chars` 부모 컨테이너 및 `#live-typing-chars` 자체에 **`flex-wrap: wrap; justify-content: center; word-break: break-all; max-width: 100%;`** 스타일 속성을 전적으로 보완 적용하여, 글자가 길어져도 화면 밖으로 탈출하지 않고 예쁘게 다음 줄로 자동 wrap 정렬되도록 수정합니다.
+
+  [수정 전 (L600~L602)]
+  ```javascript
+  <div style="border: 2px dashed rgba(16, 185, 129, 0.35); padding: 10px 20px; border-radius: 14px; min-height: 52px; display: inline-block; min-width: 280px; background:rgba(0,0,0,0.2);">
+      <div id="live-typing-chars" style="font-size: 1.9rem; font-weight: 900; color: #f87171; letter-spacing: 5px; min-height: 32px; display:flex; justify-content:center; align-items:center;"></div>
+  </div>
+  ```
+
+  [수정 후 (보정 적용)]
+  ```javascript
+  <div style="border: 2px dashed rgba(16, 185, 129, 0.35); padding: 10px 20px; border-radius: 14px; min-height: 52px; display: flex; justify-content: center; align-items: center; width: 100%; max-width: 480px; margin: 0 auto; background:rgba(0,0,0,0.2); box-sizing: border-box;">
+      <div id="live-typing-chars" style="font-size: 1.9rem; font-weight: 900; color: #f87171; letter-spacing: 5px; min-height: 32px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; word-break: break-all; width: 100%; overflow: hidden;"></div>
+  </div>
+  ```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 3. 검증 지침 (차기 작업자 확인용)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. **백스페이스 한글 교정 검증**:
+   - `c:\Users\choi\Desktop\PickPlay` 디렉토리에서 `npm run dev` 등으로 서버를 재기동합니다.
+   - 설명 입력창 및 최후 변론 정답 입력창에 무작위 텍스트(한글/영문) 기입 후 백스페이스로 즉시 삭제가 부드럽게 이루어지는지 재차 확인합니다.
+2. **입력 필드 크기 검증**:
+   - 라이어가 되어 지목당한 후, 빨간색 테두리의 정답 입력 필드가 찌그러지지 않고 화면 가로 폭에 걸맞게 `min-width: 280px` 수준으로 쾌적하게 넓게 펴져 내가 타이핑하는 글자가 항상 한눈에 시원하게 들어오는지 검수합니다.
+3. **타이핑 뚫림 억제 및 줄바꿈 검증**:
+   - 라이어로 정답 입력 필드에 아주 긴 텍스트(예: 30자 이상 또는 문장)를 길게 기입했을 때, 시민 화면의 점선 오버레이 박스 내에서 글자들이 뚫리지 않고 자동으로 2열, 3열로 래핑되어 정렬되는지 시각적으로 체크합니다.

@@ -1,16 +1,16 @@
-/* =========================================
-   라이어 게임 전용 스타일 (Vibrant Dark Theme)
-   ========================================= */
+/* ======================================================================
+   PickPlay 라이어 게임 전용 공간 분할 그리드 스타일 (High-Fidelity Board Game View)
+   ====================================================================== */
 
-/* 애니메이션 */
+/* 애니메이션 및 키프레임 */
 @keyframes liarCharDrop {
-    from { opacity: 0; transform: translateY(-15px) scale(0.8); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    0% { opacity: 0; transform: translateY(-15px) scale(0.85); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes liarBlink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+    50% { opacity: 0.3; }
 }
 
 @keyframes fadeInScale {
@@ -19,189 +19,89 @@
 }
 
 @keyframes pulseTurn {
-    0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
 }
 
-/* 라이어 타이머 UI */
-#liar-timer-ui {
-    background: rgba(15, 23, 42, 0.6);
-    color: #f8fafc;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 16px 24px;
-    border-radius: 16px;
-    font-size: 1.25rem;
-    font-weight: 700;
-    text-align: center;
-    margin-bottom: 20px;
-    display: none;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
+@keyframes emojiPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
 }
 
-#liar-timer-ui span {
-    font-family: 'Outfit', sans-serif;
-    font-variant-numeric: tabular-nums;
+/* ======================================================================
+   글로벌 레이아웃 & 사이드바 영구 은쇄 및 1200px 뼈대 일치화 (폭탄 돌리기와 완전 동일 프레임)
+   ====================================================================== */
+/* 
+   - 라이어 게임 전 phase(대기방 제외)에서 우측 사이드바가 아예 노출되지 않도록 강력히 영구 차단.
+   - #main-wrapper 규격을 1200px 고정으로 일치시켜 정갈한 명품 여백 마진 완벽 복원.
+*/
+body.game-mode-liar #right-sidebar {
+    display: none !important; /* 결과창, 게임 진행 중 전체 페이즈에서 상시 은쇄 */
 }
 
-#liar-timer-ui.timer-green { 
-    background: rgba(16, 185, 129, 0.15); 
-    border-color: rgba(16, 185, 129, 0.4); 
-    color: #34d399; 
-}
-#liar-timer-ui.timer-yellow { 
-    background: rgba(245, 158, 11, 0.15); 
-    border-color: rgba(245, 158, 11, 0.4); 
-    color: #fbbf24; 
-}
-#liar-timer-ui.timer-red { 
-    background: rgba(239, 68, 68, 0.15); 
-    border-color: rgba(239, 68, 68, 0.4); 
-    color: #f87171; 
-    animation: pulseTurn 1s infinite;
+body.game-mode-liar #main-wrapper {
+    grid-template-columns: 1fr !important;
+    max-width: 1200px; /* 가변폭 허용을 위해 !important 해제 */
+    width: 100% !important;
+    margin: 0 auto !important;
+    position: relative;
+    transition: max-width 0.3s ease; /* 부드러운 전환 효과 */
 }
 
-/* 공통 컨테이너 스타일 */
-.liar-glass-panel {
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
-    padding: 32px;
-    backdrop-filter: blur(20px);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-    animation: fadeInScale 0.4s ease-out;
-    color: #f1f5f9;
+/* 인원수 증가에 따른 동적 가로 프레임 스케일 아웃 */
+body.game-mode-liar #main-wrapper.players-5,
+body.game-mode-liar #main-wrapper.players-6 {
+    max-width: 1400px;
+}
+body.game-mode-liar #main-wrapper.players-7,
+body.game-mode-liar #main-wrapper.players-8 {
+    max-width: 1600px;
 }
 
-/* 역할 안내 카드 */
-.liar-role-card {
-    text-align: center;
-    max-width: 600px;
-    margin: 0 auto;
+body.game-mode-liar.show-result-sidebar #main-wrapper {
+    grid-template-columns: 1fr !important; /* 화면 비틀어짐 리플로우 0% 영구 차단 */
 }
 
-.liar-role-header {
-    font-size: 1.5rem;
-    color: #94a3b8;
-    margin-bottom: 8px;
+body.game-mode-liar #game-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: calc(100vh - 160px) !important; /* 타이틀 복원에 따른 높이 대폭 최적화 */
+    display: flex;
+    flex-direction: column;
+    padding: 10px 20px 20px 20px !important;
+    box-sizing: border-box;
+    overflow: hidden !important;
+    position: relative;
 }
 
-.liar-role-badge {
-    display: inline-block;
-    padding: 8px 32px;
-    border-radius: 100px;
-    font-size: 2.5rem;
-    font-weight: 900;
-    margin-bottom: 24px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
-.role-liar {
-    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.role-citizen {
-    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.liar-category-label {
-    font-size: 1.1rem;
-    color: #94a3b8;
-    margin-top: 24px;
-}
-
-.liar-category-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #f8fafc;
-    margin: 8px 0;
-}
-
-.liar-word-label {
-    font-size: 1.1rem;
-    color: #94a3b8;
-    margin-top: 24px;
-}
-
-.liar-word-value {
-    font-size: 4rem;
-    font-weight: 900;
-    letter-spacing: 8px;
-    margin: 12px 0;
-    background: linear-gradient(to bottom, #fff, #cbd5e1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-}
-
-.word-liar { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
+body.liar-game-word.word-liar { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
 .word-citizen { color: #38bdf8 !important; -webkit-text-fill-color: #38bdf8 !important; }
 
-/* 힌트 리스트 */
-#live-hint-container {
-    margin-top: 40px;
-    text-align: left;
-}
-
-#live-hint-container h3 {
-    font-size: 1.25rem;
-    color: #cbd5e1;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 12px;
-    margin-bottom: 20px;
-}
-
-.liar-hint-list {
-    list-style: none;
-    padding: 0;
-}
-
-.liar-hint-item {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-left: 4px solid #38bdf8;
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-    color: #e2e8f0;
-    transition: transform 0.2s;
-}
-
-.liar-hint-item:hover {
-    transform: translateX(5px);
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.liar-hint-item strong {
-    color: #38bdf8;
-    margin-right: 8px;
+/* 대시보드 하단 기본 채팅 폼 및 폭죽 바 가리기 */
+body.game-mode-liar #emoji-palette-bar {
+    display: none !important;
 }
 
 /* 턴 제어 영역 */
 .liar-turn-panel {
-    margin-top: 32px;
-    padding: 24px;
-    background: rgba(15, 23, 42, 0.4);
-    border-radius: 20px;
+    margin-top: 10px;
+    padding: 16px 24px;
+    background: rgba(15, 23, 42, 0.65);
+    border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
 }
 
 .liar-turn-message {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 600;
     color: #f1f5f9;
 }
 
 .liar-input-group {
-    margin-top: 20px;
+    margin-top: 15px;
 }
 
 .liar-text-input {
@@ -210,12 +110,12 @@
     background: rgba(0, 0, 0, 0.2);
     border: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
-    padding: 14px 20px;
+    padding: 10px 16px;
     color: white;
-    font-size: 1.1rem;
+    font-size: 1rem;
     outline: none;
     transition: all 0.2s;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .liar-text-input:focus {
@@ -224,92 +124,537 @@
     box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
 }
 
-/* 투표 섹션 */
-.liar-voting-panel {
-    margin-top: 40px;
+/* 라이어 타이머 UI */
+#liar-timer-ui {
+    background: rgba(15, 23, 42, 0.85);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 12px 24px;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 10px;
+    display: none;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 100;
 }
 
-.liar-vote-grid {
+#liar-timer-ui span {
+    font-family: 'Outfit', sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+#liar-timer-ui.timer-green { 
+    background: rgba(16, 185, 129, 0.2); 
+    border-color: rgba(16, 185, 129, 0.4); 
+    color: #34d399; 
+}
+#liar-timer-ui.timer-yellow { 
+    background: rgba(245, 158, 11, 0.2); 
+    border-color: rgba(245, 158, 11, 0.4); 
+    color: #fbbf24; 
+}
+#liar-timer-ui.timer-red { 
+    background: rgba(239, 68, 68, 0.2); 
+    border-color: rgba(239, 68, 68, 0.4); 
+    color: #f87171; 
+    animation: pulseTurn 1s infinite;
+}
+
+/* ======================================================================
+   분할 화면 보드 그리드 시스템 (Spatial Grid Partition)
+   ====================================================================== */
+.liar-grid-board {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    width: 100%;
+    flex: 1;
     gap: 16px;
-    margin-top: 24px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    min-height: 0; /* flex 아래 팽창 및 스크롤 방지 */
+    position: relative;
 }
 
-.liar-vote-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
+/* 인원수별 맞춤형 화면 분할 공식 */
+.liar-grid-board.players-3 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr;
+}
+.liar-grid-board.players-4 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+.liar-grid-board.players-5,
+.liar-grid-board.players-6 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+.liar-grid-board.players-7,
+.liar-grid-board.players-8 {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+/* ======================================================================
+   플레이어 분할 슬롯 카드 (State Board Card)
+   ====================================================================== */
+.liar-player-slot {
+    background: rgba(30, 41, 59, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
     padding: 20px;
-    color: #f1f5f9;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    overflow: hidden;
+    box-sizing: border-box;
+    min-height: 0;
+    
+    /* 플로팅 카드화 규격 고정 */
+    width: 100%;
+    max-width: 300px;
+    height: 100%;
+    max-height: 400px;
+    margin: auto;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
-.liar-vote-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.4);
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+/* 나 자신인 경우 테두리 강조 */
+.liar-player-slot.is-me {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
-.liar-vote-btn i { font-size: 1.5rem; }
+/* 현재 발언 차례 네온 발광 애니메이션 */
+.liar-player-slot.active-turn {
+    border-color: #38bdf8;
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.06);
+    transform: scale(1.02);
+}
 
-/* 결과 패널 */
-.liar-result-panel {
+/* 슬롯 헤더 (아바타 + 닉네임) */
+.liar-slot-avatar-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.liar-slot-avatar {
+    width: 64px;
+    height: 64px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.liar-slot-nickname {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.liar-slot-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 승리 점수 도트 (Slot 내부 좌측 상단 배치) */
+.liar-slot-score-dots {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    display: flex;
+    gap: 5px;
+}
+
+.liar-slot-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.liar-slot-dot.filled {
+    background: #f1c40f;
+    box-shadow: 0 0 6px #f1c40f;
+    border-color: #f1c40f;
+}
+
+/* 방장 왕관 아이콘 배치 */
+.liar-slot-badge-crown {
+    color: #f1c40f;
+    font-size: 0.85rem;
+}
+
+/* 투표 체크 배지 (Slot 아바타 우측 하단 배치) */
+.liar-slot-vote-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: #10b981;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    border: 2px solid #1e293b;
+    z-index: 10;
+    animation: fadeInScale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ======================================================================
+   설명 턴 말풍선 컴포넌트 (Speech Bubble Component)
+   ====================================================================== */
+.liar-speech-bubble {
+    position: relative; /* relative로 변경하여 아바타 하단에 겹침 없이 정렬 */
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 2px solid #38bdf8;
+    border-radius: 18px;
+    padding: 12px 18px;
+    color: #f8fafc;
+    font-size: 1.05rem;
+    font-weight: 700;
+    width: 90%;
+    max-width: 250px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    animation: liarCharDrop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    z-index: 30;
     text-align: center;
+    word-break: break-all;
+    margin-top: 10px; /* 아바타/닉네임 아래 간격 확보 */
+}
+
+.liar-speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: -10px; /* 위쪽 꼬리 */
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 10px 10px;
+    border-style: solid;
+    border-color: #38bdf8 transparent;
+    display: block;
+    width: 0;
+}
+
+/* 실시간 잡담 채팅용 글래스모피즘 말풍선 */
+.liar-chat-bubble {
+    position: relative;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 10px 14px;
+    color: #e2e8f0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    width: 88%;
+    max-width: 220px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    animation: liarCharDrop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    z-index: 25;
+    text-align: center;
+    word-break: break-all;
+    margin-top: 8px;
+}
+
+.liar-chat-bubble::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 8px 8px;
+    border-style: solid;
+    border-color: rgba(30, 41, 59, 0.85) transparent;
+    display: block;
+    width: 0;
+}
+
+/* ======================================================================
+   3D 카드 플립 정체 공개 장치 (3D Role Reveal Card)
+   ====================================================================== */
+.liar-card-container {
+    width: 120px; /* 화면 비율 편차 조율을 위해 크기 콤팩트화 */
+    height: 165px;
+    perspective: 1000px;
+    cursor: pointer;
+    z-index: 40;
+    margin-top: 8px;
+}
+
+.liar-card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.liar-card-container.flipped .liar-card-inner {
+    transform: rotateY(180deg);
+}
+
+.liar-card-front,
+.liar-card-back {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+}
+
+/* 카드 뒷면 (미지개봉 상태) */
+.liar-card-back {
+    background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+    color: #e0f2fe;
+    border-color: #818cf8;
+    overflow: hidden;
+}
+
+.liar-card-back::before {
+    content: '?';
+    font-size: 2.8rem; /* 카드 크기에 걸맞게 물음표 삽입 */
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.12);
+    filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.3));
+    animation: gwHeroFloat 3s ease-in-out infinite;
+}
+
+.liar-card-back-label {
+    font-size: 0.68rem; /* 카드 크기 비례 폰트 조정 */
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.3);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    animation: liarBlink 1.5s infinite;
+}
+
+/* 카드 앞면 (공개 완료 상태) */
+.liar-card-front {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    transform: rotateY(180deg);
+}
+
+.liar-card-front.role-liar {
+    border-color: #f87171;
+    background: linear-gradient(135deg, #450a0a 0%, #1a0505 100%);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+.liar-card-front.role-citizen {
+    border-color: #34d399;
+    background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.liar-card-role-title {
+    font-size: 1.45rem; /* 카드 크기 비례 폰트 조정 */
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+.liar-card-role-desc {
+    font-size: 0.68rem; /* 카드 크기 비례 폰트 조정 */
+    opacity: 0.8;
+    text-align: center;
+    padding: 0 8px;
+    line-height: 1.35;
+}
+
+/* ======================================================================
+   직관적 구역 투표 조준경 오버레이 (Direct Target Vote Overlay)
+   ====================================================================== */
+.liar-player-slot.voting-target {
+    cursor: pointer;
+}
+
+.liar-player-slot.voting-target:hover {
+    border-color: #ef4444;
+    box-shadow: 0 0 35px rgba(239, 68, 68, 0.45);
+    transform: translateY(-4px) scale(1.01);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.liar-player-slot.voting-target:hover::after {
+    content: '투표';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    color: #ef4444;
+    font-size: 1.6rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 22px;
+    z-index: 40;
+    animation: fadeInScale 0.15s ease-out;
+    letter-spacing: 1.5px;
+    text-shadow: 0 0 12px rgba(0,0,0,0.9);
+}
+
+/* ======================================================================
+   쇼다운 투표 화살표 캔버스 오버레이 (Showdown Laser overlay Canvas)
+   ====================================================================== */
+#liar-laser-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+    display: none !important; /* 지목 화살표 레이저 캔버스 완전히 비활성화 */
+}
+
+/* 결과창 패널 커스터마이징 및 플로팅 모달 연출 */
+.liar-grid-board.results-dimmed {
+    opacity: 0.22 !important;
+    filter: blur(4.5px) !important;
+    pointer-events: none !important;
+    transition: opacity 0.5s ease, filter 0.5s ease;
+}
+
+body.game-mode-liar .liar-player-ui {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 92%;
+    max-width: 680px; /* 정숙하고 아름다운 비율의 최적화된 결과창 가로 너비 */
+    z-index: 100;
+    pointer-events: none; /* 평소에는 하위 요소를 클릭할 수 있게 함 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.liar-result-panel {
+    pointer-events: auto; /* 결과 패널 자체 내부에서는 클릭 허용 */
+    text-align: center;
+    max-width: 760px !important;
+    width: 100% !important;
+    margin: 0 auto;
+    animation: fadeInScale 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: rgba(15, 23, 42, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 28px;
+    padding: 32px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 .liar-result-title {
-    font-size: 3rem;
+    font-size: 2.5rem;
     font-weight: 900;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    animation: emojiPop 0.5s ease-out;
 }
 
 .liar-result-msg {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     color: #cbd5e1;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
 }
 
 .liar-final-reveal {
     display: flex;
     justify-content: center;
-    gap: 40px;
-    margin: 32px 0;
+    gap: 20px;
+    margin: 20px 0;
     flex-wrap: wrap;
 }
 
 .reveal-box {
     background: rgba(0, 0, 0, 0.2);
-    padding: 20px 40px;
+    padding: 16px 32px;
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 180px;
 }
 
 .reveal-label {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     color: #94a3b8;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .reveal-value {
-    font-size: 2rem;
+    font-size: 1.8rem;
     font-weight: 800;
 }
 
 .reveal-liar { color: #f87171; }
 .reveal-word { color: #38bdf8; }
 
-/* 실시간 타이핑 애니메이션 */
-.liar-char {
-    display: inline-block;
-    font-family: 'Outfit', sans-serif;
+/* 투표 미니 배지 칩 영역 스타일 */
+.liar-slot-voters-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    width: 100%;
+    z-index: 35;
+    animation: fadeInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
-
+
+.liar-voter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(239, 68, 68, 0.14) !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+    color: #f87171 !important;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    animation: emojiPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    white-space: nowrap;
+}
+
+.liar-voter-chip.is-me {
+    background: rgba(56, 189, 248, 0.14) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+    color: #38bdf8 !important;
+}

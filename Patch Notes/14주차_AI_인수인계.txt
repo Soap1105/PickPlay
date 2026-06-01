@@ -78,12 +78,12 @@
       - 클라이언트(bingo.js)에서 해당 플래그 시 첫 번째 선택 후 두 번째 선택 받기
       - 두 번째 선택 완료 후 passTurn()
 
-  eventType 2: 🕳️ 블랙홀
-    현재: allPlayerIds에서 랜덤 대상 선택 (나 자신이 될 수도 있음)
-    수정안: 플레이어가 직접 타깃 선택
-      - 서버: 이벤트 발동 시 클라이언트에 'select skip target' emit (대상 후보 목록 전달)
-      - 클라이언트: 플레이어 목록 팝업 표시, 선택 후 서버에 'skip target selected' emit
-      - 서버: 수신 후 해당 플레이어 skipCount += 1 처리
+  eventType 2: 🕳️ 블랙홀 [완료]
+    변경: 플레이어가 직접 타깃 선택
+      - 서버: 이벤트 발동 시 발동자에게만 'select skip target' emit (자기 자신 제외 후보 목록)
+      - 클라이언트: 블랙홀 타깃 선택 팝업 표시 (15초 카운트다운 타이머 포함)
+      - 15초 타임아웃 시 서버에서 자동 랜덤 선택 후 'blackhole target confirmed' emit
+      - 선택 완료 시 서버가 skipCount += 1 후 passTurn()
 
   eventType 3: 👻 유령의 장난
     현재: calledNumbers에서 랜덤 3개 삭제 (내 빙고 줄도 날아갈 수 있음)

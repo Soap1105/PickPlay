@@ -83,6 +83,7 @@
     window.useEventsGlobal = true; // [전역화] 렌더링 함수들이 어디서든 참조 가능하게 변경
     let pendingTurnUpdate = null;
     let popupActive = false;
+    let lockedWords = {}; // [유령의 장난] 잠긴 단어 관리
 
     function getUserId() {
         let userId = localStorage.getItem('bingo_user_id');
@@ -352,6 +353,12 @@
             if (!cell.classList.contains('bingo-completing')) {
                 cell.classList.remove('bingo-completing');
             }
+            // [유령의 장난] 잠긴 단어 표시
+            if (word && lockedWords[word] !== undefined) {
+                cell.classList.add('locked');
+            } else {
+                cell.classList.remove('locked');
+            }
         });
 
         const { count, lines } = getBingoLines(myBoard, calledNumbers);
@@ -377,6 +384,14 @@
         updateBingoActionButtons(count);
     }
 
+    function getCellFontSize(word) {
+        const len = String(word).length;
+        if (len <= 4)  return '1.1rem';
+        if (len <= 6)  return '0.95rem';
+        if (len <= 9)  return '0.82rem';
+        return '0.7rem';
+    }
+
     function renderBoard(boardData) {
         bingoBoard.innerHTML = '';
         myBoard = boardData;
@@ -387,6 +402,7 @@
             cell.textContent = word;
             cell.dataset.word = word;
             cell.dataset.index = index;
+            cell.style.fontSize = getCellFontSize(word);
             cell.addEventListener('click', () => {
                 if (setupArea.style.display !== 'none' || waitingArea.style.display !== 'none') return;
                 if (turnDisplay.style.display === 'none') return;
@@ -398,6 +414,10 @@
                 if (calledNumbers.includes(word)) {
                     if (window.showToast) window.showToast("이미 선택된 단어입니다.", "warning");
                     else alert("이미 선택된 단어입니다.");
+                    return;
+                }
+                if (lockedWords[word] !== undefined) {
+                    if (window.showToast) window.showToast(`🔒 '${word}'은(는) 유령에게 잠겨있습니다! (${lockedWords[word]}턴 후 해제)`, "warning");
                     return;
                 }
                 socket.emit('theme word selected', { roomId: window.roomId, word });
@@ -1118,6 +1138,15 @@
         updateBoardVisuals();
     });
 
+    socket.on('locked words updated', (newLockedWords) => {
+        lockedWords = newLockedWords || {};
+        updateBoardVisuals();
+    });
+
+    socket.on('time warp next', () => {
+        if (window.showToast) window.showToast('⏳ 시간 왜곡! 단어를 하나 더 선택하세요.', 'success');
+    });
+
     socket.on('action failed', (msg) => {
         if (window.showToast) window.showToast(msg, "error");
         updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
@@ -1126,10 +1155,88 @@
     socket.on('event happened', (data) => {
         playEvent();
         showBigEvent(data.icon, data.title, data.msg, data.type);
+
+        // [1번 버그 수정] 이벤트 팝업 동안 타이머 정지 + turn update 큐잉
+        if (turnTimerInterval) clearInterval(turnTimerInterval);
+        turnTimerBar.style.display = 'none';
+        popupActive = true;
+        setTimeout(() => {
+            popupActive = false;
+            if (pendingTurnUpdate) {
+                processTurnUpdate(pendingTurnUpdate);
+                pendingTurnUpdate = null;
+            }
+        }, 3000);
+
         if (data.type === 'shuffle') {
             bingoBoard.classList.add('shake-effect');
             setTimeout(() => bingoBoard.classList.remove('shake-effect'), 1000);
         }
+    });
+
+    // [블랙홀] 타깃 선택 팝업
+    let blackholeCountdownInterval = null;
+
+    socket.on('select skip target', (data) => {
+        // 기존 팝업이 있으면 제거
+        const existing = document.getElementById('blackhole-modal');
+        if (existing) existing.remove();
+        if (blackholeCountdownInterval) clearInterval(blackholeCountdownInterval);
+
+        const modal = document.createElement('div');
+        modal.id = 'blackhole-modal';
+        modal.innerHTML = `
+            <div class="blackhole-overlay">
+                <div class="blackhole-box">
+                    <div class="blackhole-icon">🕳️</div>
+                    <div class="blackhole-title">블랙홀 발동!</div>
+                    <div class="blackhole-subtitle">빨아들일 플레이어를 선택하세요</div>
+                    <div class="blackhole-timer-wrap">
+                        <div class="blackhole-timer-bar">
+                            <div class="blackhole-timer-progress" id="bh-timer-progress"></div>
+                        </div>
+                        <span class="blackhole-timer-text" id="bh-timer-text">15초</span>
+                    </div>
+                    <div class="blackhole-candidates" id="bh-candidates"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const candidateContainer = document.getElementById('bh-candidates');
+        data.candidates.forEach(candidate => {
+            const btn = document.createElement('button');
+            btn.className = 'bh-candidate-btn';
+            btn.textContent = candidate.name;
+            btn.dataset.id = candidate.id;
+            btn.addEventListener('click', () => {
+                if (blackholeCountdownInterval) clearInterval(blackholeCountdownInterval);
+                socket.emit('skip target selected', { targetId: candidate.id });
+                modal.remove();
+            });
+            candidateContainer.appendChild(btn);
+        });
+
+        // 15초 카운트다운
+        let timeLeft = 15;
+        const progressEl = document.getElementById('bh-timer-progress');
+        const textEl = document.getElementById('bh-timer-text');
+        blackholeCountdownInterval = setInterval(() => {
+            timeLeft--;
+            if (progressEl) progressEl.style.width = `${(timeLeft / 15) * 100}%`;
+            if (textEl) textEl.textContent = `${timeLeft}초`;
+            if (timeLeft <= 0) {
+                clearInterval(blackholeCountdownInterval);
+                modal.remove();
+            }
+        }, 1000);
+    });
+
+    socket.on('blackhole target confirmed', () => {
+        // 팝업이 남아있으면 닫기 (타임아웃 or 타인의 선택 확정 시)
+        const modal = document.getElementById('blackhole-modal');
+        if (modal) modal.remove();
+        if (blackholeCountdownInterval) clearInterval(blackholeCountdownInterval);
     });
 
     socket.on('update board', (newBoard) => {
