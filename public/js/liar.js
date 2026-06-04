@@ -14,6 +14,7 @@
     window.liarVotes = {};
     window.gameScores = {};
     window.winTarget = 3;
+    let lastLiarSettings = { winTarget: 3, selectedCategories: [] };
 
     // --- 동적 보드 및 특수 UI 요소 생성 및 바인딩 ---
     let gridBoard = document.getElementById('liar-grid-board');
@@ -231,13 +232,19 @@
         if (gridBoard) gridBoard.style.display = 'none';
         if (inputZone) inputZone.style.display = 'none';
 
+        // [이슈 28 해결] 라이어 구식 대기 영역 강제 비활성화
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
 
-        if (amIHost) {
-            setupArea.style.display = 'block';
-        } else {
-            waitingArea.style.display = 'block';
+        // 단판 라운드가 아닌 전체 대기 상태일 때는 최신 대기방으로 복귀
+        if (!window.isGamePlaying && window.gameType === 'liar') {
+            if (typeof showContainer === 'function') {
+                showContainer('lobby-container');
+                const stageSelection = document.getElementById('selection-stage');
+                const stageWaiting = document.getElementById('waiting-stage');
+                if (stageSelection) stageSelection.style.display = 'none';
+                if (stageWaiting) stageWaiting.style.display = 'flex';
+            }
         }
 
         // 결과창 방장 지령 버튼 제어
@@ -247,6 +254,8 @@
             hostBtns.style.display = amIHost ? 'block' : 'none';
             guestTxt.style.display = amIHost ? 'none' : 'block';
         }
+
+        updateLiarLobbySettingsUI(lastLiarSettings);
     };
 
     window.initLiarUI = function (isHostStatus) {
@@ -628,14 +637,15 @@
             const btnHtml = `
                 <div style="margin-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
                     <div style="display: flex; gap: 14px; justify-content: center; width: 100%; max-width: 400px;">
+                        ${amIHost ? `
+                        <button id="liar-confirm-result-btn" class="start-btn" style="flex: 1; padding: 12px 24px; font-size: 0.95rem; background: linear-gradient(135deg, #2ecc71, #27ae60);">
+                            ✅ 확인 완료 &amp; 초기화
+                        </button>
+                        ` : `
                         <button id="liar-confirm-result-btn" class="start-btn" style="flex: 1; padding: 12px 24px; font-size: 0.95rem; background: linear-gradient(135deg, #34495e, #2c3e50); border: 1px solid rgba(255,255,255,0.15);">
                             확인 완료
                         </button>
-                        ${amIHost ? `
-                        <button id="restart-liar-btn" class="start-btn" style="flex: 1; padding: 12px 24px; font-size: 0.95rem; background: linear-gradient(135deg, #e74c3c, #c0392b);">
-                            게임 초기화
-                        </button>
-                        ` : ''}
+                        `}
                     </div>
                     ${!amIHost ? `
                     <div style="color: #94a3b8; font-size: 0.85rem;">
@@ -711,12 +721,11 @@
                         confirmBtn.textContent = "확인 완료 ✓";
                         confirmBtn.style.opacity = '0.6';
                         confirmBtn.style.background = '#475569';
+                        // [이슈 23] 방장은 확인 즉시 게임 초기화도 처리
+                        if (amIHost) {
+                            socket.emit('restart liar game');
+                        }
                     };
-                }
-
-                const restartBtn = document.getElementById('restart-liar-btn');
-                if (restartBtn) {
-                    restartBtn.onclick = () => socket.emit('restart liar game');
                 }
             }, 50);
             return;
@@ -875,6 +884,7 @@
 
     // --- 3D 카드 플립 정체공개 도입을 위해, 카운트다운 숫자를 생략하고 즉시 카드 배치로 우회 ---
     socket.on('liar game countdown start', (seconds) => {
+        if (typeof showContainer === 'function') showContainer('liar-container');
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
         
@@ -885,6 +895,45 @@
 
     socket.on('liar game countdown tick', (seconds) => {
         // 3D 카드 플립 우회하므로 아무것도 하지 않음 (타이머 충돌 방지)
+    });
+
+    function updateLiarLobbySettingsUI(settings) {
+        const previewEl = document.getElementById('liar-lobby-settings-preview');
+        const hostPreviewEl = document.getElementById('liar-host-settings-preview');
+        if (!settings) return;
+
+        const categoriesText = settings.selectedCategories && settings.selectedCategories.length > 0 
+            ? settings.selectedCategories.join(', ') 
+            : "전체 랜덤";
+
+        const html = `
+            <div class="lobby-settings-title" style="justify-content: center; font-size: 0.95rem; margin-bottom: 14px; color: #ff7675; font-weight: 800; border-bottom: 1px solid rgba(255,118,117,0.15); padding-bottom: 6px;">게임 설정</div>
+            <div class="lobby-settings-grid">
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">목표 승수</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(231, 76, 60, 0.12); border: 1px solid rgba(231, 76, 60, 0.3); color: #ff7675; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${settings.winTarget}승</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">선택 카테고리</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(231, 76, 60, 0.12); border: 1px solid rgba(231, 76, 60, 0.3); color: #ff7675; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${categoriesText}">${categoriesText}</span></span>
+                </div>
+            </div>
+        `;
+        if (previewEl) {
+            previewEl.innerHTML = html;
+            previewEl.style.display = 'block';
+        }
+        if (hostPreviewEl) {
+            hostPreviewEl.innerHTML = html;
+            hostPreviewEl.style.display = 'block';
+        }
+    }
+
+    socket.on('lobby settings updated', (data) => {
+        if (data && data.liar) {
+            lastLiarSettings = data.liar;
+            updateLiarLobbySettingsUI(data.liar);
+        }
     });
 
     // 게임 완전히 재시작 시 록온 초기화 및 UI 전체 복원
@@ -907,13 +956,9 @@
             mainWrapper.className = mainWrapper.className.replace(/\bplayers-\d+\b/g, '').trim();
         }
 
-        if (amIHost) {
-            setupArea.style.display = 'block';
-            waitingArea.style.display = 'none';
-        } else {
-            setupArea.style.display = 'none';
-            waitingArea.style.display = 'block';
-        }
+        // [이슈 28 해결] 구식 대기방 노출 차단
+        setupArea.style.display = 'none';
+        waitingArea.style.display = 'none';
 
         if (window.gameType === 'liar' && currentUsers.length > 0) {
             window.updateLiarRoleUI(amIHost);

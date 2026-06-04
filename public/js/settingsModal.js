@@ -42,6 +42,14 @@
             const settings = collectSettings(currentGame);
             if (settings === null) return; // 유효성 실패
             onConfirmCallback(settings);
+
+            // 실시간 대기방 설정 동기화
+            if (typeof socket !== 'undefined' && socket.emit) {
+                socket.emit('update lobby settings', {
+                    game: currentGame,
+                    settings: settings
+                });
+            }
         }
         closeModal();
     });
@@ -51,7 +59,7 @@
         if (game === 'bingo') {
             const winLines = parseInt(modalBody.querySelector('input[name="modal-win-lines"]:checked')?.value || '3');
             const turnOrder = modalBody.querySelector('#modal-turn-order').value;
-            const turnTime = parseInt(modalBody.querySelector('#modal-turn-time').value);
+            const turnTimeLimit = parseInt(modalBody.querySelector('#modal-turn-time').value);
             const topic = modalBody.querySelector('#modal-theme-topic').value.trim();
             const useEvents = modalBody.querySelector('#modal-bingo-use-events').checked;
 
@@ -63,12 +71,12 @@
             const hiddenEvents = document.getElementById('bingo-use-events');
 
             if (hiddenTurnOrder) hiddenTurnOrder.value = turnOrder;
-            if (hiddenTurnTime) hiddenTurnTime.value = turnTime;
+            if (hiddenTurnTime) hiddenTurnTime.value = turnTimeLimit;
             if (hiddenTopic) hiddenTopic.value = topic;
             if (hiddenWinLines) hiddenWinLines.value = winLines;
             if (hiddenEvents) hiddenEvents.value = useEvents;
 
-            return { winLines, turnOrder, turnTime, topic, useEvents };
+            return { winLines, turnOrder, turnTimeLimit, topic, useEvents };
 
         } else if (game === 'liar') {
             const winTarget = parseInt(modalBody.querySelector('#modal-liar-win-target').value);

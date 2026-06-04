@@ -564,9 +564,15 @@ module.exports = (io, socket, gameRooms) => {
         };
         for (let pid in room.players) {
             room.liarGame.scores[pid] = 0;
+            room.players[pid].confirmedResult = true; // [이슈 23] 결과 확인 중 배지 초기화
         }
 
         io.to(socket.roomId).emit('game restarted');
+        io.to(socket.roomId).emit('lobby settings updated', {
+            bingo: room.bingoSettings || { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
+            liar: room.liarSettings || { winTarget: 3, selectedCategories: [] },
+            bomb: room.bombSettings || { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
+        });
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig?.winTarget || 3);
         io.to(socket.roomId).emit('system message', '방장이 게임을 완전히 초기화했습니다. 설정을 확인하고 다시 시작해주세요.');
     });

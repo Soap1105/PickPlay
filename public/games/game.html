@@ -511,113 +511,135 @@
 
             <!-- ================= LOBBY CONTAINER ================= -->
             <div id="lobby-container">
-                <div class="lobby-welcome">
-                    <div class="lobby-welcome-icon">🎮</div>
-                    <h2 class="lobby-welcome-title">어떤 게임을 할까요?</h2>
-                    <p class="lobby-welcome-sub">방장이 게임을 선택하면 모두 함께 시작합니다</p>
-                </div>
-
-                <!-- 방장: 게임 카드 선택 -->
-                <div id="host-game-selection" style="display: none;">
-                    <div class="game-card-grid">
-                        <button class="game-card game-card-bingo game-select-btn" data-game="bingo" id="card-bingo">
-                            <div class="game-card-icon">🎯</div>
-                            <div class="game-card-body">
-                                <div class="game-card-name">빙고 게임</div>
-                                <div class="game-card-desc">5×5 빙고판에 단어를 채워<br>줄을 먼저 완성하세요!</div>
-                                <div class="game-card-tag">2인 이상</div>
+                
+                <!-- 1단계: 게임 선택 로비 (selection-stage) -->
+                <div id="selection-stage">
+                    <div class="matrix-header" style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
+                        <h2 style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-gamepad" style="color:#6c5ce7;"></i> 어떤 게임을 할까요?
+                        </h2>
+                    </div>
+                    
+                    <div class="selection-grid-layout">
+                        <!-- 좌측: 세련된 게임 카드 컬럼 -->
+                        <div class="game-selector-panel" id="lobby-game-selector-panel">
+                            <div style="font-size: 1rem; font-weight: 800; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; display:flex; align-items:center; gap:8px; width: 100%; text-align: left;">
+                                <i class="fas fa-list"></i> 플레이할 게임 선택
                             </div>
-                            <div class="game-card-arrow">▶</div>
-                        </button>
+                            <div class="game-cards-column">
+                                <button class="lobby-game-card bingo-card active game-select-btn" data-game="bingo" id="lobby-card-bingo">
+                                    <div class="game-icon-circle" style="color:#0984e3;">🎯</div>
+                                    <div class="game-meta">
+                                        <div class="game-title-text" style="color:#74b9ff;">빙고 게임</div>
+                                        <div class="game-desc-text">5×5 단어판을 채우고 줄을 완성해 외치세요!</div>
+                                        <span class="game-tag-badge">2인 이상</span>
+                                    </div>
+                                </button>
+                                
+                                <button class="lobby-game-card liar-card game-select-btn" data-game="liar" id="lobby-card-liar">
+                                    <div class="game-icon-circle" style="color:#d63031;">🕵️</div>
+                                    <div class="game-meta">
+                                        <div class="game-title-text" style="color:#ff7675;">라이어 게임</div>
+                                        <div class="game-desc-text">진짜 제시어를 모르는 라이어를 골라내야 합니다.</div>
+                                        <span class="game-tag-badge">3인 이상</span>
+                                    </div>
+                                </button>
 
-                        <button class="game-card game-card-liar game-select-btn" data-game="liar" id="card-liar">
-                            <div class="game-card-icon">🕵️</div>
-                            <div class="game-card-body">
-                                <div class="game-card-name">라이어 게임</div>
-                                <div class="game-card-desc">숨은 라이어를 찾아내거나<br>들키지 않고 버티세요!</div>
-                                <div class="game-card-tag">3인 이상</div>
+                                <button class="lobby-game-card bomb-card game-select-btn" data-game="bomb" id="lobby-card-bomb">
+                                    <div class="game-icon-circle" style="color:#d35400;">💣</div>
+                                    <div class="game-meta">
+                                        <div class="game-title-text" style="color:#fdcb6e;">주제 폭탄돌리기</div>
+                                        <div class="game-desc-text">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
+                                        <span class="game-tag-badge">2인 이상</span>
+                                    </div>
+                                </button>
                             </div>
-                            <div class="game-card-arrow">▶</div>
-                        </button>
+                        </div>
 
-                        <button class="game-card game-card-bomb game-select-btn" data-game="bomb" id="card-bomb">
-                            <div class="game-card-icon">💣</div>
-                            <div class="game-card-body">
-                                <div class="game-card-name">폭탄 돌리기</div>
-                                <div class="game-card-desc">주제에 맞는 단어를 말하고<br>폭탄을 넘기세요!</div>
-                                <div class="game-card-tag">2인 이상</div>
-                            </div>
-                            <div class="game-card-arrow">▶</div>
-                        </button>
+                        <!-- 좌측: 게스트용 대기 안내 패널 -->
+                        <div class="guest-waiting-panel" id="lobby-guest-waiting-panel" style="display: none;">
+                            <div class="guest-waiting-icon">🕹️</div>
+                            <h3 class="guest-waiting-title">대기실 입장 완료</h3>
+                            <p class="guest-waiting-desc">방장이 게임을 선택하고 매칭을 준비 중입니다.<br>잠시만 대기해 주시면 곧 재미있는 게임이 시작됩니다!</p>
+                        </div>
 
-                        <button class="game-card game-card-soon" disabled>
-                            <div class="game-card-icon">🔧</div>
-                            <div class="game-card-body">
-                                <div class="game-card-name">개발 중</div>
-                                <div class="game-card-desc">새로운 게임이<br>곧 추가됩니다!</div>
-                                <div class="game-card-tag">Coming Soon</div>
+                        <!-- 우측: 대기 중인 플레이어 매트릭스 그리드 -->
+                        <div class="lobby-players-panel">
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
+                                <div style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
+                                    <i class="fas fa-users"></i> 대기실 파티원
+                                </div>
+                                <div id="lobby-user-count" class="player-count">참가: 0 / 8</div>
                             </div>
-                        </button>
+                            <div class="player-matrix" id="lobby-player-matrix">
+                                <!-- JS로 8칸 채움 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 하단 로비 가이드 및 초대 링크 패널 -->
+                    <div class="controls-panel">
+                        <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+                            <div class="preview-mini-card" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 20px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: #a29bfe; background: rgba(108, 92, 231, 0.15); padding: 4px 8px; border-radius: 6px;">ROOM ID</span>
+                                    <span style="font-size: 0.95rem; font-weight: bold; color: #fff; letter-spacing: 1px;" id="lobby-room-id-display">------</span>
+                                </div>
+                                <button class="btn-action btn-return" id="lobby-invite-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; margin: 0; cursor: pointer;">
+                                    <i class="fas fa-copy"></i> 초대 코드 복사
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="button-group" style="padding-left: 20px; align-items: center; justify-content: flex-end;">
+                            <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right; line-height: 1.4; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                                <span style="color: #ffeaa7; font-weight: bold; margin-bottom: 2px;" id="lobby-guide-title"><i class="fas fa-lightbulb"></i> 대기실 가이드</span>
+                                <span id="lobby-guide-text">원하는 게임을 클릭하면 즉시 방 생성 및 세부 설정 화면으로 전환됩니다.</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 게스트: 방장 대기 메시지 (풀스크린) -->
-                <div id="guest-waiting-msg">
+                <!-- 2단계: 게임 대기방 (waiting-stage) -->
+                <div id="waiting-stage" style="display: none;">
+                    <div class="matrix-header" style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
+                        <h2 id="waiting-game-title" style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
+                            🎯 빙고 게임 대기방
+                        </h2>
+                    </div>
 
-                    <!-- 배경 파티클 (JS로 생성) -->
-                    <div id="gw-particles"></div>
-
-                    <!-- 메인 콘텐츠 -->
-                    <div class="gw-content">
-
-                        <!-- 히어로 섹션 -->
-                        <div class="gw-hero">
-                            <div class="gw-ripple-wrap">
-                                <div class="gw-ripple"></div>
-                                <div class="gw-ripple"></div>
-                                <div class="gw-ripple"></div>
-                                <span class="gw-hero-icon">🎮</span>
+                    <!-- 중앙 대기실 플레이어 매트릭스 그리드 -->
+                    <div class="lobby-players-panel" style="flex: 1; min-height: 0; width: 100%;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
+                            <div style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-users"></i> 대기실 파티원
                             </div>
-                            <h2 class="gw-hero-title">방장이 게임을 고르는 중!</h2>
-                            <p class="gw-hero-sub">곧 신나는 게임이 시작됩니다 🎉</p>
+                            <div id="waiting-user-count" class="player-count">참가: 0 / 8</div>
                         </div>
+                        <div class="player-matrix" id="waiting-player-matrix">
+                            <!-- JS로 8칸 채움 -->
+                        </div>
+                    </div>
 
-                        <!-- 게임 쇼케이스 -->
-                        <div class="gw-showcase">
-                            <div class="gw-game-card gw-card-bingo">
-                                <div class="gw-card-icon">🎯</div>
-                                <div class="gw-card-name">빙고 게임</div>
-                                <div class="gw-card-desc">5×5 단어로<br>줄을 완성!</div>
-                                <div class="gw-card-badge">2인 이상</div>
-                            </div>
-                            <div class="gw-game-card gw-card-liar">
-                                <div class="gw-card-icon">🕵️</div>
-                                <div class="gw-card-name">라이어 게임</div>
-                                <div class="gw-card-desc">숨은 라이어를<br>찾아내세요!</div>
-                                <div class="gw-card-badge">3인 이상</div>
-                            </div>
-                            <div class="gw-game-card gw-card-bomb">
-                                <div class="gw-card-icon">💣</div>
-                                <div class="gw-card-name">폭탄 돌리기</div>
-                                <div class="gw-card-desc">단어 말하고<br>폭탄 넘기기!</div>
-                                <div class="gw-card-badge">2인 이상</div>
+                    <!-- 하단 설정 프리뷰 및 컨트롤 패널 -->
+                    <div class="controls-panel">
+                        <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+                            <div class="preview-mini-card">
+                                <div style="font-size:0.75rem; font-weight:700; color:rgba(255,255,255,0.5);">현재 게임 설정</div>
+                                <div class="preview-grid" id="integrated-preview-container">
+                                    <!-- JS로 각 게임 설정 뱃지 렌더링 -->
+                                </div>
                             </div>
                         </div>
 
-                        <!-- 로딩 + 팁 -->
-                        <div class="gw-footer">
-                            <div class="gw-dots">
-                                <div class="gw-dot"></div>
-                                <div class="gw-dot"></div>
-                                <div class="gw-dot"></div>
-                            </div>
-                            <div class="gw-tip" id="guest-tip-text">
-                                💡 <strong>팁:</strong> 채팅창에서 친구들과 대화하며 기다려 보세요!
-                            </div>
+                        <div class="button-group" style="padding-left: 20px;">
+                            <button class="btn-action btn-settings" id="integrated-settings-btn" style="display: none;"><i class="fas fa-cog"></i> 게임 설정</button>
+                            <button class="btn-action btn-start" id="integrated-start-btn" style="display: none;"><i class="fas fa-play"></i> 게임 시작</button>
+                            <button class="btn-action btn-return" id="integrated-return-btn"><i class="fas fa-arrow-left"></i> 대기실로</button>
                         </div>
-
                     </div>
                 </div>
+
             </div>
 
             <!-- ================= BINGO CONTAINER ================= -->
@@ -656,7 +678,9 @@
                             <button id="start-game-bingo" class="start-btn" style="background-color: #2ecc71;">게임
                                 시작</button>
                         </div>
-                        <button class="return-lobby-btn">대기실로 돌아가기</button>
+                        <button class="return-lobby-btn" style="margin-bottom: 16px;">대기실로 돌아가기</button>
+                        <!-- 방장용 설정 프리뷰 -->
+                        <div class="lobby-settings-preview" id="bingo-host-settings-preview" style="display: none; margin-top: 16px; width: 100%;"></div>
                     </div>
                 </div>
 
@@ -672,6 +696,17 @@
                             <div class="rule-item"> <span>- 5×5 빙고판에 단어 25개를 직접 입력하세요</span></div>
                             <div class="rule-item"> <span>- 순서대로 돌아가며 단어를 하나씩 선택합니다</span></div>
                             <div class="rule-item"> <span>- 먼저 설정된 줄 수를 완성하면 빙고!</span></div>
+                        </div>
+                        <!-- 실시간 대기실 설정 프리뷰 [방안 A] -->
+                        <div class="lobby-settings-preview" id="bingo-lobby-settings-preview" style="display: none;"></div>
+                        <!-- 게스트용 AI 실시간 생성 로그 [방안 C] -->
+                        <div id="guest-ai-log-container" style="display: none; width: calc(100% - 40px); background: rgba(0,0,0,0.3); border: 1px dashed rgba(100,181,246,0.3); border-radius: 12px; padding: 12px; font-family: monospace; text-align: left; box-sizing: border-box; margin-top: 10px;">
+                            <div style="font-size: 0.85rem; color: #64b5f6; font-weight: bold; border-bottom: 1px solid rgba(100,181,246,0.2); padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>AI THEME GENERATION LOG</span>
+                                <span id="guest-ai-percent" style="font-weight: 800;">0%</span>
+                            </div>
+                            <div id="guest-ai-log-history" style="max-height: 100px; overflow-y: auto; font-size: 0.78rem; color: #a5d6a7; display: flex; flex-direction: column; gap: 4px; line-height: 1.4;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -746,7 +781,9 @@
                             <button id="start-game-liar" class="start-btn" style="background-color: #e74c3c;">게임
                                 시작</button>
                         </div>
-                        <button class="return-lobby-btn">대기실로 돌아가기</button>
+                        <button class="return-lobby-btn" style="margin-bottom: 16px;">대기실로 돌아가기</button>
+                        <!-- 방장용 설정 프리뷰 -->
+                        <div class="lobby-settings-preview" id="liar-host-settings-preview" style="display: none; margin-top: 16px; width: 100%;"></div>
                     </div>
                 </div>
 
@@ -763,6 +800,8 @@
                             <div class="rule-item"> <span>- 순서대로 제시어를 설명하되, 라이어는 들키지 않게!</span></div>
                             <div class="rule-item"> <span>- 설명이 끝나면 투표로 라이어를 지목하세요</span></div>
                         </div>
+                        <!-- 실시간 대기실 설정 프리뷰 [방안 A] -->
+                        <div class="lobby-settings-preview" id="liar-lobby-settings-preview" style="display: none;"></div>
                     </div>
                 </div>
 
@@ -786,7 +825,9 @@
                             <button id="start-game-bomb" class="start-btn" style="background-color: #e67e22;">게임
                                 시작</button>
                         </div>
-                        <button class="return-lobby-btn">대기실로 돌아가기</button>
+                        <button class="return-lobby-btn" style="margin-bottom: 16px;">대기실로 돌아가기</button>
+                        <!-- 방장용 설정 프리뷰 -->
+                        <div class="lobby-settings-preview" id="bomb-host-settings-preview" style="display: none; margin-top: 16px; width: 100%;"></div>
                     </div>
                 </div>
 
@@ -803,6 +844,8 @@
                             <div class="rule-item"><span>- 입력 후 자동으로 다음 사람에게 폭탄이 넘어갑니다</span></div>
                             <div class="rule-item"><span>- 시간 안에 단어를 못 말하면 폭발! 패배합니다</span></div>
                         </div>
+                        <!-- 실시간 대기실 설정 프리뷰 [방안 A] -->
+                        <div class="lobby-settings-preview" id="bomb-lobby-settings-preview" style="display: none;"></div>
                     </div>
                 </div>
 
@@ -872,8 +915,14 @@
                 <div id="user-grid"></div>
             </div>
             <div id="chat-section">
-                <h3>💬 채팅 기록</h3>
-                <div id="chat-history"></div>
+                <div class="chat-header">
+                    <div class="chat-title"><i class="fas fa-comment-dots"></i> 실시간 채팅 채널</div>
+                </div>
+                <div id="chat-history" class="chat-history"></div>
+                <form id="chat-form" action="">
+                    <textarea id="chat-input" class="chat-input" autocomplete="off" placeholder="채팅을 입력하세요..."></textarea>
+                    <button type="submit" class="chat-send-btn"><i class="fas fa-paper-plane"></i></button>
+                </form>
             </div>
         </div>
     </div>
@@ -891,11 +940,6 @@
         <button class="emoji-fire-btn" data-emoji="⭐" title="별">⭐</button>
         <div id="emoji-palette-spacer"></div>
     </div>
-
-    <form id="chat-form" action="">
-        <textarea id="chat-input" autocomplete="off" placeholder="채팅을 입력하세요..."></textarea>
-        <button type="submit">전송</button>
-    </form>
 
     <!-- ================== 게임 설정 통합 모달 ================== -->
     <div id="settings-modal"

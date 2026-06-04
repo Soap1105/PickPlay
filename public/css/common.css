@@ -3,23 +3,34 @@
    ========================================= */
 * { box-sizing: border-box; }
 
-body { 
-    font-family: 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-    background-color: #0f0e17; 
-    color: #fffffe;
-    margin: 0;
+html, body {
     height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body { 
+    font-family: 'Outfit', 'Noto Sans KR', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    background: linear-gradient(135deg, #0f0c1b 0%, #15102a 50%, #090613 100%); 
+    color: #fffffe;
     display: flex;
     flex-direction: column;
 }
 
 h1#game-title { 
-    margin: 0; padding: 15px; text-align: center; 
-    background: #0f0e17; color: #fffffe; 
+    margin: 0; padding: 16px 24px; text-align: center; 
+    background: rgba(15, 12, 27, 0.5); 
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fffffe; 
     font-size: 1.5rem; 
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     flex-shrink: 0; 
-    font-weight: 700;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    z-index: 100;
 }
 
 #main-wrapper {
@@ -28,10 +39,10 @@ h1#game-title {
     overflow: hidden; 
     padding: 20px; 
     gap: 20px; 
-    max-width: 1200px; 
+    max-width: 1560px; 
     margin: 0 auto; 
     width: 100%; 
-    padding-bottom: 0; 
+    min-height: 0;
 }
 
 #game-container {
@@ -179,46 +190,137 @@ h1#game-title {
 
 #chat-section { 
     flex: 1; 
-    background: rgba(255,255,255,0.04); 
+    background: rgba(255,255,255,0.02); 
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 15px; 
-    padding: 15px; 
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px; 
+    padding: 20px; 
     display: flex; 
     flex-direction: column; 
+    gap: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
     min-height: 200px; 
 }
-#chat-history { 
-    flex: 1; 
-    background: rgba(0, 0, 0, 0.2); 
-    border-radius: 10px; padding: 10px; 
-    overflow-y: auto; font-size: 0.9rem; color: #fffffe; 
-    display: flex; 
-    flex-direction: column; gap: 5px; 
-    border: 1px solid rgba(255,255,255,0.05);
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 14px;
 }
-.chat-msg { line-height: 1.4; }
-.chat-time { color: rgba(255,255,255,0.4); font-size: 0.8rem; margin-right: 5px; }
-.chat-name { font-weight: bold; margin-right: 5px; color: #f1c40f; }
-.chat-text { white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; }
-.system-msg { color: rgba(255,255,255,0.5); font-style: italic; text-align: center; font-size: 0.85rem; margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.2); border-bottom: 1px dashed rgba(255,255,255,0.2); padding: 2px 0; }
+
+.chat-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fd79a8;
+}
+
+.chat-history {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chat-msg { 
+    line-height: 1.5; 
+    font-size: 0.9rem;
+    animation: msgFadeIn 0.25s cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes msgFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-time { 
+    color: rgba(255, 255, 255, 0.3); 
+    font-size: 0.75rem; 
+    margin-right: 6px; 
+}
+
+.chat-name { 
+    font-weight: bold; 
+    color: #f1c40f; 
+    margin-right: 6px; 
+}
+
+.chat-text { 
+    color: #e2e8f0;
+    white-space: pre-wrap; 
+    word-break: break-all; 
+    overflow-wrap: break-word; 
+}
+
+.system-msg { 
+    color: rgba(162, 155, 254, 0.75); 
+    font-style: italic; 
+    font-size: 0.85rem; 
+    text-align: center; 
+    background: rgba(162, 155, 254, 0.05);
+    border-radius: 8px;
+    padding: 6px;
+    border: 1px dashed rgba(162, 155, 254, 0.15);
+    margin: 5px 0;
+}
 
 #chat-form { 
-    position: relative; width: 100%; height: 80px; 
-    background-color: #0f0e17; 
-    padding: 15px; display: flex; justify-content: center; align-items: center;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    z-index: 200; flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+    padding: 10px 0 0 0;
+    background: transparent;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    width: 100%;
+    height: auto;
+    z-index: auto;
+    flex-shrink: 0;
 }
 #chat-input { 
-    width: 60%; max-width: 600px; padding: 10px; border-radius: 10px; 
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
+    flex: 1;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(0, 0, 0, 0.25);
     color: #fffffe;
-    outline: none; font-size: 1rem; resize: none; height: 50px; font-family: inherit; vertical-align: middle;
+    outline: none;
+    font-size: 0.92rem;
+    resize: none;
+    height: 44px;
+    font-family: inherit;
+    vertical-align: middle;
+    overflow: hidden; /* 스크롤바 및 위아래 화살표 버튼 제거 */
+    box-sizing: border-box;
 }
-#chat-form button { margin-left: 10px; padding: 10px 20px; border-radius: 20px; border: none; background: #f1c40f; color: #333; cursor: pointer; font-weight: bold; }
+#chat-form button, .chat-send-btn {
+    margin: 0;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    border: none;
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+#chat-form button:hover, .chat-send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(108, 92, 231, 0.4);
+}
 
 /* 공용 모달 스타일 */
 .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
@@ -947,3 +1049,520 @@ h1#game-title {
     width: 100%;
     padding: 16px 8px;
 }
+
+/* 실시간 대기실 설정 프리뷰 디자인 [방안 A] */
+.lobby-settings-preview {
+    width: calc(100% - 40px);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+    margin-top: 10px;
+}
+
+.lobby-settings-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lobby-settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.lobby-settings-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lobby-settings-label {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.45);
+    text-transform: uppercase;
+}
+
+.lobby-settings-val {
+    font-size: 0.85rem;
+    color: #fffffe;
+    font-weight: 600;
+}
+
+/* =======================================================
+   [로비 오버홀] 6안 대기실 통합 레이아웃 및 2x4 매트릭스
+   ======================================================= */
+body.in-lobby #right-sidebar #user-section,
+body.in-lobby #right-sidebar #emoji-toggle-row,
+body.in-lobby #right-sidebar #invite-btn {
+    display: none !important;
+}
+
+body.in-lobby #right-sidebar {
+    flex: 0.85;
+    min-width: 320px;
+}
+
+body.in-lobby #right-sidebar #chat-section {
+    flex: 1;
+    height: 100%;
+    padding: 20px;
+    gap: 12px;
+}
+
+/* 8칸 플레이어 매트릭스 */
+.player-matrix {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.player-slot {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: default;
+    user-select: none;
+    overflow: hidden;
+}
+
+.player-slot:hover:not(.empty) {
+    transform: translateY(-5px);
+    border-color: rgba(108, 92, 231, 0.4);
+    background: rgba(108, 92, 231, 0.05);
+    box-shadow: 0 10px 25px rgba(108, 92, 231, 0.15);
+}
+
+.player-slot.empty {
+    border-style: dashed;
+    background: transparent;
+    opacity: 0.3;
+}
+
+.player-slot.empty::after {
+    content: '비어있음';
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.avatar-wrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.8rem;
+    position: relative;
+    transition: transform 0.3s;
+}
+
+.player-slot:hover:not(.empty) .avatar-wrap {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.host-crown {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1rem;
+    filter: drop-shadow(0 2px 5px rgba(253, 203, 110, 0.5));
+    animation: floatCrown 2s ease-in-out infinite;
+}
+
+@keyframes floatCrown {
+    0%, 100% { transform: translate(-50%, 0); }
+    50% { transform: translate(-50%, -4px); }
+}
+
+.player-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fffffe;
+}
+
+.player-badge {
+    font-size: 0.72rem;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+}
+
+.badge-ready {
+    background: rgba(0, 184, 148, 0.15);
+    border: 1px solid rgba(0, 184, 148, 0.3);
+    color: #55efc4;
+    box-shadow: 0 0 10px rgba(0, 184, 148, 0.2);
+}
+
+.badge-waiting {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.badge-unconfirmed {
+    background: rgba(241, 196, 15, 0.15);
+    border: 1px solid rgba(241, 196, 15, 0.35);
+    color: #f1c40f;
+    box-shadow: 0 0 10px rgba(241, 196, 15, 0.25);
+}
+
+.slot-kick-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(214, 48, 49, 0.15);
+    border: 1px solid rgba(214, 48, 49, 0.3);
+    color: #ff7675;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+}
+
+.player-slot:hover:not(.empty) .slot-kick-btn {
+    opacity: 1;
+}
+
+.slot-kick-btn:hover {
+    background: #d63031;
+    color: white;
+    border-color: #d63031;
+    transform: scale(1.1);
+}
+
+/* 로비 레이아웃 패널 */
+.selection-grid-layout {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.game-selector-panel {
+    flex: 1;
+    max-width: 450px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.game-cards-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 6px 8px 4px;
+}
+
+.lobby-game-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    text-align: left;
+}
+
+.lobby-game-card:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.lobby-game-card.bingo-card:hover { border-color: rgba(9, 132, 227, 0.6); box-shadow: 0 6px 20px rgba(9, 132, 227, 0.2); }
+.lobby-game-card.liar-card:hover { border-color: rgba(214, 48, 49, 0.6); box-shadow: 0 6px 20px rgba(214, 48, 49, 0.2); }
+.lobby-game-card.bomb-card:hover { border-color: rgba(230, 126, 34, 0.6); box-shadow: 0 6px 20px rgba(230, 126, 34, 0.2); }
+
+.lobby-game-card.active {
+    background: rgba(108, 92, 231, 0.1);
+    border-color: #6c5ce7;
+    box-shadow: 0 0 20px rgba(108, 92, 231, 0.15);
+}
+
+.game-icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+
+.game-meta {
+    flex: 1;
+}
+
+.game-title-text {
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 2px;
+}
+
+.game-desc-text {
+    font-size: 0.76rem;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.4;
+}
+
+.game-tag-badge {
+    font-size: 0.65rem;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: #fffffe;
+    margin-top: 4px;
+    display: inline-block;
+}
+
+
+.guest-waiting-panel {
+    flex: 1.2;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    backdrop-filter: blur(10px);
+    text-align: center;
+}
+
+.guest-waiting-icon {
+    font-size: 3.5rem;
+    animation: floatIcon 3s ease-in-out infinite;
+}
+
+.guest-waiting-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fffffe;
+    margin: 0;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+.guest-waiting-desc {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.lobby-players-panel {
+    flex: 1.8;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    backdrop-filter: blur(10px);
+}
+
+/* 하단 방장/로비 컨트롤 패널 */
+.controls-panel {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 16px 24px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    flex: 1.2;
+}
+
+.btn-action {
+    padding: 14px 24px;
+    border-radius: 12px;
+    border: none;
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.btn-start {
+    background: linear-gradient(135deg, #00b894, #55efc4);
+    box-shadow: 0 4px 20px rgba(0, 184, 148, 0.3);
+    flex: 1.4;
+}
+.btn-start:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 184, 148, 0.45);
+}
+
+.btn-settings {
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    box-shadow: 0 4px 20px rgba(108, 92, 231, 0.3);
+    flex: 1;
+}
+.btn-settings:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(108, 92, 231, 0.45);
+}
+
+.btn-return {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+}
+.btn-return:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.preview-mini-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 12px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.preview-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.preview-grid::-webkit-scrollbar { height: 4px; }
+.preview-grid::-webkit-scrollbar-track { background: transparent; }
+.preview-grid::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+
+.preview-badge {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.preview-badge i { font-size: 0.72rem; color: #a29bfe; }
+
+/* =======================================================
+   [긴급 수정] 대기실 정렬 붕괴 방지 및 가로 스크레칭 강제
+   ======================================================= */
+body.in-lobby #game-container {
+    align-items: stretch !important;
+    flex: 3.0 !important;
+    width: 100% !important;
+    padding: 24px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+body.in-lobby #lobby-container {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+}
+
+body.in-lobby #selection-stage,
+body.in-lobby #waiting-stage {
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    gap: 20px !important;
+}
+
+#selection-stage, #waiting-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+}
+

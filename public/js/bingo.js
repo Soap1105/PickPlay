@@ -84,6 +84,7 @@
     let pendingTurnUpdate = null;
     let popupActive = false;
     let lockedWords = {}; // [유령의 장난] 잠긴 단어 관리
+    let lastBingoSettings = { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true };
 
     function getUserId() {
         let userId = localStorage.getItem('bingo_user_id');
@@ -649,7 +650,8 @@
                 return;
             }
 
-            const playersCount = document.querySelectorAll('.user-card').length;
+            const slotsCount = document.querySelectorAll('#waiting-player-matrix .player-slot:not(.empty)').length;
+            const playersCount = slotsCount > 0 ? slotsCount : document.querySelectorAll('.user-card').length;
             if (playersCount < 2) {
                 if (window.showToast) {
                     window.showToast('빙고 게임은 최소 2명 이상이어야 시작할 수 있습니다!', 'error');
@@ -821,6 +823,63 @@
         }
     });
 
+    function updateBingoLobbySettingsUI(settings) {
+        const previewEl = document.getElementById('bingo-lobby-settings-preview');
+        const hostPreviewEl = document.getElementById('bingo-host-settings-preview');
+        if (!settings) return;
+
+        let turnOrderText = "방장 우선";
+        if (settings.turnOrder === 'random') turnOrderText = "랜덤 순서";
+        else if (settings.turnOrder === 'join_asc') turnOrderText = "입장 순서";
+
+        const limitVal = settings.turnTimeLimit !== undefined ? settings.turnTimeLimit : (settings.turnTime !== undefined ? settings.turnTime : 15);
+        const timeLimitText = limitVal > 0 ? `${limitVal}초` : "무제한";
+        const topicText = settings.topic ? `<span style="color:#2ecc71; font-weight:700;">${settings.topic}</span>` : "자유 주제";
+        const eventsText = settings.useEvents ? "ON" : "OFF";
+
+        const html = `
+            <div class="lobby-settings-title" style="justify-content: center; font-size: 0.95rem; margin-bottom: 14px; color: #64b5f6; font-weight: 800; border-bottom: 1px solid rgba(100,181,246,0.15); padding-bottom: 6px;">게임 설정</div>
+            <div class="lobby-settings-grid">
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">목표 줄 수</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(52, 152, 219, 0.12); border: 1px solid rgba(52, 152, 219, 0.3); color: #64b5f6; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${settings.winLines}줄</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">시작 순서</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(52, 152, 219, 0.12); border: 1px solid rgba(52, 152, 219, 0.3); color: #64b5f6; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${turnOrderText}</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">턴 제한시간</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(52, 152, 219, 0.12); border: 1px solid rgba(52, 152, 219, 0.3); color: #64b5f6; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${timeLimitText}</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">이벤트 모드</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(52, 152, 219, 0.12); border: 1px solid rgba(52, 152, 219, 0.3); color: #64b5f6; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${eventsText}</span></span>
+                </div>
+                <div class="lobby-settings-item" style="grid-column: span 2; text-align: center; margin-top: 4px;">
+                    <span class="lobby-settings-label" style="margin-bottom: 4px;">AI 생성 주제</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(46, 204, 113, 0.12); border: 1px solid rgba(46, 204, 113, 0.3); color: #2ecc71; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; display: inline-block;">${settings.topic ? settings.topic : '자유 주제'}</span></span>
+                </div>
+            </div>
+        `;
+        
+        if (previewEl) {
+            previewEl.innerHTML = html;
+            previewEl.style.display = 'block';
+        }
+        if (hostPreviewEl) {
+            hostPreviewEl.innerHTML = html;
+            hostPreviewEl.style.display = 'block';
+        }
+    }
+
+    socket.on('lobby settings updated', (data) => {
+        if (data && data.bingo) {
+            lastBingoSettings = data.bingo;
+            updateBingoLobbySettingsUI(data.bingo);
+        }
+    });
+
     // AI 생성 진행률 수신
     socket.on('theme progress', (data) => {
         const progressContainer = document.getElementById('ai-progress-container');
@@ -832,12 +891,54 @@
             progressContainer.style.display = 'block';
             progressBar.style.width = `${data.percent}%`;
             if (progressPercent) progressPercent.textContent = `${data.percent}%`;
-            if (progressStep) progressStep.innerHTML = `<i class="fas fa-microchip" style="margin-right: 8px;"></i> ${data.step}`;
+            if (progressStep) progressStep.innerHTML = `<i class="fas fa-robot" style="margin-right: 8px;"></i> ${data.step}`;
+        }
+
+        // 게스트 실시간 로그 업데이트 (방안 C)
+        const guestLogContainer = document.getElementById('guest-ai-log-container');
+        const guestLogHistory = document.getElementById('guest-ai-log-history');
+        const guestPercent = document.getElementById('guest-ai-percent');
+
+        if (guestLogContainer && guestLogHistory && !amIHost) {
+            guestLogContainer.style.display = 'block';
+            if (guestPercent) guestPercent.textContent = `${data.percent}%`;
+
+            // 동일한 내용의 로그 중복 노출 방지
+            const lastLog = guestLogHistory.lastElementChild;
+            if (!lastLog || !lastLog.textContent.includes(data.step)) {
+                const logItem = document.createElement('div');
+                logItem.style.display = 'flex';
+                logItem.style.justifyContent = 'space-between';
+                
+                const now = new Date();
+                const timeStr = `[${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
+                
+                logItem.innerHTML = `
+                    <span>${timeStr} ${data.step}</span>
+                    <span style="color: #64b5f6; font-weight: bold;">${data.percent}%</span>
+                `;
+                guestLogHistory.appendChild(logItem);
+                guestLogHistory.scrollTop = guestLogHistory.scrollHeight;
+            }
+
+            // 실패 상황 처리
+            if (data.percent === 0 && data.step.includes('실패')) {
+                const logItem = document.createElement('div');
+                logItem.style.color = '#ef4444';
+                logItem.style.fontWeight = 'bold';
+                logItem.textContent = `[SYSTEM ERROR] ${data.step}`;
+                guestLogHistory.appendChild(logItem);
+                
+                setTimeout(() => {
+                    guestLogContainer.style.display = 'none';
+                    guestLogHistory.innerHTML = '';
+                }, 4000);
+            }
         }
     });
 
     socket.on('update ready status', (data) => {
-        readyStatusDisplay.innerHTML = `<span style="font-size:0.8rem; margin-right:5px;">📢</span>준비 인원: <span style="color:#f1c40f">${data.ready}</span> / ${data.total}`;
+        readyStatusDisplay.innerHTML = `준비 인원: <span style="color:#f1c40f">${data.ready}</span> / ${data.total}`;
         updateReadyStatusVisibility();
     });
 
@@ -949,6 +1050,7 @@
         const myCard = document.getElementById(`user-${socket.id}`);
         if (myCard && amIHost) myCard.classList.add('is-host');
 
+        // [이슈 28 해결] 구식 대기방 영역은 언제나 완전 은폐 처리합니다.
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
         playerUI.style.display = 'none';
@@ -959,13 +1061,20 @@
                 playerUI.style.display = 'block';
             }
         } else {
+            const isInInputMode = (inputControls && inputControls.style.display === 'block');
+            // 단어 입력 단계가 아닐 때만 글로벌 대기방으로 뒷배경을 안전하게 전환합니다.
+            if (!isInInputMode && window.gameType === 'bingo') {
+                if (typeof showContainer === 'function') {
+                    showContainer('lobby-container');
+                    const stageSelection = document.getElementById('selection-stage');
+                    const stageWaiting = document.getElementById('waiting-stage');
+                    if (stageSelection) stageSelection.style.display = 'none';
+                    if (stageWaiting) stageWaiting.style.display = 'flex';
+                }
+            }
+            
+            // [1-8] 대기실 진입 시 AI 쿨타임이 남아있다면 로컬 카운트다운 타이머 연동 구동
             if (amIHost) {
-                setupArea.style.display = 'block';
-                manualStartArea.style.display = 'block';
-                hostManualStartBtn.disabled = true;
-                hostManualStartBtn.style.opacity = '0.6';
-                
-                // [1-8] 대기실 진입 시 AI 쿨타임이 남아있다면 로컬 카운트다운 타이머 연동 구동
                 const now = Date.now();
                 if (window.aiCooldownEndTime && now < window.aiCooldownEndTime) {
                     const remaining = Math.ceil((window.aiCooldownEndTime - now) / 1000);
@@ -973,11 +1082,10 @@
                         window.startBingoAICooldown(remaining);
                     }
                 }
-            } else {
-                waitingArea.style.display = 'block';
             }
         }
         updateReadyStatusVisibility();
+        updateBingoLobbySettingsUI(lastBingoSettings);
     };
 
     window.initBingoUI = function (isHostStatus) {
@@ -985,6 +1093,7 @@
     };
 
     socket.on('setup theme input', (data) => {
+        if (typeof showContainer === 'function') showContainer('bingo-container');
         // [작업 2] 이전 게임 잔류 변수 및 데이터 완벽 초기화
         currentTurnId = "";
         currentTurnPlayerName = "";
@@ -994,6 +1103,12 @@
         currentProgressMap = {};
         myUsedEventCount = 0;
         isMyTurn = false;
+
+        // 게스트 AI 생성 로그창 숨김 및 비우기
+        const guestLogContainer = document.getElementById('guest-ai-log-container');
+        const guestLogHistory = document.getElementById('guest-ai-log-history');
+        if (guestLogContainer) guestLogContainer.style.display = 'none';
+        if (guestLogHistory) guestLogHistory.innerHTML = '';
 
         // 타이머 인터벌 해제
         if (turnTimerInterval) { 
@@ -1325,7 +1440,8 @@
         currentProgressMap = {};
         if (document.getElementById('turn-track')) document.getElementById('turn-track').style.display = 'none';
 
-        // 게임 종료 후 다시 게임 설정/대기 UI로 복귀
+        // [이슈 28 해결] 게임 종료 후 최신 대기실 화면으로 안전하게 복원
+        isGameStarted = false;
         window.updateBingoRoleUI(amIHost);
     });
 

@@ -467,6 +467,11 @@ module.exports = (io, socket, gameRooms) => {
         clearBombTimer(socket.roomId);
         clearNextRoundTimer(socket.roomId);
         
+        // [이슈 6] 결과 확인 배지 초기화 (확인 안 누르고 로비 복귀 시 배지 잔류 버그 방지)
+        Object.values(room.players).forEach(p => {
+            p.confirmedResult = true;
+        });
+        
         // 게임 데이터 완전 삭제
         delete room.bombGame;
         room.status = 'WAITING';

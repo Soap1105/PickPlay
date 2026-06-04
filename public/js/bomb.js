@@ -33,6 +33,7 @@
     let currentSubMode = 'random';
     let redThreshold = 3;
     let fastThreshold = 7;
+    let lastBombSettings = { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] };
 
     function getCirclePosition(index, total, radiusPx) {
         const angle = (2 * Math.PI * index / total) - (Math.PI / 2); // 12시 방향 시작
@@ -49,12 +50,17 @@
 
         window.currentBombTurnId = null; // 초기화
 
-        if (isHost) {
-            setupArea.style.display = 'block';
-            if (waitingArea) waitingArea.style.display = 'none';
-        } else {
-            setupArea.style.display = 'none';
-            if (waitingArea) waitingArea.style.display = 'block';
+        // [이슈 28 해결] 폭탄 돌리기 구식 대기 영역 강제 비활성화
+        if (setupArea) setupArea.style.display = 'none';
+        if (waitingArea) waitingArea.style.display = 'none';
+
+        // 최신 대기방 화면으로 뒷배경 안전 복구
+        if (window.gameType === 'bomb' && typeof showContainer === 'function') {
+            showContainer('lobby-container');
+            const stageSelection = document.getElementById('selection-stage');
+            const stageWaiting = document.getElementById('waiting-stage');
+            if (stageSelection) stageSelection.style.display = 'none';
+            if (stageWaiting) stageWaiting.style.display = 'flex';
         }
 
         if (playerUI) playerUI.style.display = 'none';
@@ -76,6 +82,8 @@
 
         const scoreDisplay = document.getElementById('bomb-scores-display');
         if (scoreDisplay) scoreDisplay.style.display = 'none';
+
+        updateBombLobbySettingsUI(lastBombSettings);
     };
 
     window.renderBombUsers = function (users) {
@@ -289,6 +297,7 @@
     }
 
     socket.on('bomb round started', (data) => {
+        if (typeof showContainer === 'function') showContainer('bomb-container');
         const setupArea = bombContainer.querySelector('.bomb-setup');
         const waitingArea = bombContainer.querySelector('.bomb-waiting');
         const playerUI = bombContainer.querySelector('.bomb-player-ui');
@@ -507,16 +516,19 @@
         const waitingArea = bombContainer.querySelector('.bomb-waiting');
         const playerUI = bombContainer.querySelector('.bomb-player-ui');
 
-        // 게임이 진행 중인지 확인 (player-ui가 보이는지)
-        const isGamePlaying = playerUI && playerUI.style.display === 'block';
+        // [이슈 28 해결] 구식 대기 영역 강제 비활성화
+        if (setupArea) setupArea.style.display = 'none';
+        if (waitingArea) waitingArea.style.display = 'none';
 
-        if (!isGamePlaying) {
-            if (isHost) {
-                if (setupArea) setupArea.style.display = 'block';
-                if (waitingArea) waitingArea.style.display = 'none';
-            } else {
-                if (setupArea) setupArea.style.display = 'none';
-                if (waitingArea) waitingArea.style.display = 'block';
+        // 게임이 진행 중이 아닐 때 글로벌 대기방으로 화면 전환
+        const isGamePlaying = playerUI && playerUI.style.display === 'block';
+        if (!isGamePlaying && window.gameType === 'bomb') {
+            if (typeof showContainer === 'function') {
+                showContainer('lobby-container');
+                const stageSelection = document.getElementById('selection-stage');
+                const stageWaiting = document.getElementById('waiting-stage');
+                if (stageSelection) stageSelection.style.display = 'none';
+                if (stageWaiting) stageWaiting.style.display = 'flex';
             }
         }
     };
@@ -528,6 +540,65 @@
             window.bombHearts = null;
             window.currentBombTurnId = null; // 게임 상태 초기화
             window.initBombUI(localIsHost);
+        }
+    });
+
+    function updateBombLobbySettingsUI(settings) {
+        const previewEl = document.getElementById('bomb-lobby-settings-preview');
+        const hostPreviewEl = document.getElementById('bomb-host-settings-preview');
+        if (!settings) return;
+
+        let modeText = "랜덤 모드";
+        if (settings.subMode === 'tactical') modeText = "전략 모드";
+
+        let timerText = "보통 (30~55초)";
+        if (settings.timerRange === 'short') timerText = "짧게 (15~30초)";
+        else if (settings.timerRange === 'long') timerText = "길게 (50~80초)";
+
+        const showTimerText = settings.showTimer ? "ON" : "OFF";
+        const categoriesText = settings.selectedCategories && settings.selectedCategories.length > 0 
+            ? settings.selectedCategories.join(', ') 
+            : "전체 랜덤";
+
+        const html = `
+            <div class="lobby-settings-title" style="justify-content: center; font-size: 0.95rem; margin-bottom: 14px; color: #fdcb6e; font-weight: 800; border-bottom: 1px solid rgba(253,203,110,0.15); padding-bottom: 6px;">게임 설정</div>
+            <div class="lobby-settings-grid">
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">시작 목숨</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(230, 126, 34, 0.12); border: 1px solid rgba(230, 126, 34, 0.3); color: #fdcb6e; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${settings.hearts}개</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">게임 모드</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(230, 126, 34, 0.12); border: 1px solid rgba(230, 126, 34, 0.3); color: #fdcb6e; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${modeText}</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">폭탄 시간</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(230, 126, 34, 0.12); border: 1px solid rgba(230, 126, 34, 0.3); color: #fdcb6e; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${timerText}</span></span>
+                </div>
+                <div class="lobby-settings-item">
+                    <span class="lobby-settings-label">타이머 표시</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(230, 126, 34, 0.12); border: 1px solid rgba(230, 126, 34, 0.3); color: #fdcb6e; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">${showTimerText}</span></span>
+                </div>
+                <div class="lobby-settings-item" style="grid-column: span 2; text-align: center; margin-top: 4px;">
+                    <span class="lobby-settings-label" style="margin-bottom: 4px;">선택 카테고리</span>
+                    <span class="lobby-settings-val"><span style="background: rgba(230, 126, 34, 0.12); border: 1px solid rgba(230, 126, 34, 0.3); color: #fdcb6e; padding: 4px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${categoriesText}">${categoriesText}</span></span>
+                </div>
+            </div>
+        `;
+        if (previewEl) {
+            previewEl.innerHTML = html;
+            previewEl.style.display = 'block';
+        }
+        if (hostPreviewEl) {
+            hostPreviewEl.innerHTML = html;
+            hostPreviewEl.style.display = 'block';
+        }
+    }
+
+    socket.on('lobby settings updated', (data) => {
+        if (data && data.bomb) {
+            lastBombSettings = data.bomb;
+            updateBombLobbySettingsUI(data.bomb);
         }
     });
 

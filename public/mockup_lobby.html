@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PickPlay - 로비 UI 개선 시안</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f0c1b 0%, #15102a 50%, #090613 100%);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-glow: rgba(108, 92, 231, 0.15);
+            --text-color: #fffffe;
+            --text-muted: rgba(255, 255, 255, 0.5);
+            --primary: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            --success: linear-gradient(135deg, #00b894, #55efc4);
+            --danger: linear-gradient(135deg, #d63031, #ff7675);
+            --warning: linear-gradient(135deg, #fdcb6e, #ffeaa7);
+            --info: linear-gradient(135deg, #0984e3, #74b9ff);
+            --bomb-theme: linear-gradient(135deg, #d35400, #e67e22);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 헤더 */
+        header {
+            padding: 14px 24px;
+            background: rgba(15, 12, 27, 0.6);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.6rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, #6c5ce7, #fd79a8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 데모 전환 탭 */
+        .demo-selector {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .demo-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+
+        .demo-tab.active {
+            background: #6c5ce7;
+            color: white;
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.35);
+        }
+
+        /* 메인 레이아웃 */
+        #main-wrapper {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            max-width: 1560px;
+            margin: 0 auto;
+            width: 100%;
+            height: calc(100vh - 65px);
+            min-height: 0;
+        }
+
+        /* 왼쪽: 메인 대기실 콘텐츠 영역 */
+        #lobby-area {
+            flex: 3.0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0;
+            height: 100%;
+        }
+
+        /* =======================================================
+           [1단계] 게임 선택 단계 레이아웃 (LOBBY SELECTION VIEW)
+           ======================================================= */
+        #selection-stage {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .selection-grid-layout {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* 로비 좌측: 게임 선택 패널 */
+        .game-selector-panel {
+            flex: 1;
+            max-width: 450px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-cards-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 8px 6px 8px 4px;
+        }
+
+        .lobby-game-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .lobby-game-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .lobby-game-card.bingo-card:hover { border-color: rgba(9, 132, 227, 0.6); box-shadow: 0 6px 20px rgba(9, 132, 227, 0.2); }
+        .lobby-game-card.liar-card:hover { border-color: rgba(214, 48, 49, 0.6); box-shadow: 0 6px 20px rgba(214, 48, 49, 0.2); }
+        .lobby-game-card.bomb-card:hover { border-color: rgba(230, 126, 34, 0.6); box-shadow: 0 6px 20px rgba(230, 126, 34, 0.2); }
+
+        .lobby-game-card.active {
+            background: rgba(108, 92, 231, 0.1);
+            border-color: #6c5ce7;
+            box-shadow: 0 0 20px rgba(108, 92, 231, 0.15);
+        }
+
+        .game-icon-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+
+        .game-meta {
+            flex: 1;
+        }
+
+        .game-title-text {
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .game-desc-text {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .game-tag-badge {
+            font-size: 0.65rem;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: 10px;
+            color: var(--text-color);
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        /* 로비 우측: 참여자 현황 요약 매트릭스 (로비 단계의 2x4 그리드) */
+        .lobby-players-panel {
+            flex: 1.8;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* =======================================================
+           [2단계] 게임 대기방 단계 레이아웃 (WAITING ROOM VIEW)
+           ======================================================= */
+        #waiting-stage {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* 중앙 매트릭스 카드 판넬 */
+        .matrix-panel {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .matrix-panel::before {
+            content: '';
+            position: absolute;
+            top: -150px;
+            left: -150px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(108, 92, 231, 0.1) 0%, rgba(0,0,0,0) 70%);
+            pointer-events: none;
+        }
+
+        .matrix-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 14px;
+        }
+
+        .matrix-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .player-count {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: var(--text-muted);
+        }
+
+        /* 8칸 바둑판 플레이어 매트릭스 */
+        .player-matrix {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 16px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .player-slot {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            cursor: default;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .player-slot:hover:not(.empty) {
+            transform: translateY(-5px);
+            border-color: rgba(108, 92, 231, 0.4);
+            background: rgba(108, 92, 231, 0.05);
+            box-shadow: 0 10px 25px rgba(108, 92, 231, 0.15);
+        }
+
+        .player-slot.empty {
+            border-style: dashed;
+            background: transparent;
+            opacity: 0.3;
+        }
+
+        .player-slot.empty::after {
+            content: '비어있음';
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .avatar-wrap {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.8rem;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .player-slot:hover:not(.empty) .avatar-wrap {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .host-crown {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            filter: drop-shadow(0 2px 5px rgba(253, 203, 110, 0.5));
+            animation: floatCrown 2s ease-in-out infinite;
+        }
+
+        @keyframes floatCrown {
+            0%, 100% { transform: translate(-50%, 0); }
+            50% { transform: translate(-50%, -4px); }
+        }
+
+        .player-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-badge {
+            font-size: 0.72rem;
+            font-weight: bold;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.02em;
+        }
+
+        .badge-ready {
+            background: rgba(0, 184, 148, 0.15);
+            border: 1px solid rgba(0, 184, 148, 0.3);
+            color: #55efc4;
+            box-shadow: 0 0 10px rgba(0, 184, 148, 0.2);
+        }
+
+        .badge-waiting {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-muted);
+        }
+
+        /* 강퇴 버튼 */
+        .slot-kick-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(214, 48, 49, 0.15);
+            border: 1px solid rgba(214, 48, 49, 0.3);
+            color: #ff7675;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.2s;
+        }
+
+        .player-slot:hover:not(.empty) .slot-kick-btn {
+            opacity: 1;
+        }
+
+        .slot-kick-btn:hover {
+            background: #d63031;
+            color: white;
+            border-color: #d63031;
+            transform: scale(1.1);
+        }
+
+        /* 하단 방장 컨트롤 패널 */
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 16px 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex: 1.2;
+        }
+
+        .btn-action {
+            padding: 14px 24px;
+            border-radius: 12px;
+            border: none;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-start {
+            background: var(--success);
+            box-shadow: 0 4px 20px rgba(0, 184, 148, 0.3);
+            flex: 1.4;
+        }
+
+        .btn-start:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 184, 148, 0.45);
+        }
+
+        .btn-settings {
+            background: var(--primary);
+            box-shadow: 0 4px 20px rgba(108, 92, 231, 0.3);
+            flex: 1;
+        }
+
+        .btn-settings:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(108, 92, 231, 0.45);
+        }
+
+        .btn-return {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+        }
+
+        .btn-return:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 오른쪽: 대형 채팅창 */
+        #chat-area {
+            flex: 0.85;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            height: 100%;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 14px;
+        }
+
+        .chat-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #fd79a8;
+        }
+
+        .chat-history {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-msg {
+            line-height: 1.5;
+            font-size: 0.9rem;
+            animation: msgFadeIn 0.25s cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
+        }
+
+        @keyframes msgFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-time {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.75rem;
+            margin-right: 6px;
+        }
+
+        .msg-name {
+            font-weight: bold;
+            color: #f1c40f;
+            margin-right: 6px;
+        }
+
+        .msg-text {
+            color: #e2e8f0;
+            word-break: break-all;
+        }
+
+        .msg-system {
+            color: rgba(162, 155, 254, 0.75);
+            font-style: italic;
+            font-size: 0.85rem;
+            text-align: center;
+            background: rgba(162, 155, 254, 0.05);
+            border-radius: 8px;
+            padding: 6px;
+            border: 1px dashed rgba(162, 155, 254, 0.15);
+        }
+
+        .chat-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            color: white;
+            outline: none;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: rgba(108, 92, 231, 0.5);
+        }
+
+        .chat-send-btn {
+            background: var(--primary);
+            border: none;
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chat-send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(108, 92, 231, 0.4);
+        }
+
+        /* 설정 모달 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal-box {
+            background: #15102a;
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            width: min(500px, 90vw);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-header {
+            padding: 24px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: white;
+        }
+
+        .modal-body {
+            padding: 24px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #a29bfe;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .radio-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .radio-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .radio-card.active {
+            background: rgba(108, 92, 231, 0.15);
+            border-color: #6c5ce7;
+            color: #a29bfe;
+            box-shadow: 0 0 10px rgba(108, 92, 231, 0.2);
+        }
+
+        .form-select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 12px;
+            color: white;
+            outline: none;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .modal-footer {
+            padding: 16px 30px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn-cancel {
+            padding: 12px 24px;
+            border-radius: 10px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-save {
+            padding: 12px 28px;
+            border-radius: 10px;
+            background: var(--primary);
+            border: none;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
+        }
+
+        /* 실시간 프리뷰 뱃지 카드 */
+        .preview-mini-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 12px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .preview-grid {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+
+        .preview-grid::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .preview-grid::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .preview-grid::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .preview-badge {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .preview-badge i {
+            font-size: 0.72rem;
+            color: #a29bfe;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <header>
+        <div class="logo">🎮 PickPlay <span style="font-size:1rem; font-weight:normal; opacity:0.5;">Lobby Overhaul</span></div>
+        
+        <!-- 데모 전환 탭 -->
+        <div class="demo-selector">
+            <button class="demo-tab" id="tab-btn-selection" onclick="switchStage('selection')">1. 게임 선택 로비</button>
+            <button class="demo-tab active" id="tab-btn-waiting" onclick="switchStage('waiting')">2. 게임 대기방</button>
+        </div>
+
+        <div class="status-badge"><i class="fas fa-crown"></i> <span>방장 (Host) 모드</span></div>
+    </header>
+
+    <!-- 메인 레이아웃 -->
+    <div id="main-wrapper">
+        
+        <!-- 왼쪽: 메인 대기실 콘텐츠 -->
+        <div id="lobby-area">
+            
+            <!-- =======================================================
+               [1단계] 게임 선택 로비 단계 데모 (Switchable Stage 1)
+               ======================================================= -->
+            <div id="selection-stage" style="display: none;">
+                <div class="matrix-header" style="border:none; padding-bottom:0;">
+                    <h2 style="font-size: 1.4rem; font-weight: 800;"><i class="fas fa-gamepad" style="color:#6c5ce7;"></i> 어떤 게임을 할까요?</h2>
+                </div>
+                
+                <div class="selection-grid-layout">
+                    <!-- 좌측: 세련된 게임 카드 컬럼 -->
+                    <div class="game-selector-panel">
+                        <div class="matrix-title" style="font-size: 1rem; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px;"><i class="fas fa-list"></i> 플레이할 게임 선택</div>
+                        <div class="game-cards-column">
+                            <div class="lobby-game-card bingo-card active" onclick="selectGame('bingo')">
+                                <div class="game-icon-circle" style="color:#0984e3;">🎯</div>
+                                <div class="game-meta">
+                                    <div class="game-title-text" style="color:#74b9ff;">빙고 게임</div>
+                                    <div class="game-desc-text">5×5 단어판을 채우고 줄을 완성해 외치세요!</div>
+                                    <span class="game-tag-badge">2인 이상</span>
+                                </div>
+                            </div>
+                            
+                            <div class="lobby-game-card liar-card" onclick="selectGame('liar')">
+                                <div class="game-icon-circle" style="color:#d63031;">🕵️</div>
+                                <div class="game-meta">
+                                    <div class="game-title-text" style="color:#ff7675;">라이어 게임</div>
+                                    <div class="game-desc-text">진짜 제시어를 모르는 라이어를 골라내야 합니다.</div>
+                                    <span class="game-tag-badge">3인 이상</span>
+                                </div>
+                            </div>
+
+                            <div class="lobby-game-card bomb-card" onclick="selectGame('bomb')">
+                                <div class="game-icon-circle" style="color:#d35400;">💣</div>
+                                <div class="game-meta">
+                                    <div class="game-title-text" style="color:#fdcb6e;">주제 폭탄돌리기</div>
+                                    <div class="game-desc-text">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
+                                    <span class="game-tag-badge">2인 이상</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 우측: 대기 중인 플레이어 매트릭스 그리드 (로비 단계의 2x4 매트릭스 결합) -->
+                    <div class="lobby-players-panel">
+                        <div class="matrix-header" style="border:none; padding:0;">
+                            <div class="matrix-title" style="font-size: 1rem;"><i class="fas fa-users"></i> 대기실 파티원</div>
+                            <div class="player-count">참가: 5 / 8</div>
+                        </div>
+                        <div class="player-matrix" id="selection-player-grid">
+                            <!-- JS에 의해 동적으로 로비 플레이어 그리드 복제되어 들어감 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 하단 로비 가이드 및 초대 링크 패널 -->
+                <div class="controls-panel">
+                    <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+                        <div class="preview-mini-card" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 20px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 0.75rem; font-weight: 700; color: #a29bfe; background: rgba(108, 92, 231, 0.15); padding: 4px 8px; border-radius: 6px;">ROOM ID</span>
+                                <span style="font-size: 0.95rem; font-weight: bold; color: #fff; letter-spacing: 1px;" id="lobby-room-id">PICK-PLAY-777</span>
+                            </div>
+                            <button class="btn-action btn-return" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; margin: 0; cursor: pointer;" onclick="navigator.clipboard.writeText('PICK-PLAY-777'); alert('초대 코드가 복사되었습니다!')">
+                                <i class="fas fa-copy"></i> 초대 코드 복사
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="button-group" style="padding-left: 20px; align-items: center; justify-content: flex-end;">
+                        <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right; line-height: 1.4; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <span style="color: #ffeaa7; font-weight: bold; margin-bottom: 2px;"><i class="fas fa-lightbulb"></i> 대기실 가이드</span>
+                            <span>원하는 게임을 클릭하면 즉시 방 생성 및 세부 설정 화면으로 전환됩니다.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =======================================================
+               [2단계] 게임 대기방 단계 데모 (Switchable Stage 2)
+               ======================================================= -->
+            <div id="waiting-stage">
+                <!-- 플레이어 그리드 매트릭스 -->
+                <div class="matrix-panel" id="waiting-matrix-panel">
+                    <div class="matrix-header">
+                        <div class="matrix-title" id="waiting-game-title">🎯 빙고 게임 대기방</div>
+                        <div class="player-count">참가 중: 5 / 8</div>
+                    </div>
+
+                    <!-- 8칸 바둑판 플레이어 매트릭스 -->
+                    <div class="player-matrix" id="waiting-player-grid">
+                        <!-- 방장 슬롯 -->
+                        <div class="player-slot">
+                            <i class="fas fa-crown host-crown" style="color: #f1c40f;"></i>
+                            <div class="avatar-wrap" style="border-color: #f1c40f;">🐰</div>
+                            <div class="player-name">Test1 (나)</div>
+                            <span class="player-badge badge-ready">방장</span>
+                        </div>
+
+                        <!-- 유저 2 (준비완료) -->
+                        <div class="player-slot">
+                            <div class="avatar-wrap">🐱</div>
+                            <div class="player-name">Test2</div>
+                            <span class="player-badge badge-ready">준비 완료</span>
+                            <div class="slot-kick-btn" onclick="alert('Test2 강퇴')">✕</div>
+                        </div>
+
+                        <!-- 유저 3 (준비완료) -->
+                        <div class="player-slot">
+                            <div class="avatar-wrap">🐸</div>
+                            <div class="player-name">초록개구리</div>
+                            <span class="player-badge badge-ready">준비 완료</span>
+                            <div class="slot-kick-btn">✕</div>
+                        </div>
+
+                        <!-- 유저 4 (대기중) -->
+                        <div class="player-slot">
+                            <div class="avatar-wrap">🦊</div>
+                            <div class="player-name">붉은여우</div>
+                            <span class="player-badge badge-waiting">선택 중...</span>
+                            <div class="slot-kick-btn">✕</div>
+                        </div>
+
+                        <!-- 유저 5 (준비완료) -->
+                        <div class="player-slot">
+                            <div class="avatar-wrap">🐼</div>
+                            <div class="player-name">대왕판다</div>
+                            <span class="player-badge badge-ready">준비 완료</span>
+                            <div class="slot-kick-btn">✕</div>
+                        </div>
+
+                        <!-- 빈 슬롯 6 -->
+                        <div class="player-slot empty"></div>
+
+                        <!-- 빈 슬롯 7 -->
+                        <div class="player-slot empty"></div>
+
+                        <!-- 빈 슬롯 8 -->
+                        <div class="player-slot empty"></div>
+                    </div>
+                </div>
+
+                <!-- 하단 방장 컨트롤 패널 -->
+                <div class="controls-panel">
+                    <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
+                        <div class="preview-mini-card">
+                            <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">현재 게임 설정</div>
+                            <div class="preview-grid" id="mini-preview-container">
+                                <span class="preview-badge" id="badge-target-lines"><i class="fas fa-bullseye"></i> 목표: <strong id="preview-lines">3줄</strong></span>
+                                <span class="preview-badge" id="badge-target-order"><i class="fas fa-sort-amount-down"></i> 순서: <strong id="preview-order">방장 우선</strong></span>
+                                <span class="preview-badge" id="badge-target-time"><i class="fas fa-stopwatch"></i> 시간: <strong id="preview-time">15초</strong></span>
+                                <span class="preview-badge" id="badge-target-events"><i class="fas fa-bolt"></i> 이벤트: <strong id="preview-events">ON</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="button-group" style="padding-left: 20px;">
+                        <button class="btn-action btn-settings" id="open-modal-btn"><i class="fas fa-cog"></i> 게임 설정</button>
+                        <button class="btn-action btn-start" onclick="alert('게임을 시작합니다!')"><i class="fas fa-play"></i> 게임 시작</button>
+                        <button class="btn-action btn-return" onclick="switchStage('selection')"><i class="fas fa-arrow-left"></i> 대기실로</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 오른쪽: 대형 채팅창 -->
+        <div id="chat-area">
+            <div class="chat-header">
+                <div class="chat-title"><i class="fas fa-comment-dots"></i> 실시간 채팅 채널</div>
+            </div>
+
+            <div class="chat-history" id="chat-box">
+                <div class="chat-msg msg-system">📢 [안내] PickPlay 로비에 오신 것을 환영합니다!</div>
+                <div class="chat-msg"><span class="msg-time">23:01</span><span class="msg-name">Test1</span><span class="msg-text">야 다들 들어왔냐?</span></div>
+                <div class="chat-msg"><span class="msg-time">23:01</span><span class="msg-name" style="color:#e74c3c;">Test2</span><span class="msg-text">ㅇㅇ 들어옴</span></div>
+                <div class="chat-msg"><span class="msg-time">23:02</span><span class="msg-name" style="color:#2ecc71;">초록개구리</span><span class="msg-text">와 모달 디자인이랑 로비 정돈된거 실화임? 미쳤다 진짜 ㅋㅋㅋ</span></div>
+                <div class="chat-msg"><span class="msg-time">23:02</span><span class="msg-name" style="color:#3498db;">붉은여우</span><span class="msg-text">채팅창 세로로 엄청 길어져서 수다떨기 짱편함</span></div>
+                <div class="chat-msg"><span class="msg-time">23:02</span><span class="msg-name" style="color:#e67e22;">대왕판다</span><span class="msg-text">빨리 설정 저장하고 게임 ㄱㄱ하자 ㅋㅋㅋ</span></div>
+            </div>
+
+            <form class="chat-form" onsubmit="sendChat(event)">
+                <input type="text" class="chat-input" id="chat-input" placeholder="채팅을 입력하세요..." autocomplete="off">
+                <button type="submit" class="chat-send-btn"><i class="fas fa-paper-plane"></i></button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- 설정 모달 -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-game-title">⚙️ 빙고 게임 설정</div>
+                <button class="modal-close" id="close-modal-btn">✕</button>
+            </div>
+            <div class="modal-body" id="modal-fields-container">
+                <!-- JS에 의해 게임별 설정 필드가 동적으로 렌더링됨 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="cancel-modal-btn">취소</button>
+                <button class="btn-save" id="save-modal-btn">💾 설정 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 단계 제어 (로비 / 대기실)
+        let activeStage = 'waiting';
+        let selectedGameType = 'bingo';
+
+        // 설정 캐시
+        let cachedSettings = {
+            bingo: { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, useEvents: true },
+            liar: { winTarget: 3, selectedCategories: ['상식', '동물'] },
+            bomb: { hearts: 3, subMode: 'random', timerRange: 'medium', showTimer: true }
+        };
+
+        // 로비 플레이어 그리드를 복제해서 넣어주기
+        function syncPlayerGrids() {
+            const sourceGrid = document.getElementById('waiting-player-grid');
+            const targetGrid = document.getElementById('selection-player-grid');
+            if (sourceGrid && targetGrid) {
+                targetGrid.innerHTML = sourceGrid.innerHTML;
+            }
+        }
+        syncPlayerGrids();
+
+        function switchStage(stage) {
+            activeStage = stage;
+            const selectionEl = document.getElementById('selection-stage');
+            const waitingEl = document.getElementById('waiting-stage');
+            const tabSelection = document.getElementById('tab-btn-selection');
+            const tabWaiting = document.getElementById('tab-btn-waiting');
+
+            if (stage === 'selection') {
+                selectionEl.style.display = 'flex';
+                waitingEl.style.display = 'none';
+                tabSelection.classList.add('active');
+                tabWaiting.classList.remove('active');
+                syncPlayerGrids();
+            } else {
+                selectionEl.style.display = 'none';
+                waitingEl.style.display = 'flex';
+                tabSelection.classList.remove('active');
+                tabWaiting.classList.add('active');
+                applyGameWaitingRoomView(selectedGameType);
+            }
+        }
+
+        // 게임 선택 시 처리
+        function selectGame(game) {
+            selectedGameType = game;
+            document.querySelectorAll('.lobby-game-card').forEach(card => card.classList.remove('active'));
+            document.querySelector(`.lobby-game-card.${game}-card`).classList.add('active');
+            
+            // 즉시 대기실 단계로 전환되면서 대기실 UI 갱신
+            switchStage('waiting');
+        }
+
+        // 대기실 UI 갱신
+        function applyGameWaitingRoomView(game) {
+            const titleEl = document.getElementById('waiting-game-title');
+            const previewContainer = document.getElementById('mini-preview-container');
+            const waitingPanel = document.getElementById('waiting-matrix-panel');
+
+            // 테마별 헤더 보더 컬러 변경
+            waitingPanel.style.borderTop = '8px solid';
+
+            if (game === 'bingo') {
+                titleEl.innerHTML = '🎯 빙고 게임 대기방';
+                waitingPanel.style.borderTopColor = '#3498db';
+                const settings = cachedSettings.bingo;
+                previewContainer.innerHTML = `
+                    <span class="preview-badge"><i class="fas fa-bullseye"></i> 목표: <strong>${settings.winLines}줄</strong></span>
+                    <span class="preview-badge"><i class="fas fa-sort-amount-down"></i> 순서: <strong>${settings.turnOrder === 'random' ? '랜덤' : '방장 우선'}</strong></span>
+                    <span class="preview-badge"><i class="fas fa-stopwatch"></i> 시간: <strong>${settings.turnTimeLimit}초</strong></span>
+                    <span class="preview-badge"><i class="fas fa-bolt"></i> 이벤트: <strong>${settings.useEvents ? 'ON' : 'OFF'}</strong></span>
+                `;
+            } else if (game === 'liar') {
+                titleEl.innerHTML = '🕵️ 라이어 게임 대기방';
+                waitingPanel.style.borderTopColor = '#e74c3c';
+                const settings = cachedSettings.liar;
+                previewContainer.innerHTML = `
+                    <span class="preview-badge"><i class="fas fa-trophy"></i> 목표 승수: <strong>${settings.winTarget}승</strong></span>
+                    <span class="preview-badge"><i class="fas fa-tags"></i> 카테고리: <strong style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${settings.selectedCategories.join(', ')}</strong></span>
+                `;
+            } else if (game === 'bomb') {
+                titleEl.innerHTML = '💣 주제 폭탄돌리기 대기방';
+                waitingPanel.style.borderTopColor = '#e67e22';
+                const settings = cachedSettings.bomb;
+                const timerText = settings.timerRange === 'short' ? '짧게' : (settings.timerRange === 'long' ? '길게' : '보통');
+                previewContainer.innerHTML = `
+                    <span class="preview-badge"><i class="fas fa-heart"></i> 시작 목숨: <strong>${settings.hearts}개</strong></span>
+                    <span class="preview-badge"><i class="fas fa-gamepad"></i> 모드: <strong>${settings.subMode === 'tactical' ? '전략 모드' : '랜덤 모드'}</strong></span>
+                    <span class="preview-badge"><i class="fas fa-stopwatch"></i> 시간: <strong>${timerText}</strong></span>
+                    <span class="preview-badge"><i class="fas fa-eye"></i> 타이머 표시: <strong>${settings.showTimer ? 'ON' : 'OFF'}</strong></span>
+                `;
+            }
+        }
+
+        // 모달 제어
+        const overlay = document.getElementById('modal-overlay');
+        const openBtn = document.getElementById('open-modal-btn');
+        const closeBtn = document.getElementById('close-modal-btn');
+        const cancelBtn = document.getElementById('cancel-modal-btn');
+        const saveBtn = document.getElementById('save-modal-btn');
+        const modalTitle = document.getElementById('modal-game-title');
+        const modalFields = document.getElementById('modal-fields-container');
+
+        openBtn.onclick = () => {
+            renderModalFields(selectedGameType);
+            overlay.style.display = 'flex';
+        };
+        closeBtn.onclick = () => overlay.style.display = 'none';
+        cancelBtn.onclick = () => overlay.style.display = 'none';
+
+        function renderModalFields(game) {
+            modalFields.innerHTML = '';
+            if (game === 'bingo') {
+                modalTitle.textContent = '⚙️ 빙고 게임 설정';
+                const settings = cachedSettings.bingo;
+                modalFields.innerHTML = `
+                    <div>
+                        <div class="section-label">승리 조건 (빙고 줄 수)</div>
+                        <div class="radio-grid">
+                            <div class="radio-card ${settings.winLines === 2 ? 'active' : ''}" data-val="2">2줄</div>
+                            <div class="radio-card ${settings.winLines === 3 ? 'active' : ''}" data-val="3">3줄</div>
+                            <div class="radio-card ${settings.winLines === 4 ? 'active' : ''}" data-val="4">4줄</div>
+                            <div class="radio-card ${settings.winLines === 5 ? 'active' : ''}" data-val="5">5줄</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="section-label">시작 순서</div>
+                        <select class="form-select" id="setting-order">
+                            <option value="host_first" ${settings.turnOrder === 'host_first' ? 'selected' : ''}>방장부터 시계방향</option>
+                            <option value="random" ${settings.turnOrder === 'random' ? 'selected' : ''}>랜덤</option>
+                            <option value="join_asc" ${settings.turnOrder === 'join_asc' ? 'selected' : ''}>입장 순서대로</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="section-label">턴 제한 시간</div>
+                        <select class="form-select" id="setting-time">
+                            <option value="5" ${settings.turnTimeLimit === 5 ? 'selected' : ''}>5초</option>
+                            <option value="10" ${settings.turnTimeLimit === 10 ? 'selected' : ''}>10초</option>
+                            <option value="15" ${settings.turnTimeLimit === 15 ? 'selected' : ''}>15초</option>
+                            <option value="0" ${settings.turnTimeLimit === 0 ? 'selected' : ''}>무제한</option>
+                        </select>
+                    </div>
+                `;
+            } else if (game === 'liar') {
+                modalTitle.textContent = '⚙️ 라이어 게임 설정';
+                const settings = cachedSettings.liar;
+                modalFields.innerHTML = `
+                    <div>
+                        <div class="section-label">목표 승수</div>
+                        <div class="radio-grid">
+                            <div class="radio-card ${settings.winTarget === 2 ? 'active' : ''}" data-val="2">2승</div>
+                            <div class="radio-card ${settings.winTarget === 3 ? 'active' : ''}" data-val="3">3승</div>
+                            <div class="radio-card ${settings.winTarget === 4 ? 'active' : ''}" data-val="4">4승</div>
+                            <div class="radio-card ${settings.winTarget === 5 ? 'active' : ''}" data-val="5">5승</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="section-label">선택된 카테고리</div>
+                        <div style="font-size:0.9rem; color:#aaa; line-height:1.5; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px;">
+                            📌 카테고리 항목은 실제 가동 시 데이터베이스에서 유연하게 로드됩니다. (체크박스형 배치)
+                        </div>
+                    </div>
+                `;
+            } else if (game === 'bomb') {
+                modalTitle.textContent = '⚙️ 폭탄돌리기 설정';
+                const settings = cachedSettings.bomb;
+                modalFields.innerHTML = `
+                    <div>
+                        <div class="section-label">시작 목숨</div>
+                        <div class="radio-grid">
+                            <div class="radio-card ${settings.hearts === 1 ? 'active' : ''}" data-val="1">1개</div>
+                            <div class="radio-card ${settings.hearts === 2 ? 'active' : ''}" data-val="2">2개</div>
+                            <div class="radio-card ${settings.hearts === 3 ? 'active' : ''}" data-val="3">3개</div>
+                            <div class="radio-card ${settings.hearts === 4 ? 'active' : ''}" data-val="4">4개</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="section-label">게임 모드</div>
+                        <select class="form-select" id="setting-submode">
+                            <option value="random" ${settings.subMode === 'random' ? 'selected' : ''}>랜덤 모드</option>
+                            <option value="tactical" ${settings.subMode === 'tactical' ? 'selected' : ''}>전략 모드</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div class="section-label">폭탄 시간</div>
+                        <select class="form-select" id="setting-timer-range">
+                            <option value="short" ${settings.timerRange === 'short' ? 'selected' : ''}>짧게 (15~30초)</option>
+                            <option value="medium" ${settings.timerRange === 'medium' ? 'selected' : ''}>보통 (30~55초)</option>
+                            <option value="long" ${settings.timerRange === 'long' ? 'selected' : ''}>길게 (50~80초)</option>
+                        </select>
+                    </div>
+                `;
+            }
+
+            // 모달 내 라디오 카드 클릭 바인딩
+            const cards = modalFields.querySelectorAll('.radio-card');
+            cards.forEach(card => {
+                card.onclick = () => {
+                    cards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                }
+            });
+        }
+
+        // 설정 저장
+        saveBtn.onclick = () => {
+            const activeCard = modalFields.querySelector('.radio-card.active');
+            const val = activeCard ? parseInt(activeCard.dataset.val) : 3;
+
+            if (selectedGameType === 'bingo') {
+                cachedSettings.bingo.winLines = val;
+                cachedSettings.bingo.turnOrder = document.getElementById('setting-order').value;
+                cachedSettings.bingo.turnTimeLimit = parseInt(document.getElementById('setting-time').value);
+            } else if (selectedGameType === 'liar') {
+                cachedSettings.liar.winTarget = val;
+            } else if (selectedGameType === 'bomb') {
+                cachedSettings.bomb.hearts = val;
+                cachedSettings.bomb.subMode = document.getElementById('setting-submode').value;
+                cachedSettings.bomb.timerRange = document.getElementById('setting-timer-range').value;
+            }
+
+            overlay.style.display = 'none';
+            applyGameWaitingRoomView(selectedGameType);
+        };
+
+        // 가상 채팅 전송
+        function sendChat(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const chatBox = document.getElementById('chat-box');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg';
+
+            const now = new Date();
+            const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+            msgDiv.innerHTML = `<span class="msg-time">${timeStr}</span><span class="msg-name">Test1</span><span class="msg-text">${escapeHtml(text)}</span>`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            input.value = '';
+
+            setTimeout(() => {
+                const replies = [
+                    "와 디자인 깔끔해서 보기 진짜 편하다 ㅋㅋㅋ",
+                    "채팅창 넓으니까 속이 다 시원하네",
+                    "나도 준비완료 했어 언넝 시작하자!",
+                    "방장님 설정 변경한거 프리뷰 뱃지로 바로 보이네 개꿀인듯"
+                ];
+                const botReply = replies[Math.floor(Math.random() * replies.length)];
+                const botNames = ["Test2", "초록개구리", "붉은여우", "대왕판다"];
+                const botColors = ["#e74c3c", "#2ecc71", "#3498db", "#e67e22"];
+                const botIdx = Math.floor(Math.random() * botNames.length);
+
+                const replyDiv = document.createElement('div');
+                replyDiv.className = 'chat-msg';
+                replyDiv.innerHTML = `<span class="msg-time">${timeStr}</span><span class="msg-name" style="color:${botColors[botIdx]}">${botNames[botIdx]}</span><span class="msg-text">${botReply}</span>`;
+                chatBox.appendChild(replyDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 1200);
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

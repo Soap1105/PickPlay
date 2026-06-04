@@ -19,7 +19,11 @@ module.exports = (io, socket, gameRooms) => {
                 liarGame: { scores: {}, votes: {}, submissions: {} },
                 lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {},
                 emojiCooldowns: {},
-                clientIds: {} // clientId → socketId 매핑
+                clientIds: {}, // clientId → socketId 매핑
+                // 기본 게임 설정값 초기화
+                bingoSettings: { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
+                liarSettings: { winTarget: 3, selectedCategories: [] },
+                bombSettings: { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
             };
         }
 
@@ -38,21 +42,69 @@ module.exports = (io, socket, gameRooms) => {
             return;
         }
 
-        // clientId 중복 접속 처리: 같은 clientId가 이미 방에 있으면 기존 소켓 교체
+        // [세션 복구 및 중복 접속 처리] 같은 clientId가 이미 방에 존재하는 경우
         if (clientId && room.clientIds[clientId]) {
             const oldSocketId = room.clientIds[clientId];
-            if (oldSocketId !== socket.id && room.players[oldSocketId]) {
-                // 기존 연결 정리
-                const oldSocket = io.sockets.sockets.get(oldSocketId);
-                if (oldSocket) {
-                    oldSocket.emit('kicked');
-                    oldSocket.disconnect(true);
+            const oldPlayer = room.players[oldSocketId];
+            if (oldPlayer) {
+                // 기존 disconnect 유예 타이머가 있다면 즉시 해제 (새로고침 재접속 성공)
+                if (oldPlayer.disconnectTimeout) {
+                    clearTimeout(oldPlayer.disconnectTimeout);
+                    delete oldPlayer.disconnectTimeout;
                 }
-                delete room.players[oldSocketId];
-                room.joinOrder = room.joinOrder.filter(id => id !== oldSocketId);
+
+                // 기존 구 소켓이 아직 살아있다면 명시적 정리
+                if (oldSocketId !== socket.id) {
+                    const oldSocket = io.sockets.sockets.get(oldSocketId);
+                    if (oldSocket) {
+                        oldSocket.emit('kicked');
+                        oldSocket.disconnect(true);
+                    }
+                }
+
+                // 플레이어 데이터 신규 소켓 ID로 이관
+                room.players[socket.id] = oldPlayer;
+                room.players[socket.id].id = socket.id;
+                if (oldSocketId !== socket.id) {
+                    delete room.players[oldSocketId];
+                }
+
+                // clientIds 맵핑 갱신
+                room.clientIds[clientId] = socket.id;
+
+                // joinOrder에 기록된 소켓 ID 교체
+                room.joinOrder = room.joinOrder.map(id => id === oldSocketId ? socket.id : id);
+
+                // 방장 권한 복구 및 갱신
                 if (room.hostId === oldSocketId) {
-                    room.hostId = socket.id; // 방장 교체
+                    room.hostId = socket.id;
                 }
+
+                socket.join(roomId);
+                socket.roomId = roomId;
+                socket.clientId = clientId;
+
+                io.to(socket.id).emit('role update', { isHost: socket.id === room.hostId });
+                io.to(socket.id).emit('game changed', room.mode);
+                io.to(socket.id).emit('lobby settings updated', {
+                    bingo: room.bingoSettings || { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
+                    liar: room.liarSettings || { winTarget: 3, selectedCategories: [] },
+                    bomb: room.bombSettings || { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
+                });
+                io.to(socket.id).emit('vote update', room.lobbyVotes);
+                
+                // [Bug 1-1 FIX] 투표 진행 중일 때 새로운 참가자에게 타이머 정보 전송
+                if (room.voteTimer && room.voteTimeLeft > 0) {
+                    io.to(socket.id).emit('vote timer', { 
+                        status: 'started', 
+                        timeLeft: room.voteTimeLeft 
+                    });
+                }
+
+                io.to(roomId).emit('update user list', getSortedUserList(room));
+                updateReadyStatus(io, room, roomId);
+                io.to(roomId).emit('system message', `🔄 ${oldPlayer.name}님이 재접속하셨습니다.`);
+                return;
             }
         }
         if (clientId) room.clientIds[clientId] = socket.id;
@@ -72,6 +124,12 @@ module.exports = (io, socket, gameRooms) => {
 
         io.to(socket.id).emit('role update', { isHost: socket.id === room.hostId });
         io.to(socket.id).emit('game changed', room.mode); // 접속 시 현재 방의 게임 상태 전달
+        // 접속 시 현재 설정값 전달
+        io.to(socket.id).emit('lobby settings updated', {
+            bingo: room.bingoSettings || { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
+            liar: room.liarSettings || { winTarget: 3, selectedCategories: [] },
+            bomb: room.bombSettings || { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
+        });
         io.to(socket.id).emit('vote update', room.lobbyVotes); // 접속 시 투표 현황 전달
         
         // [Bug 1-1 FIX] 투표 진행 중일 때 새로운 참가자에게 타이머 정보 전송
@@ -121,6 +179,11 @@ module.exports = (io, socket, gameRooms) => {
         room.status = 'WAITING'; // 게임 시작 전 준비 상태로 변경
         
         io.to(roomId).emit('game changed', selectedGame);
+        io.to(roomId).emit('lobby settings updated', {
+            bingo: room.bingoSettings || { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
+            liar: room.liarSettings || { winTarget: 3, selectedCategories: [] },
+            bomb: room.bombSettings || { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
+        });
         io.to(roomId).emit('update user list', getSortedUserList(room));
     });
 
@@ -179,7 +242,7 @@ module.exports = (io, socket, gameRooms) => {
                 if (winner !== 'tie') {
                     // [Refinement] Don't switch game automatically anymore. 
                     // Just show the result in the lobby.
-                    const gameName = winner === 'bingo' ? '테마 빙고' : '라이어 게임';
+                    const gameName = winner === 'bingo' ? '빙고 게임' : '라이어 게임';
                     io.to(roomId).emit('system message', `투표 결과, ${gameName}이(가) 선택되었습니다! 게임을 시작하려면 방장이 게임을 선택해 주세요.`);
                 }
             } else {
@@ -234,22 +297,39 @@ module.exports = (io, socket, gameRooms) => {
                 io.to(roomId).emit('vote timer', { status: 'ended', winner });
 
                 if (winner !== 'tie') {
-                    const gameName = winner === 'bingo' ? '테마 빙고' : '라이어 게임';
+                    const gameName = winner === 'bingo' ? '빙고 게임' : '라이어 게임';
                     io.to(roomId).emit('system message', `투표 결과, ${gameName}이(가) 선택되었습니다! 게임을 시작하려면 방장이 게임을 선택해 주세요.`);
                 }
             }
         }
     });
 
+    // 실시간 대기방 설정 동기화
+    socket.on('update lobby settings', (data) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (socket.id !== room.hostId) return; // 방장만 설정 변경 가능
+
+        if (data.game === 'bingo') {
+            room.bingoSettings = data.settings;
+        } else if (data.game === 'liar') {
+            room.liarSettings = data.settings;
+        } else if (data.game === 'bomb') {
+            room.bombSettings = data.settings;
+        }
+
+        io.to(roomId).emit('lobby settings updated', {
+            bingo: room.bingoSettings,
+            liar: room.liarSettings,
+            bomb: room.bombSettings
+        });
+    });
+
     socket.on('confirm result', () => {
         const roomId = socket.roomId;
         if (!roomId || !gameRooms[roomId]) return;
         const room = gameRooms[roomId];
-
-        // [버그 수정] game changed: lobby를 여기서 보내면 컨테이너가 로비로 전환된 상태에서
-        // 방장이 곧바로 새 게임을 시작할 때 setup theme input을 받아도 화면이 안 바뀌는 문제 발생.
-        // 로비 전환은 클라이언트(bingo.js close-result-btn)에서 자체 처리하거나,
-        // 방장이 대기실로 돌아가기 버튼을 누를 때만 수행한다.
 
         // confirmedResult = true 상태 업데이트
         if (room.players[socket.id]) {
@@ -264,115 +344,109 @@ module.exports = (io, socket, gameRooms) => {
         const roomId = socket.roomId;
         if (roomId && gameRooms[roomId]) {
             const room = gameRooms[roomId];
-
-            // 이 소켓이 이미 다른 소켓으로 교체된 경우 (새 탭/새로고침으로 재접속 시)
-            // clientId가 있고, 현재 room.clientIds[clientId]가 이 소켓이 아니면 stale disconnect → 무시
             const cid = socket.clientId;
+
+            // 이 소켓이 이미 다른 소켓으로 교체된 경우 (stale disconnect) -> 무시
             if (cid && room.clientIds && room.clientIds[cid] !== socket.id) {
-                // 이미 교체된 소켓의 disconnect → 아무것도 하지 않음
                 return;
             }
 
-            // clientIds 맵에서도 정리
-            if (cid && room.clientIds) delete room.clientIds[cid];
+            const oldSocketId = socket.id;
+            const player = room.players[oldSocketId];
+            if (!player) return;
 
-            const leavingPlayerName = room.players[socket.id] ? room.players[socket.id].name : '누군가';
-            delete room.players[socket.id];
-            room.joinOrder = room.joinOrder.filter(id => id !== socket.id);
+            // 1.5초 세션 복구 대기 타이머 가동
+            player.disconnectTimeout = setTimeout(() => {
+                // 1.5초 유예시간이 끝났을 때만 완전한 퇴장 처리 수행
+                if (!gameRooms[roomId] || !room.players[oldSocketId]) return;
 
-            io.to(roomId).emit('system message', `💨 ${leavingPlayerName}님이 퇴장하셨습니다.`);
-
-            const remainingPlayers = Object.keys(room.players);
-
-            if (room.status !== 'WAITING') {
-                let isInsufficient = false;
-                let minRequired = 2;
-
-                if (room.mode === 'bingo' && remainingPlayers.length < 2) {
-                    isInsufficient = true;
-                    minRequired = 2;
-                    // 빙고 타이머/인터벌 정리
-                    if (room.numberInterval) {
-                        clearInterval(room.numberInterval);
-                        room.numberInterval = null;
-                    }
-                    if (room.turnTimer) {
-                        clearTimeout(room.turnTimer);
-                        room.turnTimer = null;
-                    }
-                } else if (room.mode === 'liar' && remainingPlayers.length < 3) {
-                    isInsufficient = true;
-                    minRequired = 3;
-                    // 라이어 타이머/인터벌 정리
-                    if (room.liarGame && room.liarGame.timerInterval) {
-                        clearInterval(room.liarGame.timerInterval);
-                        room.liarGame.timerInterval = null;
-                    }
-                    io.to(roomId).emit('liar timer clear');
-                } else if (room.mode === 'bomb' && remainingPlayers.length < 2) {
-                    isInsufficient = true;
-                    minRequired = 2;
-                    // 폭탄 돌리기 타이머/인터벌 정리
-                    if (room.bombGame) {
-                        if (room.bombGame.timerInterval) {
-                            clearInterval(room.bombGame.timerInterval);
-                        }
-                        if (room.bombGame.turnTimeout) {
-                            clearTimeout(room.bombGame.turnTimeout);
-                        }
-                    }
-                    if (room.nextRoundTimeout) {
-                        clearInterval(room.nextRoundTimeout);
-                        room.nextRoundTimeout = null;
-                    }
+                // clientIds 맵 정리
+                if (cid && room.clientIds && room.clientIds[cid] === oldSocketId) {
+                    delete room.clientIds[cid];
                 }
 
-                if (isInsufficient) {
-                    room.mode = 'lobby';
-                    room.status = 'WAITING';
-                    room.lobbyVotes = { bingo: 0, liar: 0 };
-                    room.votedUsers = {};
+                const leavingPlayerName = player.name;
+                delete room.players[oldSocketId];
+                room.joinOrder = room.joinOrder.filter(id => id !== oldSocketId);
 
-                    if (room.voteTimer) {
-                        clearInterval(room.voteTimer);
-                        room.voteTimer = null;
-                    }
-                    room.voteTimeLeft = 0;
+                io.to(roomId).emit('system message', `💨 ${leavingPlayerName}님이 퇴장하셨습니다.`);
 
-                    // 게임 데이터 완전 파괴
-                    delete room.liarGame;
-                    delete room.bombGame;
-
-                    io.to(roomId).emit('game changed', 'lobby');
-                    io.to(roomId).emit('action failed', `🚫 인원이 부족하여 게임이 강제 종료되었습니다. (최소 필요 인원: ${minRequired}명)`);
-                    io.to(roomId).emit('update user list', getSortedUserList(room));
-                    return; // 로비 귀환 후 즉시 리턴하여 아래 불필요 흐름 스킵
-                }
-            }
-
-            // 인원이 부족하지 않은 경우 개별 게임 업데이트 처리
-            if (room.mode === 'bingo') {
-                if (room.status === 'PLAYING') {
-                    bingoHelpers.broadcastBingoProgress(io, room, roomId);
-                } else {
-                    updateReadyStatus(io, room, roomId);
-                }
-            }
-
-            io.to(roomId).emit('update user list', getSortedUserList(room));
-            if (socket.id === room.hostId && gameRooms[roomId]) {
                 const remainingPlayers = Object.keys(room.players);
-                if (remainingPlayers.length > 0) {
-                    room.hostId = remainingPlayers[0];
-                    io.to(room.hostId).emit('role update', { isHost: true });
-                    io.to(roomId).emit('system message', `👑 방장이 ${room.players[room.hostId].name}님으로 변경되었습니다.`);
+
+                if (room.status !== 'WAITING') {
+                    let isInsufficient = false;
+                    let minRequired = 2;
+
+                    if (room.mode === 'bingo' && remainingPlayers.length < 2) {
+                        isInsufficient = true;
+                        minRequired = 2;
+                        if (room.numberInterval) { clearInterval(room.numberInterval); room.numberInterval = null; }
+                        if (room.turnTimer) { clearTimeout(room.turnTimer); room.turnTimer = null; }
+                    } else if (room.mode === 'liar' && remainingPlayers.length < 3) {
+                        isInsufficient = true;
+                        minRequired = 3;
+                        if (room.liarGame && room.liarGame.timerInterval) {
+                            clearInterval(room.liarGame.timerInterval);
+                            room.liarGame.timerInterval = null;
+                        }
+                        io.to(roomId).emit('liar timer clear');
+                    } else if (room.mode === 'bomb' && remainingPlayers.length < 2) {
+                        isInsufficient = true;
+                        minRequired = 2;
+                        if (room.bombGame) {
+                            if (room.bombGame.timerInterval) clearInterval(room.bombGame.timerInterval);
+                            if (room.bombGame.turnTimeout) clearTimeout(room.bombGame.turnTimeout);
+                        }
+                        if (room.nextRoundTimeout) { clearInterval(room.nextRoundTimeout); room.nextRoundTimeout = null; }
+                    }
+
+                    if (isInsufficient) {
+                        room.mode = 'lobby';
+                        room.status = 'WAITING';
+                        room.lobbyVotes = { bingo: 0, liar: 0 };
+                        room.votedUsers = {};
+
+                        if (room.voteTimer) { clearInterval(room.voteTimer); room.voteTimer = null; }
+                        room.voteTimeLeft = 0;
+
+                        delete room.liarGame;
+                        delete room.bombGame;
+
+                        io.to(roomId).emit('game changed', 'lobby');
+                        io.to(roomId).emit('action failed', `🚫 인원이 부족하여 게임이 강제 종료되었습니다. (최소 필요 인원: ${minRequired}명)`);
+                        io.to(roomId).emit('update user list', getSortedUserList(room));
+                        return;
+                    }
                 }
-            }
-            if (Object.keys(room.players).length === 0) {
-                if (room.numberInterval) clearInterval(room.numberInterval);
-                if (room.voteTimer) clearInterval(room.voteTimer);
-                delete gameRooms[roomId];
-            }
+
+                // 인원이 부족하지 않은 경우 개별 게임 업데이트 처리
+                if (room.mode === 'bingo') {
+                    if (room.status === 'PLAYING') {
+                        bingoHelpers.broadcastBingoProgress(io, room, roomId);
+                    } else {
+                        updateReadyStatus(io, room, roomId);
+                    }
+                }
+
+                io.to(roomId).emit('update user list', getSortedUserList(room));
+                
+                // 방장 위임 처리
+                if (oldSocketId === room.hostId && gameRooms[roomId]) {
+                    const remaining = Object.keys(room.players);
+                    if (remaining.length > 0) {
+                        room.hostId = remaining[0];
+                        io.to(room.hostId).emit('role update', { isHost: true });
+                        io.to(roomId).emit('system message', `👑 방장이 ${room.players[room.hostId].name}님으로 변경되었습니다.`);
+                    }
+                }
+                
+                // 방에 아무도 없으면 메모리에서 방 해제
+                if (Object.keys(room.players).length === 0) {
+                    if (room.numberInterval) clearInterval(room.numberInterval);
+                    if (room.voteTimer) clearInterval(room.voteTimer);
+                    delete gameRooms[roomId];
+                }
+            }, 1500); // 1.5초 대기
         }
     });
 };
