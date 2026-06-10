@@ -118,7 +118,8 @@
     }
 
     window.renderLiarUsers = function (users, hostStatus) {
-        currentUsers = users;
+        const finalUsers = (users && users.length > 0) ? users : (window.roomPlayers || []);
+        currentUsers = finalUsers;
         amIHost = hostStatus;
 
         const mainWrapper = document.getElementById('main-wrapper');
@@ -136,7 +137,7 @@
             if (!userGrid) return;
             userGrid.innerHTML = '';
 
-            users.forEach(user => {
+            finalUsers.forEach(user => {
                 const card = document.createElement('div');
                 card.className = 'user-card';
                 if (user.id === socket.id) card.classList.add('is-me');
@@ -175,15 +176,15 @@
             if (gridBoard) {
                 gridBoard.style.display = 'grid';
                 gridBoard.innerHTML = '';
-                gridBoard.className = `liar-grid-board players-${users.length}`;
+                gridBoard.className = `liar-grid-board players-${finalUsers.length}`;
             }
 
             if (mainWrapper) {
                 mainWrapper.className = mainWrapper.className.replace(/\bplayers-\d+\b/g, '').trim();
-                mainWrapper.classList.add(`players-${users.length}`);
+                mainWrapper.classList.add(`players-${finalUsers.length}`);
             }
 
-            users.forEach(user => {
+            finalUsers.forEach(user => {
                 const card = document.createElement('div');
                 card.className = 'liar-player-slot';
                 if (user.id === socket.id) card.classList.add('is-me');
@@ -201,7 +202,7 @@
                 // 2. 아바타 및 닉네임 정보 배지
                 const hasVoted = window.liarVotes && window.liarVotes[user.id];
                 const voteBadgeHtml = `<div class="liar-slot-vote-badge" id="liar-vote-check-${user.id}" style="display: ${hasVoted ? 'flex' : 'none'};"><i class="fas fa-check"></i></div>`;
-                
+
                 let badgeHtml = '';
                 if (window.getUserBadgeHtml) {
                     badgeHtml = window.getUserBadgeHtml(user);
@@ -276,13 +277,14 @@
 
     if (startGameBtn) {
         startGameBtn.addEventListener('click', () => {
-            if (currentUsers.length < 3) {
+            const players = window.roomPlayers || currentUsers || [];
+            if (players.length < 3) {
                 if (window.showToast) window.showToast('라이어 게임은 최소 3명 이상이어야 시작할 수 있습니다!', 'error');
                 return;
             }
             const winTarget = parseInt(document.getElementById('win-target-select')?.value || '3');
-            const categories = window.liarSelectedCategories; 
-            
+            const categories = window.liarSelectedCategories;
+
             socket.emit('setup liar game', {
                 winTarget: winTarget,
                 categories: categories || []
@@ -295,7 +297,7 @@
         window.gameScores = scores;
         window.winTarget = target;
         if (window.gameType === 'liar') {
-            window.renderLiarUsers(currentUsers, amIHost);
+            window.renderLiarUsers(window.roomPlayers, amIHost);
         }
     });
 
@@ -321,13 +323,14 @@
             window.gameScores = {};
             window.liarVotes = {};
             if (window.gameType === 'liar') {
-                window.renderLiarUsers(currentUsers, amIHost);
+                window.renderLiarUsers(window.roomPlayers, amIHost);
             }
         }
     });
 
     // --- [피처 개편 1] 3D 카드 플립을 통한 정체 공개 ---
     socket.on('liar role assigned', (data) => {
+        if (typeof showContainer === 'function') showContainer('liar-container');
         liarGameStarted = true;
         window.liarVotes = {}; // 투표 록온 초기화
 
@@ -348,7 +351,7 @@
         }
 
         // 1. 보드 유저 슬롯들 먼저 갱신
-        window.renderLiarUsers(currentUsers, amIHost);
+        window.renderLiarUsers(window.roomPlayers, amIHost);
 
         // 2. 각자 슬롯 내부에 카드 플립 설치
         currentUsers.forEach(user => {
@@ -503,7 +506,7 @@
 
                 document.getElementById('vote-confirm-yes').onclick = () => {
                     socket.emit('vote liar', pid);
-                    
+
                     // 투표 완료 후 타겟 클릭 비활성화 및 안내 처리
                     document.querySelectorAll('.liar-player-slot').forEach(el => {
                         el.classList.remove('voting-target');
@@ -619,6 +622,28 @@
         }
     });
 
+    function bindResultChatEvents() {
+        const inputEl = document.getElementById('liar-result-chat-input');
+        const sendBtn = document.getElementById('liar-result-chat-send');
+        if (!inputEl || !sendBtn) return;
+
+        const sendMsg = () => {
+            const val = inputEl.value.trim();
+            if (!val) return;
+            socket.emit('chat message', {
+                message: val,
+                sender: window.myName
+            });
+            inputEl.value = '';
+            inputEl.focus();
+        };
+
+        sendBtn.onclick = sendMsg;
+        inputEl.onkeypress = (e) => {
+            if (e.key === 'Enter') sendMsg();
+        };
+    }
+
     socket.on('round over', (result) => {
         window.isGamePlaying = false;
         if (liarTimerUI) liarTimerUI.style.display = 'none';
@@ -632,26 +657,31 @@
             gridBoard.classList.add('results-dimmed');
         }
 
+        const resultChatHtml = `
+            <!-- 결과창 내장 채팅 섹션 (대안 A) -->
+            <div class="liar-result-chat" style="margin-top: 20px; text-align: left; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 0.85rem; color: #94a3b8; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-comments" style="color: #38bdf8;"></i> 결과창 실시간 채팅
+                </div>
+                <div id="liar-result-chat-history" style="height: 100px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; padding: 4px; background: rgba(0,0,0,0.15); border-radius: 8px;">
+                    <!-- 채팅 내역 -->
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="liar-result-chat-input" placeholder="메시지를 입력하세요..." style="flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); color: #fff; font-size: 0.85rem; outline: none;" autocomplete="off">
+                    <button id="liar-result-chat-send" style="padding: 8px 16px; border-radius: 8px; border: none; background: #38bdf8; color: #fff; font-weight: bold; font-size: 0.82rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">전송</button>
+                </div>
+            </div>
+        `;
+
         if (result.isFinalGameOver) {
             // 게임 완전 종료: 스코어보드 렌더링
             const btnHtml = `
                 <div style="margin-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
                     <div style="display: flex; gap: 14px; justify-content: center; width: 100%; max-width: 400px;">
-                        ${amIHost ? `
-                        <button id="liar-confirm-result-btn" class="start-btn" style="flex: 1; padding: 12px 24px; font-size: 0.95rem; background: linear-gradient(135deg, #2ecc71, #27ae60);">
-                            ✅ 확인 완료 &amp; 초기화
-                        </button>
-                        ` : `
                         <button id="liar-confirm-result-btn" class="start-btn" style="flex: 1; padding: 12px 24px; font-size: 0.95rem; background: linear-gradient(135deg, #34495e, #2c3e50); border: 1px solid rgba(255,255,255,0.15);">
-                            확인 완료
+                            확인
                         </button>
-                        `}
                     </div>
-                    ${!amIHost ? `
-                    <div style="color: #94a3b8; font-size: 0.85rem;">
-                        ⏳ 방장이 게임을 초기화할 때까지 대기해주세요.
-                    </div>
-                    ` : ''}
                 </div>
             `;
 
@@ -691,11 +721,11 @@
                             </thead>
                             <tbody>
                                 ${result.stats ? result.stats.map((stat, idx) => {
-                                    const isWinner = stat.score >= (window.winTarget || 3);
-                                    const rowBg = isWinner ? 'background: rgba(251, 191, 36, 0.08); font-weight: bold;' : 'border-bottom: 1px solid rgba(255,255,255,0.04);';
-                                    const nameColor = stat.id === socket.id ? 'color: #38bdf8;' : 'color: #f1f5f9;';
-                                    const roleColor = stat.isLiar ? '<span style="color:#ef4444; font-weight:700;">라이어</span>' : '<span style="color:#cbd5e1;">시민</span>';
-                                    return `
+                const isWinner = stat.score >= (window.winTarget || 3);
+                const rowBg = isWinner ? 'background: rgba(251, 191, 36, 0.08); font-weight: bold;' : 'border-bottom: 1px solid rgba(255,255,255,0.04);';
+                const nameColor = stat.id === socket.id ? 'color: #38bdf8;' : 'color: #f1f5f9;';
+                const roleColor = stat.isLiar ? '<span style="color:#ef4444; font-weight:700;">라이어</span>' : '<span style="color:#cbd5e1;">시민</span>';
+                return `
                                         <tr style="${rowBg}">
                                             <td style="padding: 12px 16px; color: ${isWinner ? '#fbbf24' : '#94a3b8'};">${idx + 1}위</td>
                                             <td style="padding: 12px 16px; ${nameColor}">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
@@ -703,14 +733,18 @@
                                             <td style="padding: 12px 16px;">${roleColor}</td>
                                         </tr>
                                     `;
-                                }).join('') : ''}
+            }).join('') : ''}
                             </tbody>
                         </table>
                     </div>
 
+                    ${resultChatHtml}
+
                     ${btnHtml}
                 </div>
             `;
+
+            bindResultChatEvents();
 
             setTimeout(() => {
                 const confirmBtn = document.getElementById('liar-confirm-result-btn');
@@ -718,12 +752,47 @@
                     confirmBtn.onclick = () => {
                         socket.emit('confirm result');
                         confirmBtn.disabled = true;
-                        confirmBtn.textContent = "확인 완료 ✓";
+                        confirmBtn.textContent = "확인 ✓";
                         confirmBtn.style.opacity = '0.6';
                         confirmBtn.style.background = '#475569';
+
                         // [이슈 23] 방장은 확인 즉시 게임 초기화도 처리
                         if (amIHost) {
                             socket.emit('restart liar game');
+                        } else {
+                            // [이슈 30 해결] 게스트는 방장이 게임 초기화하기 전에 스스로 대기방 UI로 복구 처리하여 갇힘 방지
+                            setTimeout(() => {
+                                window.liarVotes = {};
+                                window.gameScores = {};
+                                liarGameStarted = false;
+                                playerUI.innerHTML = '';
+
+                                document.body.classList.remove('game-mode-liar');
+                                if (gridBoard) {
+                                    gridBoard.style.display = 'none';
+                                    gridBoard.classList.remove('results-dimmed');
+                                }
+                                if (liarTimerUI) liarTimerUI.style.display = 'none';
+                                if (inputZone) inputZone.style.display = 'none';
+
+                                const mainWrapper = document.getElementById('main-wrapper');
+                                if (mainWrapper) {
+                                    mainWrapper.className = mainWrapper.className.replace(/\bplayers-\d+\b/g, '').trim();
+                                }
+
+                                setupArea.style.display = 'none';
+                                waitingArea.style.display = 'none';
+
+                                if (typeof showContainer === 'function') {
+                                    showContainer('lobby-container');
+                                }
+
+                                const players = window.roomPlayers || currentUsers || [];
+                                if (window.gameType === 'liar' && players.length > 0) {
+                                    window.updateLiarRoleUI(amIHost);
+                                    window.renderLiarUsers(window.roomPlayers, amIHost);
+                                }
+                            }, 500);
                         }
                     };
                 }
@@ -741,7 +810,7 @@
             </div>
             <div id="guest-text" style="display: ${guestDisplay};">
                 <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 20px;">
-                    ⏳ 방장이 다음 라운드를 시작할 때까지 대기하고 있습니다.
+                    다음 라운드 준비 중...
                 </div>
             </div>
         `;
@@ -778,10 +847,10 @@
                 <h4 style="color: #94a3b8; margin: 0 0 8px 0; font-size: 0.9rem; font-weight: 700;"><i class="fas fa-vote-yea"></i> 투표 결과</h4>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.85rem; max-height: 120px; overflow-y: auto; padding-right: 6px;">
                     ${sortedTargets.map(target => {
-                        const voterListText = target.voters.length > 0 ? target.voters.join(', ') : '없음';
-                        const badgeColor = target.tally > 0 ? '#fbbf24' : '#94a3b8';
-                        const nameColor = target.tally > 0 ? '#fffffe' : 'rgba(255,255,255,0.5)';
-                        return `
+            const voterListText = target.voters.length > 0 ? target.voters.join(', ') : '없음';
+            const badgeColor = target.tally > 0 ? '#fbbf24' : '#94a3b8';
+            const nameColor = target.tally > 0 ? '#fffffe' : 'rgba(255,255,255,0.5)';
+            return `
                             <div style="padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
                                 <span style="color:${nameColor}; font-weight:800;">${target.name}</span>
                                 <span style="color:${badgeColor}; font-weight:bold; margin-left: 4px;">(${target.tally}표)</span>
@@ -790,7 +859,7 @@
                                 </div>
                             </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
@@ -818,25 +887,29 @@
                     <h4 style="color: #94a3b8; margin: 0 0 10px 0; font-size: 0.95rem;"><i class="fas fa-list-ul"></i> 플레이어들의 설명 요약</h4>
                     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 180px; overflow-y: auto; padding-right: 6px;">
                         ${result.turnOrder ? result.turnOrder.map(pid => {
-                            const name = result.playerNames[pid] || '알수없음';
-                            const desc = result.submissions[pid] || '';
-                            return `
+            const name = result.playerNames[pid] || '알수없음';
+            const desc = result.submissions[pid] || '';
+            return `
                                 <div style="padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; border:1px solid rgba(255,255,255,0.04); font-size:0.88rem;">
                                     <strong style="color: #38bdf8;">${name}:</strong> 
                                     <span style="color: #e2e8f0;">"${desc}"</span>
                                 </div>
                             `;
-                        }).join('') : ''}
+        }).join('') : ''}
                     </div>
                 </div>
 
                 ${votesHtml}
+
+                ${resultChatHtml}
 
                 <div style="margin-top: 24px;">
                     ${btnHtml}
                 </div>
             </div>
         `;
+
+        bindResultChatEvents();
 
         setTimeout(() => {
             const nextBtn = document.getElementById('next-round-btn');
@@ -887,10 +960,10 @@
         if (typeof showContainer === 'function') showContainer('liar-container');
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
-        
+
         // 카드 배치 활성화를 위해 렌더링 동기화
         liarGameStarted = true;
-        window.renderLiarUsers(currentUsers, amIHost);
+        window.renderLiarUsers(window.roomPlayers, amIHost);
     });
 
     socket.on('liar game countdown tick', (seconds) => {
@@ -902,8 +975,8 @@
         const hostPreviewEl = document.getElementById('liar-host-settings-preview');
         if (!settings) return;
 
-        const categoriesText = settings.selectedCategories && settings.selectedCategories.length > 0 
-            ? settings.selectedCategories.join(', ') 
+        const categoriesText = settings.selectedCategories && settings.selectedCategories.length > 0
+            ? settings.selectedCategories.join(', ')
             : "전체 랜덤";
 
         const html = `
@@ -960,9 +1033,10 @@
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
 
-        if (window.gameType === 'liar' && currentUsers.length > 0) {
+        const players = window.roomPlayers || currentUsers || [];
+        if (window.gameType === 'liar' && players.length > 0) {
             window.updateLiarRoleUI(amIHost);
-            window.renderLiarUsers(currentUsers, amIHost);
+            window.renderLiarUsers(window.roomPlayers, amIHost);
         }
     });
 
@@ -1016,6 +1090,30 @@
     socket.on('chat message', (data) => {
         if (liarGameStarted && data.socketId) {
             showLiarChatBubble(data.socketId, data.message);
+        }
+
+        // 결과창 내장 채팅(대안 A) 연동
+        const historyEl = document.getElementById('liar-result-chat-history');
+        if (historyEl) {
+            const msgEl = document.createElement('div');
+            msgEl.className = 'chat-msg';
+            msgEl.style.cssText = 'animation: msgFadeIn 0.25s forwards; font-size: 0.85rem; line-height: 1.4;';
+
+            const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const isSystem = (data.socketId === undefined || data.socketId === null || data.system);
+
+            if (isSystem) {
+                msgEl.innerHTML = `<span class="system-msg" style="display:block; margin: 2px 0; font-size: 0.8rem; color: #a29bfe; font-style: italic; text-align: center; background: rgba(162, 155, 254, 0.05); padding: 4px; border-radius: 6px; border: 1px dashed rgba(162, 155, 254, 0.15);">${data.message}</span>`;
+            } else {
+                const nameColor = data.socketId === socket.id ? '#38bdf8' : '#fbbf24';
+                msgEl.innerHTML = `
+                    <span class="chat-time" style="color:rgba(255,255,255,0.3); font-size:0.72rem; margin-right:4px;">[${time.split(' ')[1] || time}]</span>
+                    <span class="chat-name" style="font-weight:bold; color:${nameColor}; margin-right:4px;">${data.sender}:</span>
+                    <span class="chat-text" style="color:#e2e8f0; word-break:break-all;">${data.message}</span>
+                `;
+            }
+            historyEl.appendChild(msgEl);
+            historyEl.scrollTop = historyEl.scrollHeight; // 자동 스크롤
         }
     });
 

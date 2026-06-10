@@ -1,10 +1,18 @@
 const { shuffleArray, sortTurnOrder, getSortedUserList, updateReadyStatus } = require('./utils');
 const { checkBingoLines, broadcastBingoProgress, endGame, resolveFullBoardWinner } = require('./bingoHelpers');
 
+// [Bug Fix #33] 이벤트 팝업(3초) 후 서버 타이머 시작 지연값 (클라이언트 동기화)
+const EVENT_POPUP_DELAY_MS = 3500;
+
 module.exports = (io, socket, gameRooms) => {
 
-    function passTurn(room, roomId) {
+    function passTurn(room, roomId, delayMs = 0) {
         if (room.mode !== 'bingo') return;
+
+        // [Bug Fix #31, #32] 턴 넘어갈 때 시간 왼곡 잔류 반드시 초기화
+        // passTurn()이 직접 호출될 때 timeWarpRemaining이 남아있으면
+        // 다음 플레이어의 단어 선택 시 시간 왼곡이 발동되는 버그 방지
+        room.timeWarpRemaining = 0;
 
         // [유령의 장난] lockedWords 턴 카운트 차감
         if (room.lockedWords && Object.keys(room.lockedWords).length > 0) {
@@ -37,12 +45,27 @@ module.exports = (io, socket, gameRooms) => {
                 continue;
             }
 
+            const nextPlayer = room.players[nextId];
+            if (nextPlayer.isIsolated) {
+                nextPlayer.isIsolated = false;
+                io.to(roomId).emit('system message', `🔓 ${nextPlayer.name}님이 블랙홀 격리에서 복귀했습니다! 내 차례에 보드판을 클릭하여 밀린 단어들을 마킹하세요.`);
+                io.to(roomId).emit('update user list', getSortedUserList(room));
+            }
+
             io.to(roomId).emit('turn update', {
                 currentTurnId: nextId,
                 currentTurnName: room.players[nextId].name,
                 turnTimeLimit: room.turnTimeLimit || 0
             });
-            startTurnTimer(room, roomId, nextId);
+            // [Bug Fix #33] 이벤트 팝업 시간만큼 서버 타이머 지연 (클라이언트 동기화)
+            if (delayMs > 0) {
+                setTimeout(() => {
+                    if (!gameRooms[roomId] || room.status !== 'PLAYING') return;
+                    startTurnTimer(room, roomId, nextId);
+                }, delayMs);
+            } else {
+                startTurnTimer(room, roomId, nextId);
+            }
             return;
         }
     }
@@ -73,6 +96,12 @@ module.exports = (io, socket, gameRooms) => {
             if (uncalledWords.length > 0) {
                 const randomWord = uncalledWords[Math.floor(Math.random() * uncalledWords.length)];
                 room.calledNumbers.push(randomWord);
+                Object.values(room.players).forEach(p => {
+                    if (p.isIsolated) {
+                        if (!p.ignoredNumbers) p.ignoredNumbers = [];
+                        p.ignoredNumbers.push(randomWord);
+                    }
+                });
                 io.to(roomId).emit('number called', randomWord);
 
                 broadcastBingoProgress(io, room, roomId);
@@ -121,7 +150,10 @@ module.exports = (io, socket, gameRooms) => {
         if (!roomId || !gameRooms[roomId]) return;
         const room = gameRooms[roomId];
         if (socket.id !== room.hostId || room.status !== 'WAITING') return;
-        if (Object.keys(room.players).length < 2) return;
+        if (Object.keys(room.players).length < 2) {
+            socket.emit('action failed', '빙고 게임은 최소 2명 이상이어야 시작할 수 있습니다.');
+            return;
+        }
 
         // [작업 3] 아직 결과 확인 중인 플레이어가 있는 경우 방장의 새 게임 생성 차단
         const unconfirmed = Object.values(room.players).filter(p => p.confirmedResult === false);
@@ -149,6 +181,8 @@ module.exports = (io, socket, gameRooms) => {
             p.ready = false;
             p.usedEventCount = 0;
             p.skipCount = 0;
+            p.isIsolated = false;
+            p.ignoredNumbers = [];
             io.to(p.id).emit('setup theme input', {
                 topic: data.topic,
                 winLines: room.winLines,
@@ -250,6 +284,16 @@ module.exports = (io, socket, gameRooms) => {
 
         // [버그 방지] 통신 지연이나 더블 클릭으로 인한 중복 단어 방어
         if (room.calledNumbers.includes(data.word)) {
+            // [블랙홀 격리 복구] 격리 기간 동안 무시했던 단어라면 클릭 시 수동 복구 허용 (턴 미소모)
+            const player = room.players[socket.id];
+            if (player && player.ignoredNumbers && player.ignoredNumbers.includes(data.word)) {
+                player.ignoredNumbers = player.ignoredNumbers.filter(w => w !== data.word);
+                
+                io.to(roomId).emit('update user list', getSortedUserList(room));
+                broadcastBingoProgress(io, room, roomId);
+                socket.emit('server called numbers', room.calledNumbers); // 내 화면 갱신
+                return;
+            }
             socket.emit('action failed', '이미 선택된 단어입니다.');
             return;
         }
@@ -261,6 +305,12 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         room.calledNumbers.push(data.word);
+        Object.values(room.players).forEach(p => {
+            if (p.isIsolated) {
+                if (!p.ignoredNumbers) p.ignoredNumbers = [];
+                p.ignoredNumbers.push(data.word);
+            }
+        });
         io.to(data.roomId).emit('number called', data.word);
 
         if (room.turnTimer) clearTimeout(room.turnTimer);
@@ -311,18 +361,28 @@ module.exports = (io, socket, gameRooms) => {
         const eventType = Math.floor(Math.random() * 4);
 
         if (eventType === 0) {
-            // 🌀 차원 뒤틀림: 모든 플레이어 판 셔플 + calledNumbers 2~3개 삭제
+            // 🌀 차원 뒤틀림: 발동자 제외 상대 플레이어 판 셔플 + calledNumbers 고정 2개 삭제
             Object.keys(room.players).forEach(pId => {
+                if (pId === socket.id) return; // 발동자 본인은 제외
+                if (room.players[pId].isIsolated) return; // 격리된 플레이어도 제외 (이벤트 효과 면제)
                 const newBoard = shuffleArray([...room.players[pId].board]);
                 room.players[pId].board = newBoard;
                 io.to(pId).emit('update board', newBoard);
             });
 
-            const removeCount = Math.min(room.calledNumbers.length, 2 + Math.floor(Math.random() * 2));
+            const removeCount = Math.min(room.calledNumbers.length, 2);
             const removedWords = [];
             for (let i = 0; i < removeCount; i++) {
                 const removeIdx = Math.floor(Math.random() * room.calledNumbers.length);
                 removedWords.push(room.calledNumbers.splice(removeIdx, 1)[0]);
+            }
+
+            if (removedWords.length > 0) {
+                Object.values(room.players).forEach(p => {
+                    if (p.isIsolated && p.ignoredNumbers) {
+                        p.ignoredNumbers = p.ignoredNumbers.filter(w => !removedWords.includes(w));
+                    }
+                });
             }
 
             const removedMsg = removedWords.length > 0
@@ -342,7 +402,7 @@ module.exports = (io, socket, gameRooms) => {
             io.to(roomId).emit('update user list', getSortedUserList(room));
             if (room.turnTimer) clearTimeout(room.turnTimer);
             broadcastBingoProgress(io, room, roomId);
-            passTurn(room, roomId);
+            passTurn(room, roomId, EVENT_POPUP_DELAY_MS);
 
         } else if (eventType === 1) {
             // ⏳ 시간 왜곡: 이번 턴에 단어 2번 선택
@@ -359,7 +419,15 @@ module.exports = (io, socket, gameRooms) => {
                 currentTurnName: playerName,
                 turnTimeLimit: room.turnTimeLimit || 0
             });
-            startTurnTimer(room, roomId, socket.id);
+            // [Bug Fix #33] 이벤트 팝업 시간만큼 서버 타이머 지연 (클라이언트 동기화)
+            if (room.turnTimeLimit > 0) {
+                setTimeout(() => {
+                    if (!gameRooms[roomId] || room.status !== 'PLAYING') return;
+                    startTurnTimer(room, roomId, socket.id);
+                }, EVENT_POPUP_DELAY_MS);
+            } else {
+                startTurnTimer(room, roomId, socket.id);
+            }
 
         } else if (eventType === 2) {
             // 🕳️ 블랙홀: 발동자가 직접 타깃 선택 (자기 자신 제외)
@@ -369,7 +437,7 @@ module.exports = (io, socket, gameRooms) => {
                 io.to(roomId).emit('event happened', {
                     type: 'none', icon: '🕳️', title: '블랙홀 실패', msg: '타깃이 없어 블랙홀이 사라졌습니다!'
                 });
-                passTurn(room, roomId);
+                passTurn(room, roomId, EVENT_POPUP_DELAY_MS);
             } else {
                 const candidates = candidateIds.map(id => ({ id, name: room.players[id].name }));
                 room.awaitingBlackholeTarget = true;
@@ -383,6 +451,8 @@ module.exports = (io, socket, gameRooms) => {
                     const randomId = candidateIds[Math.floor(Math.random() * candidateIds.length)];
                     const targetName = room.players[randomId].name;
                     room.players[randomId].skipCount += 1;
+                    room.players[randomId].isIsolated = true;
+                    room.players[randomId].ignoredNumbers = [];
 
                     io.to(roomId).emit('update user list', getSortedUserList(room));
                     io.to(roomId).emit('blackhole target confirmed', { targetName, timedOut: true });
@@ -391,7 +461,7 @@ module.exports = (io, socket, gameRooms) => {
                         msg: `시간 초과! ${targetName}님이 블랙홀에 빨려들어갔습니다!`
                     });
                     io.to(roomId).emit('system message', `🕳️ [이벤트] 시간 초과 - ${targetName}님이 블랙홀에 빠졌습니다. (누적 스킵: ${room.players[randomId].skipCount}회)`);
-                    passTurn(room, roomId);
+                    passTurn(room, roomId, EVENT_POPUP_DELAY_MS);
                 }, 15000);
 
                 io.to(socket.id).emit('select skip target', { candidates });
@@ -399,31 +469,42 @@ module.exports = (io, socket, gameRooms) => {
             }
 
         } else {
-            // 👻 유령의 장난: calledNumbers에서 3개 삭제 후 1~2턴 잠금
+            // 👻 유령의 장난: calledNumbers에서 고정 2개 삭제 후 2라운드 잠금
             if (room.calledNumbers.length > 0) {
                 const removedWords = [];
-                for (let i = 0; i < 3; i++) {
+                for (let i = 0; i < 2; i++) {
                     if (room.calledNumbers.length === 0) break;
                     const removeIdx = Math.floor(Math.random() * room.calledNumbers.length);
                     removedWords.push(room.calledNumbers.splice(removeIdx, 1)[0]);
                 }
 
+                if (removedWords.length > 0) {
+                    Object.values(room.players).forEach(p => {
+                        if (p.isIsolated && p.ignoredNumbers) {
+                            p.ignoredNumbers = p.ignoredNumbers.filter(w => !removedWords.includes(w));
+                        }
+                    });
+                }
+
                 if (!room.lockedWords) room.lockedWords = {};
+                // 고정 2라운드 동안 잠금 (참여자 수에 비례하여 턴 설정)
+                const lockRounds = 2;
+                const totalLockTurns = lockRounds * room.turnOrder.length;
                 removedWords.forEach(word => {
-                    room.lockedWords[word] = 1 + Math.floor(Math.random() * 2);
+                    room.lockedWords[word] = totalLockTurns;
                 });
                 io.to(roomId).emit('locked words updated', room.lockedWords);
                 io.to(roomId).emit('server called numbers', room.calledNumbers);
 
                 const wordMsg = removedWords.join(', ');
-                io.to(roomId).emit('event happened', { type: 'bad', icon: '👻', title: '유령의 장난!', msg: `'${wordMsg}' 단어가 사라지고\n1~2턴간 선택 불가 상태가 됩니다!` });
+                io.to(roomId).emit('event happened', { type: 'bad', icon: '👻', title: '유령의 장난!', msg: `'${wordMsg}' 단어가 사라지고\n고정 2라운드 동안 선택 불가 상태가 됩니다!` });
                 io.to(roomId).emit('system message', `👻 [이벤트] 유령이 '${wordMsg}' 단어를 훔쳐갔습니다! 잠시 선택 불가 상태입니다.`);
 
                 broadcastBingoProgress(io, room, roomId);
-                passTurn(room, roomId);
+                passTurn(room, roomId, EVENT_POPUP_DELAY_MS);
             } else {
                 io.to(roomId).emit('event happened', { type: 'none', icon: '😅', title: '실패', msg: '지울 단어가 없습니다.' });
-                passTurn(room, roomId);
+                passTurn(room, roomId, EVENT_POPUP_DELAY_MS);
             }
         }
     });
@@ -453,6 +534,8 @@ module.exports = (io, socket, gameRooms) => {
         const senderName = room.players[socket.id].name;
         const targetName = room.players[targetId].name;
         room.players[targetId].skipCount += 1;
+        room.players[targetId].isIsolated = true;
+        room.players[targetId].ignoredNumbers = [];
 
         io.to(roomId).emit('update user list', getSortedUserList(room));
         io.to(roomId).emit('blackhole target confirmed', { targetName, timedOut: false });
@@ -461,7 +544,7 @@ module.exports = (io, socket, gameRooms) => {
             msg: `${senderName}님이 블랙홀을 소환하여\n${targetName}님을 빨아들였습니다!`
         });
         io.to(roomId).emit('system message', `🕳️ [이벤트] ${targetName}님이 블랙홀에 빠졌습니다. (누적 스킵: ${room.players[targetId].skipCount}회)`);
-        passTurn(room, roomId);
+        passTurn(room, roomId, EVENT_POPUP_DELAY_MS);
     });
 
     socket.on('bingo declared', (data) => {
@@ -476,5 +559,11 @@ module.exports = (io, socket, gameRooms) => {
         } else {
             socket.emit('action failed', `아직 ${room.winLines}줄 빙고가 아닙니다!`);
         }
+    });
+
+    socket.on('cancel theme generation', () => {
+        const roomId = socket.roomId;
+        if (!roomId) return;
+        io.to(roomId).emit('theme progress', { percent: 0, step: '취소됨' });
     });
 };

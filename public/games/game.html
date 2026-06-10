@@ -503,6 +503,37 @@
         </div>
     </div>
 
+    <!-- AI 생성 로딩 모달 (배경 조작 차단용 불투명 팝업) -->
+    <div id="ai-loading-modal" class="modal"
+        style="display: none; align-items: center; justify-content: center; z-index: 15000; background: rgba(0,0,0,0.85); position: fixed; inset: 0; width: 100%; height: 100%;">
+        <div class="modal-content"
+            style="text-align: center; border-radius: 20px; padding: 40px 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); max-width: 440px; width: 90%; margin: 0 auto; background: #1a1a2e; border: 1px solid rgba(100,181,246,0.25); position: relative;">
+            <!-- 호스트용 취소 버튼 -->
+            <button id="ai-loading-cancel-btn"
+                style="position: absolute; top: 15px; right: 18px; background: transparent; border: none; color: rgba(255,255,255,0.4); font-size: 1.3rem; cursor: pointer; transition: color 0.2s; outline: none;">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <!-- 세련된 로딩 스피너 (이모지 대체) -->
+            <div class="ai-spinner-container">
+                <div class="ai-modern-spinner"></div>
+            </div>
+
+            <h3 style="color: #fffffe; margin-top: 0; font-size: 1.22rem; font-weight: 800; line-height: 1.5; margin-bottom: 8px; letter-spacing: -0.5px;">주제 단어 생성 중...</h3>
+            
+            <!-- 실시간 작업 현황 -->
+            <div id="ai-progress-step" style="color: #64b5f6; font-size: 0.9rem; font-weight: bold; margin-bottom: 24px; min-height: 20px;">
+                단어 생성 준비 중...
+            </div>
+
+            <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 99px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.05);">
+                <div id="ai-progress-bar"
+                    style="position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #3498db, #64b5f6); border-radius: 99px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <h1 id="game-title">PickPlay 대기실</h1>
 
     <div id="main-wrapper">
@@ -511,23 +542,27 @@
 
             <!-- ================= LOBBY CONTAINER ================= -->
             <div id="lobby-container">
-                
+
                 <!-- 1단계: 게임 선택 로비 (selection-stage) -->
                 <div id="selection-stage">
-                    <div class="matrix-header" style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
-                        <h2 style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
+                    <div class="matrix-header"
+                        style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
+                        <h2
+                            style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-gamepad" style="color:#6c5ce7;"></i> 어떤 게임을 할까요?
                         </h2>
                     </div>
-                    
+
                     <div class="selection-grid-layout">
                         <!-- 좌측: 세련된 게임 카드 컬럼 -->
                         <div class="game-selector-panel" id="lobby-game-selector-panel">
-                            <div style="font-size: 1rem; font-weight: 800; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; display:flex; align-items:center; gap:8px; width: 100%; text-align: left;">
+                            <div
+                                style="font-size: 1rem; font-weight: 800; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; display:flex; align-items:center; gap:8px; width: 100%; text-align: left;">
                                 <i class="fas fa-list"></i> 플레이할 게임 선택
                             </div>
                             <div class="game-cards-column">
-                                <button class="lobby-game-card bingo-card active game-select-btn" data-game="bingo" id="lobby-card-bingo">
+                                <button class="lobby-game-card bingo-card active game-select-btn" data-game="bingo"
+                                    id="lobby-card-bingo">
                                     <div class="game-icon-circle" style="color:#0984e3;">🎯</div>
                                     <div class="game-meta">
                                         <div class="game-title-text" style="color:#74b9ff;">빙고 게임</div>
@@ -535,8 +570,9 @@
                                         <span class="game-tag-badge">2인 이상</span>
                                     </div>
                                 </button>
-                                
-                                <button class="lobby-game-card liar-card game-select-btn" data-game="liar" id="lobby-card-liar">
+
+                                <button class="lobby-game-card liar-card game-select-btn" data-game="liar"
+                                    id="lobby-card-liar">
                                     <div class="game-icon-circle" style="color:#d63031;">🕵️</div>
                                     <div class="game-meta">
                                         <div class="game-title-text" style="color:#ff7675;">라이어 게임</div>
@@ -545,10 +581,11 @@
                                     </div>
                                 </button>
 
-                                <button class="lobby-game-card bomb-card game-select-btn" data-game="bomb" id="lobby-card-bomb">
+                                <button class="lobby-game-card bomb-card game-select-btn" data-game="bomb"
+                                    id="lobby-card-bomb">
                                     <div class="game-icon-circle" style="color:#d35400;">💣</div>
                                     <div class="game-meta">
-                                        <div class="game-title-text" style="color:#fdcb6e;">주제 폭탄돌리기</div>
+                                        <div class="game-title-text" style="color:#fdcb6e;">폭탄 돌리기 게임</div>
                                         <div class="game-desc-text">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
                                         <span class="game-tag-badge">2인 이상</span>
                                     </div>
@@ -565,8 +602,10 @@
 
                         <!-- 우측: 대기 중인 플레이어 매트릭스 그리드 -->
                         <div class="lobby-players-panel">
-                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
-                                <div style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
+                            <div
+                                style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
+                                <div
+                                    style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
                                     <i class="fas fa-users"></i> 대기실 파티원
                                 </div>
                                 <div id="lobby-user-count" class="player-count">참가: 0 / 8</div>
@@ -580,20 +619,29 @@
                     <!-- 하단 로비 가이드 및 초대 링크 패널 -->
                     <div class="controls-panel">
                         <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
-                            <div class="preview-mini-card" style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 20px;">
+                            <div class="preview-mini-card"
+                                style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 20px;">
                                 <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 0.75rem; font-weight: 700; color: #a29bfe; background: rgba(108, 92, 231, 0.15); padding: 4px 8px; border-radius: 6px;">ROOM ID</span>
-                                    <span style="font-size: 0.95rem; font-weight: bold; color: #fff; letter-spacing: 1px;" id="lobby-room-id-display">------</span>
+                                    <span
+                                        style="font-size: 0.75rem; font-weight: 700; color: #a29bfe; background: rgba(108, 92, 231, 0.15); padding: 4px 8px; border-radius: 6px;">ROOM
+                                        ID</span>
+                                    <span
+                                        style="font-size: 0.95rem; font-weight: bold; color: #fff; letter-spacing: 1px;"
+                                        id="lobby-room-id-display">------</span>
                                 </div>
-                                <button class="btn-action btn-return" id="lobby-invite-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; margin: 0; cursor: pointer;">
+                                <button class="btn-action btn-return" id="lobby-invite-btn"
+                                    style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; margin: 0; cursor: pointer;">
                                     <i class="fas fa-copy"></i> 초대 코드 복사
                                 </button>
                             </div>
                         </div>
 
-                        <div class="button-group" style="padding-left: 20px; align-items: center; justify-content: flex-end;">
-                            <div style="font-size: 0.82rem; color: var(--text-muted); text-align: right; line-height: 1.4; display: flex; flex-direction: column; justify-content: center; height: 100%;">
-                                <span style="color: #ffeaa7; font-weight: bold; margin-bottom: 2px;" id="lobby-guide-title"><i class="fas fa-lightbulb"></i> 대기실 가이드</span>
+                        <div class="button-group"
+                            style="padding-left: 20px; align-items: center; justify-content: flex-end;">
+                            <div
+                                style="font-size: 0.82rem; color: var(--text-muted); text-align: right; line-height: 1.4; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                                <span style="color: #ffeaa7; font-weight: bold; margin-bottom: 2px;"
+                                    id="lobby-guide-title"><i class="fas fa-lightbulb"></i> 대기실 가이드</span>
                                 <span id="lobby-guide-text">원하는 게임을 클릭하면 즉시 방 생성 및 세부 설정 화면으로 전환됩니다.</span>
                             </div>
                         </div>
@@ -602,15 +650,18 @@
 
                 <!-- 2단계: 게임 대기방 (waiting-stage) -->
                 <div id="waiting-stage" style="display: none;">
-                    <div class="matrix-header" style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
-                        <h2 id="waiting-game-title" style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
+                    <div class="matrix-header"
+                        style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
+                        <h2 id="waiting-game-title"
+                            style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
                             🎯 빙고 게임 대기방
                         </h2>
                     </div>
 
                     <!-- 중앙 대기실 플레이어 매트릭스 그리드 -->
                     <div class="lobby-players-panel" style="flex: 1; min-height: 0; width: 100%;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
                             <div style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
                                 <i class="fas fa-users"></i> 대기실 파티원
                             </div>
@@ -625,7 +676,8 @@
                     <div class="controls-panel">
                         <div style="flex: 1.2; display: flex; flex-direction: column; gap: 8px;">
                             <div class="preview-mini-card">
-                                <div style="font-size:0.75rem; font-weight:700; color:rgba(255,255,255,0.5);">현재 게임 설정</div>
+                                <div style="font-size:0.75rem; font-weight:700; color:rgba(255,255,255,0.5);">현재 게임 설정
+                                </div>
                                 <div class="preview-grid" id="integrated-preview-container">
                                     <!-- JS로 각 게임 설정 뱃지 렌더링 -->
                                 </div>
@@ -633,9 +685,12 @@
                         </div>
 
                         <div class="button-group" style="padding-left: 20px;">
-                            <button class="btn-action btn-settings" id="integrated-settings-btn" style="display: none;"><i class="fas fa-cog"></i> 게임 설정</button>
-                            <button class="btn-action btn-start" id="integrated-start-btn" style="display: none;"><i class="fas fa-play"></i> 게임 시작</button>
-                            <button class="btn-action btn-return" id="integrated-return-btn"><i class="fas fa-arrow-left"></i> 대기실로</button>
+                            <button class="btn-action btn-settings" id="integrated-settings-btn"
+                                style="display: none;"><i class="fas fa-cog"></i> 게임 설정</button>
+                            <button class="btn-action btn-start" id="integrated-start-btn" style="display: none;"><i
+                                    class="fas fa-play"></i> 게임 시작</button>
+                            <button class="btn-action btn-return" id="integrated-return-btn"><i
+                                    class="fas fa-arrow-left"></i> 대기실로</button>
                         </div>
                     </div>
                 </div>
@@ -655,24 +710,7 @@
                     <input type="hidden" id="bingo-use-events" value="true">
                     <div class="host-setup-glass">
                         <h3>빙고 게임 설정</h3>
-                        <!-- AI 진행률 표시줄 -->
-                        <div id="ai-progress-container"
-                            style="display: none; margin: 0 0 16px; padding: 12px; background: rgba(100,181,246,0.12); border-radius: 10px; border: 1px solid rgba(100,181,246,0.3);">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                <span id="ai-progress-step"
-                                    style="font-size: 0.9rem; color: #64b5f6; font-weight: bold; display: flex; align-items: center;">
-                                    <i class="fas fa-robot" style="margin-right: 8px;"></i> AI 가동 중...
-                                </span>
-                                <span id="ai-progress-percent"
-                                    style="font-size: 0.9rem; color: #64b5f6; font-weight: 800;">0%</span>
-                            </div>
-                            <div
-                                style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
-                                <div id="ai-progress-bar"
-                                    style="width: 0%; height: 100%; background: linear-gradient(90deg, #3498db, #64b5f6); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
-                                </div>
-                            </div>
-                        </div>
+
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
                             <button id="open-settings-bingo" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
                             <button id="start-game-bingo" class="start-btn" style="background-color: #2ecc71;">게임
@@ -680,7 +718,8 @@
                         </div>
                         <button class="return-lobby-btn" style="margin-bottom: 16px;">대기실로 돌아가기</button>
                         <!-- 방장용 설정 프리뷰 -->
-                        <div class="lobby-settings-preview" id="bingo-host-settings-preview" style="display: none; margin-top: 16px; width: 100%;"></div>
+                        <div class="lobby-settings-preview" id="bingo-host-settings-preview"
+                            style="display: none; margin-top: 16px; width: 100%;"></div>
                     </div>
                 </div>
 
@@ -698,28 +737,20 @@
                             <div class="rule-item"> <span>- 먼저 설정된 줄 수를 완성하면 빙고!</span></div>
                         </div>
                         <!-- 실시간 대기실 설정 프리뷰 [방안 A] -->
-                        <div class="lobby-settings-preview" id="bingo-lobby-settings-preview" style="display: none;"></div>
-                        <!-- 게스트용 AI 실시간 생성 로그 [방안 C] -->
-                        <div id="guest-ai-log-container" style="display: none; width: calc(100% - 40px); background: rgba(0,0,0,0.3); border: 1px dashed rgba(100,181,246,0.3); border-radius: 12px; padding: 12px; font-family: monospace; text-align: left; box-sizing: border-box; margin-top: 10px;">
-                            <div style="font-size: 0.85rem; color: #64b5f6; font-weight: bold; border-bottom: 1px solid rgba(100,181,246,0.2); padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                                <span>AI THEME GENERATION LOG</span>
-                                <span id="guest-ai-percent" style="font-weight: 800;">0%</span>
-                            </div>
-                            <div id="guest-ai-log-history" style="max-height: 100px; overflow-y: auto; font-size: 0.78rem; color: #a5d6a7; display: flex; flex-direction: column; gap: 4px; line-height: 1.4;">
-                            </div>
+                        <div class="lobby-settings-preview" id="bingo-lobby-settings-preview" style="display: none;">
                         </div>
+
                     </div>
                 </div>
 
                 <div class="player-ui">
                     <h2 id="theme-title" style="display: none;"></h2>
                     <div id="turn-display" style="display: none;"></div>
-                    <div id="turn-timer-bar"
-                        style="display: none; width: 100%; height: 40px; background: rgba(255,255,255,0.08); margin-top: 6px; margin-bottom: 10px; border-radius: 12px; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
-                        <div id="turn-timer-progress"
-                            style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #2ecc71; transition: width 0.1s linear;"></div>
-                        <span id="turn-timer-seconds"
-                            style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 1rem; font-weight: 800; color: #fff; z-index: 2; text-shadow: 0 1px 4px rgba(0,0,0,0.6); letter-spacing: 0.02em; pointer-events: none;"></span>
+                    <div id="turn-timer-bar" style="display: none; width: 100%; max-width: 480px; position: relative; margin-bottom: 8px;">
+                        <div id="turn-timer-bar-track" class="legacy-timer-track">
+                            <div id="turn-timer-progress" class="legacy-timer-progress"></div>
+                            <span id="turn-timer-seconds" class="legacy-timer-text"></span>
+                        </div>
                     </div>
                     <div id="called-numbers-display"></div>
                     <div id="bingo-board"></div>
@@ -731,7 +762,7 @@
                     </div>
 
                     <div id="input-controls" style="display: none; width: 100%; max-width: 500px; margin: 10px auto;">
-                        <div id="theme-buttons" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <div id="theme-buttons" style="display: flex; gap: 8px; margin-bottom: 10px;">
                             <button id="load-theme-btn" class="theme-btn-base"
                                 style="flex: 1; background: rgba(155, 89, 182, 0.15); border: 1px solid rgba(155, 89, 182, 0.3); color: #c39bd3; padding: 10px 5px; font-size: 0.9rem; border-radius: 12px; cursor: pointer;">📂
                                 불러오기</button>
@@ -741,6 +772,14 @@
                             <button id="auto-fill-btn" class="theme-btn-base"
                                 style="flex: 1.2; background: rgba(46, 204, 113, 0.15); border: 1px solid rgba(46, 204, 113, 0.3); color: #2ecc71; padding: 10px 5px; font-size: 0.85rem; border-radius: 12px; cursor: pointer;">⚡
                                 자동 채우기</button>
+                        </div>
+                        <div id="reroll-buttons" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                            <button id="bingo-shuffle-btn" class="theme-btn-base"
+                                style="flex: 1; background: rgba(52, 152, 219, 0.15); border: 1px solid rgba(52, 152, 219, 0.3); color: #3498db; padding: 10px 5px; font-size: 0.9rem; border-radius: 12px; cursor: pointer;">🎲
+                                셔플</button>
+                            <button id="bingo-reroll-btn" class="theme-btn-base"
+                                style="flex: 1.5; background: rgba(241, 196, 15, 0.15); border: 1px solid rgba(241, 196, 15, 0.3); color: #f1c40f; padding: 10px 5px; font-size: 0.9rem; border-radius: 12px; cursor: pointer;">🔄
+                                단어 리롤 (<span id="reroll-count-display">0/0</span>)</button>
                         </div>
                         <button id="ready-button" class="start-btn" style="width: 100%; margin-bottom: 10px;">준비
                             완료!</button>
@@ -783,7 +822,8 @@
                         </div>
                         <button class="return-lobby-btn" style="margin-bottom: 16px;">대기실로 돌아가기</button>
                         <!-- 방장용 설정 프리뷰 -->
-                        <div class="lobby-settings-preview" id="liar-host-settings-preview" style="display: none; margin-top: 16px; width: 100%;"></div>
+                        <div class="lobby-settings-preview" id="liar-host-settings-preview"
+                            style="display: none; margin-top: 16px; width: 100%;"></div>
                     </div>
                 </div>
 
@@ -801,7 +841,8 @@
                             <div class="rule-item"> <span>- 설명이 끝나면 투표로 라이어를 지목하세요</span></div>
                         </div>
                         <!-- 실시간 대기실 설정 프리뷰 [방안 A] -->
-                        <div class="lobby-settings-preview" id="liar-lobby-settings-preview" style="display: none;"></div>
+                        <div class="lobby-settings-preview" id="liar-lobby-settings-preview" style="display: none;">
+                        </div>
                     </div>
                 </div>
 
@@ -819,7 +860,7 @@
                     <input type="hidden" id="bomb-show-timer" value="true">
                     <input type="hidden" id="bomb-timer-range" value="medium">
                     <div class="host-setup-glass">
-                        <h3>폭탄 돌리기 설정</h3>
+                        <h3>폭탄 돌리기 게임 설정</h3>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
                             <button id="open-settings-bomb" class="start-btn settings-open-btn">⚙️ 게임 설정</button>
                             <button id="start-game-bomb" class="start-btn" style="background-color: #e67e22;">게임
@@ -827,7 +868,8 @@
                         </div>
                         <button class="return-lobby-btn" style="margin-bottom: 16px;">대기실로 돌아가기</button>
                         <!-- 방장용 설정 프리뷰 -->
-                        <div class="lobby-settings-preview" id="bomb-host-settings-preview" style="display: none; margin-top: 16px; width: 100%;"></div>
+                        <div class="lobby-settings-preview" id="bomb-host-settings-preview"
+                            style="display: none; margin-top: 16px; width: 100%;"></div>
                     </div>
                 </div>
 
@@ -845,7 +887,8 @@
                             <div class="rule-item"><span>- 시간 안에 단어를 못 말하면 폭발! 패배합니다</span></div>
                         </div>
                         <!-- 실시간 대기실 설정 프리뷰 [방안 A] -->
-                        <div class="lobby-settings-preview" id="bomb-lobby-settings-preview" style="display: none;"></div>
+                        <div class="lobby-settings-preview" id="bomb-lobby-settings-preview" style="display: none;">
+                        </div>
                     </div>
                 </div>
 
@@ -920,7 +963,8 @@
                 </div>
                 <div id="chat-history" class="chat-history"></div>
                 <form id="chat-form" action="">
-                    <textarea id="chat-input" class="chat-input" autocomplete="off" placeholder="채팅을 입력하세요..."></textarea>
+                    <textarea id="chat-input" class="chat-input" autocomplete="off"
+                        placeholder="채팅을 입력하세요..."></textarea>
                     <button type="submit" class="chat-send-btn"><i class="fas fa-paper-plane"></i></button>
                 </form>
             </div>
@@ -1037,6 +1081,28 @@
                     style="flex: 1; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); transition: all 0.2s;"
                     onmouseover="this.style.transform='translateY(-2px)'"
                     onmouseout="this.style.transform='translateY(0)'">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 테마 불러오기 모달 -->
+    <div id="theme-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px; padding: 25px; border-radius: 20px;">
+            <span class="close-modal" style="font-size: 1.5rem; float: right; cursor: pointer; color: rgba(255,255,255,0.5);" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">&times;</span>
+            <h2 style="color: #fffffe; margin-top: 0; margin-bottom: 20px; font-weight: 800; font-size: 1.3rem;">📂 테마 불러오기</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #fd79a8; font-size: 0.95rem; margin-bottom: 8px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">추천 기본 테마</h3>
+                <ul id="system-theme-list" class="theme-list" style="list-style: none; padding: 0; margin: 0; max-height: 180px; overflow-y: auto;">
+                    <!-- System themes injected here -->
+                </ul>
+            </div>
+            
+            <div>
+                <h3 style="color: #9b59b6; font-size: 0.95rem; margin-bottom: 8px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">내가 저장한 커스텀 테마</h3>
+                <ul id="my-theme-list" class="theme-list" style="list-style: none; padding: 0; margin: 0; max-height: 180px; overflow-y: auto;">
+                    <!-- Custom themes injected here -->
+                </ul>
             </div>
         </div>
     </div>

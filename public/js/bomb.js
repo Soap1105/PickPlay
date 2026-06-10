@@ -87,7 +87,8 @@
     };
 
     window.renderBombUsers = function (users) {
-        currentBombUsers = users;
+        const finalUsers = (users && users.length > 0) ? users : (window.roomPlayers || []);
+        currentBombUsers = finalUsers;
         const arenaPlayers = document.getElementById('bomb-arena-players');
         if (!arenaPlayers) return;
         arenaPlayers.innerHTML = '';
@@ -95,8 +96,8 @@
         const radius = 180; // px
         const isGameActive = window.currentBombTurnId !== undefined && window.currentBombTurnId !== null;
 
-        users.forEach((user, index) => {
-            const pos = getCirclePosition(index, users.length, radius);
+        finalUsers.forEach((user, index) => {
+            const pos = getCirclePosition(index, finalUsers.length, radius);
             const slot = document.createElement('div');
             slot.className = 'arena-player-slot';
             slot.dataset.playerId = user.id;
@@ -223,7 +224,7 @@
                 selectedTargetId = targetId;
             }
 
-            if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
+            if (window.renderBombUsers) window.renderBombUsers(window.roomPlayers);
         });
     }
 
@@ -232,7 +233,7 @@
         window.bombHearts = hearts;
         bombMaxHearts = data.maxHearts || 3;
         updateBombScoreboard(hearts);
-        if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
+        if (window.renderBombUsers) window.renderBombUsers(window.roomPlayers);
     });
 
     function updateBombScoreboard(hearts) {
@@ -335,7 +336,7 @@
         }
         window.currentBombTurnId = data.currentTurnId;
         updateTurnInternal(data.currentTurnId);
-        if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
+        if (window.renderBombUsers) window.renderBombUsers(window.roomPlayers);
     });
 
     socket.on('bomb timer tick', (data) => {
@@ -378,7 +379,7 @@
         const { nextTurnId } = data;
         window.currentBombTurnId = nextTurnId;
         updateTurnInternal(nextTurnId);
-        if (window.renderBombUsers) window.renderBombUsers(currentBombUsers);
+        if (window.renderBombUsers) window.renderBombUsers(window.roomPlayers);
     });
 
     socket.on('bomb invalid word', (msg) => {

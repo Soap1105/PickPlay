@@ -1,5 +1,6 @@
 const { AVATARS, getSortedUserList, updateReadyStatus } = require('./utils');
 const bingoHelpers = require('./bingoHelpers');
+const themeController = require('../controllers/themeController');
 
 const MAX_PLAYERS = 8;
 
@@ -20,6 +21,8 @@ module.exports = (io, socket, gameRooms) => {
                 lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {},
                 emojiCooldowns: {},
                 clientIds: {}, // clientId → socketId 매핑
+                hostClientId: clientId || null, // [Bug Fix] 방장 clientId 보존 (타이머 만료 후 방장 복원용)
+                pendingDisconnects: 0, // [Bug Fix] 전원 새로고침 시 방 조기 삭제 방지 카운터
                 // 기본 게임 설정값 초기화
                 bingoSettings: { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
                 liarSettings: { winTarget: 3, selectedCategories: [] },
@@ -32,25 +35,18 @@ module.exports = (io, socket, gameRooms) => {
         // clientIds가 없는 기존 방 호환성 처리
         if (!room.clientIds) room.clientIds = {};
 
-        if (room.status !== 'WAITING') {
-            socket.emit('join failed', '이미 게임이 진행 중입니다.');
-            return;
-        }
-
-        if (Object.keys(room.players).length >= MAX_PLAYERS) {
-            socket.emit('room full', '방이 꽉 찼습니다. (최대 8명)');
-            return;
-        }
-
-        // [세션 복구 및 중복 접속 처리] 같은 clientId가 이미 방에 존재하는 경우
+        // [Bug Fix] 세션 복구는 status 체크보다 반드시 먼저 실행
+        // INPUTTING/PLAYING 중에도 기존 유저의 재접속을 허용해야 유령 방 생성을 막을 수 있음
         if (clientId && room.clientIds[clientId]) {
             const oldSocketId = room.clientIds[clientId];
             const oldPlayer = room.players[oldSocketId];
             if (oldPlayer) {
                 // 기존 disconnect 유예 타이머가 있다면 즉시 해제 (새로고침 재접속 성공)
-                if (oldPlayer.disconnectTimeout) {
-                    clearTimeout(oldPlayer.disconnectTimeout);
-                    delete oldPlayer.disconnectTimeout;
+                if (room.disconnectTimeouts && room.disconnectTimeouts[oldSocketId]) {
+                    clearTimeout(room.disconnectTimeouts[oldSocketId]);
+                    delete room.disconnectTimeouts[oldSocketId];
+                    // [Bug Fix] 타이머 취소됐으므로 pendingDisconnects 카운터 감소
+                    room.pendingDisconnects = Math.max(0, (room.pendingDisconnects || 0) - 1);
                 }
 
                 // 기존 구 소켓이 아직 살아있다면 명시적 정리
@@ -75,9 +71,15 @@ module.exports = (io, socket, gameRooms) => {
                 // joinOrder에 기록된 소켓 ID 교체
                 room.joinOrder = room.joinOrder.map(id => id === oldSocketId ? socket.id : id);
 
+                // [Bug Fix] turnOrder에 기록된 소켓 ID도 교체 (PLAYING 중 복구 시 필수)
+                if (room.turnOrder && room.turnOrder.length > 0) {
+                    room.turnOrder = room.turnOrder.map(id => id === oldSocketId ? socket.id : id);
+                }
+
                 // 방장 권한 복구 및 갱신
                 if (room.hostId === oldSocketId) {
                     room.hostId = socket.id;
+                    room.hostClientId = clientId; // [Bug Fix] hostClientId도 동기화
                 }
 
                 socket.join(roomId);
@@ -104,14 +106,36 @@ module.exports = (io, socket, gameRooms) => {
                 io.to(roomId).emit('update user list', getSortedUserList(room));
                 updateReadyStatus(io, room, roomId);
                 io.to(roomId).emit('system message', `🔄 ${oldPlayer.name}님이 재접속하셨습니다.`);
+
+                // [Bug Fix #7] AI 주제 생성 중 이탈/재입장 시 진행 상황 복구
+                if (themeController.ACTIVE_GENERATIONS && themeController.ACTIVE_GENERATIONS[roomId]) {
+                    socket.emit('theme progress', themeController.ACTIVE_GENERATIONS[roomId]);
+                }
                 return;
             }
         }
+
+        // 신규 플레이어만 WAITING 상태 체크 (세션 복구는 위에서 처리됨)
+        if (room.status !== 'WAITING') {
+            socket.emit('join failed', '이미 게임이 진행 중입니다.');
+            return;
+        }
+
+        if (Object.keys(room.players).length >= MAX_PLAYERS) {
+            socket.emit('room full', '방이 꽉 찼습니다. (최대 8명)');
+            return;
+        }
+
         if (clientId) room.clientIds[clientId] = socket.id;
 
         socket.join(roomId);
         socket.roomId = roomId;
         socket.clientId = clientId;
+
+        // [Bug Fix] 1.5초 타이머 만료 후 재접속한 기존 방장 복원 (hostClientId 매칭)
+        if (clientId && room.hostClientId === clientId) {
+            room.hostId = socket.id;
+        }
 
         room.players[socket.id] = {
             id: socket.id, board: [], ready: false, name: nickname,
@@ -143,6 +167,11 @@ module.exports = (io, socket, gameRooms) => {
         io.to(roomId).emit('update user list', getSortedUserList(room));
         updateReadyStatus(io, room, roomId);
         io.to(roomId).emit('system message', `👋 ${nickname}님이 입장하셨습니다.`);
+
+        // [Bug Fix #7] AI 주제 생성 중 이탈/재입장 시 진행 상황 복구
+        if (themeController.ACTIVE_GENERATIONS && themeController.ACTIVE_GENERATIONS[roomId]) {
+            socket.emit('theme progress', themeController.ACTIVE_GENERATIONS[roomId]);
+        }
     });
 
     socket.on('chat message', (msgData) => {
@@ -355,8 +384,20 @@ module.exports = (io, socket, gameRooms) => {
             const player = room.players[oldSocketId];
             if (!player) return;
 
+            // [Bug Fix] 퇴장 대기 카운터 증가 (타이머 만료 전까지 방 삭제 방지)
+            room.pendingDisconnects = (room.pendingDisconnects || 0) + 1;
+
             // 1.5초 세션 복구 대기 타이머 가동
-            player.disconnectTimeout = setTimeout(() => {
+            if (!room.disconnectTimeouts) room.disconnectTimeouts = {};
+            room.disconnectTimeouts[oldSocketId] = setTimeout(() => {
+                // [Bug Fix] 타이머 만료 시 카운터 감소
+                room.pendingDisconnects = Math.max(0, (room.pendingDisconnects || 0) - 1);
+
+                // 타이머 정리
+                if (room.disconnectTimeouts) {
+                    delete room.disconnectTimeouts[oldSocketId];
+                }
+
                 // 1.5초 유예시간이 끝났을 때만 완전한 퇴장 처리 수행
                 if (!gameRooms[roomId] || !room.players[oldSocketId]) return;
 
@@ -370,6 +411,19 @@ module.exports = (io, socket, gameRooms) => {
                 room.joinOrder = room.joinOrder.filter(id => id !== oldSocketId);
 
                 io.to(roomId).emit('system message', `💨 ${leavingPlayerName}님이 퇴장하셨습니다.`);
+
+                // 방장 위임 처리 (인원 부족 강제 종료 전 먼저 위임 진행)
+                if (oldSocketId === room.hostId && gameRooms[roomId]) {
+                    const remaining = Object.keys(room.players);
+                    if (remaining.length > 0) {
+                        room.hostId = remaining[0];
+                        room.hostClientId = null;
+                        const newHostClientId = Object.keys(room.clientIds || {}).find(cid => room.clientIds[cid] === room.hostId);
+                        if (newHostClientId) room.hostClientId = newHostClientId;
+                        io.to(room.hostId).emit('role update', { isHost: true });
+                        io.to(roomId).emit('system message', `👑 방장이 ${room.players[room.hostId].name}님으로 변경되었습니다.`);
+                    }
+                }
 
                 const remainingPlayers = Object.keys(room.players);
 
@@ -430,18 +484,8 @@ module.exports = (io, socket, gameRooms) => {
 
                 io.to(roomId).emit('update user list', getSortedUserList(room));
                 
-                // 방장 위임 처리
-                if (oldSocketId === room.hostId && gameRooms[roomId]) {
-                    const remaining = Object.keys(room.players);
-                    if (remaining.length > 0) {
-                        room.hostId = remaining[0];
-                        io.to(room.hostId).emit('role update', { isHost: true });
-                        io.to(roomId).emit('system message', `👑 방장이 ${room.players[room.hostId].name}님으로 변경되었습니다.`);
-                    }
-                }
-                
-                // 방에 아무도 없으면 메모리에서 방 해제
-                if (Object.keys(room.players).length === 0) {
+                // [Bug Fix] pendingDisconnects가 0일 때만 방 해제 (전원 타이머 완료 확인)
+                if (Object.keys(room.players).length === 0 && (room.pendingDisconnects || 0) === 0) {
                     if (room.numberInterval) clearInterval(room.numberInterval);
                     if (room.voteTimer) clearInterval(room.voteTimer);
                     delete gameRooms[roomId];

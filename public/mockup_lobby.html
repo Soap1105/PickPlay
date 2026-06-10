@@ -881,7 +881,7 @@
                             <div class="lobby-game-card bomb-card" onclick="selectGame('bomb')">
                                 <div class="game-icon-circle" style="color:#d35400;">💣</div>
                                 <div class="game-meta">
-                                    <div class="game-title-text" style="color:#fdcb6e;">주제 폭탄돌리기</div>
+                                    <div class="game-title-text" style="color:#fdcb6e;">폭탄 돌리기 게임</div>
                                     <div class="game-desc-text">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
                                     <span class="game-tag-badge">2인 이상</span>
                                 </div>
@@ -1134,7 +1134,7 @@
                     <span class="preview-badge"><i class="fas fa-tags"></i> 카테고리: <strong style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${settings.selectedCategories.join(', ')}</strong></span>
                 `;
             } else if (game === 'bomb') {
-                titleEl.innerHTML = '💣 주제 폭탄돌리기 대기방';
+                titleEl.innerHTML = '💣 폭탄 돌리기 게임 대기방';
                 waitingPanel.style.borderTopColor = '#e67e22';
                 const settings = cachedSettings.bomb;
                 const timerText = settings.timerRange === 'short' ? '짧게' : (settings.timerRange === 'long' ? '길게' : '보통');
@@ -1217,7 +1217,7 @@
                     </div>
                 `;
             } else if (game === 'bomb') {
-                modalTitle.textContent = '⚙️ 폭탄돌리기 설정';
+                modalTitle.textContent = '⚙️ 폭탄 돌리기 게임 설정';
                 const settings = cachedSettings.bomb;
                 modalFields.innerHTML = `
                     <div>

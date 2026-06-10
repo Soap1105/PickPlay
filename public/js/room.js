@@ -52,10 +52,10 @@ socket.on('role update', (data) => {
     const startBtn = document.getElementById('integrated-start-btn');
     const settingsBtn = document.getElementById('integrated-settings-btn');
     const returnBtn = document.getElementById('integrated-return-btn');
-    
+
     const selectorPanel = document.getElementById('lobby-game-selector-panel');
     const guestWaitingPanel = document.getElementById('lobby-guest-waiting-panel');
-    
+
     if (isHost) {
         if (selectorPanel) selectorPanel.style.display = 'flex';
         if (guestWaitingPanel) guestWaitingPanel.style.display = 'none';
@@ -67,7 +67,7 @@ socket.on('role update', (data) => {
         });
         if (guideTitle) guideTitle.innerHTML = `<i class="fas fa-lightbulb"></i> 대기실 가이드`;
         if (guideText) guideText.textContent = "원하는 게임을 클릭하면 즉시 방 생성 및 세부 설정 화면으로 전환됩니다.";
-        
+
         // 방장 액션 노출
         if (startBtn) startBtn.style.display = 'flex';
         if (settingsBtn) settingsBtn.style.display = 'flex';
@@ -83,7 +83,7 @@ socket.on('role update', (data) => {
         });
         if (guideTitle) guideTitle.innerHTML = `<i class="fas fa-clock"></i> 대기 중...`;
         if (guideText) guideText.textContent = "방장이 게임을 선택하면 대기방으로 함께 이동합니다. 우측에서 채팅을 나누며 기다리세요!";
-        
+
         // 게스트 액션 노출 제한
         if (startBtn) startBtn.style.display = 'none';
         if (settingsBtn) settingsBtn.style.display = 'none';
@@ -95,10 +95,10 @@ socket.on('role update', (data) => {
         const stageWaiting = document.getElementById('waiting-stage');
         if (stageSelection) stageSelection.style.display = 'flex';
         if (stageWaiting) stageWaiting.style.display = 'none';
-        
+
         document.body.classList.add('in-lobby');
     }
-    
+
     // Trigger role update in specific games if they are active
     if (window.gameType === 'bingo' && window.updateBingoRoleUI) {
         window.updateBingoRoleUI(isHost);
@@ -112,6 +112,7 @@ socket.on('role update', (data) => {
 });
 
 socket.on('update user list', (users) => {
+    window.roomPlayers = users; // 전역 스토어 캐시 보존
     // 룸 ID 복사 텍스트 업데이트
     const roomIdEl = document.getElementById('lobby-room-id-display');
     if (roomIdEl && window.roomId) {
@@ -119,11 +120,11 @@ socket.on('update user list', (users) => {
     }
 
     const isGamePlaying = document.getElementById('game-container').classList.contains('game-active');
-    
+
     if (isGamePlaying) {
         // 인게임 진행 중일 때는 원래 기존 참여자 목록/사이드바 렌더러 동작
         document.body.classList.remove('in-lobby');
-        
+
         if (window.gameType === 'bingo' && window.renderBingoUsers) {
             window.renderBingoUsers(users, isHost);
             return;
@@ -157,7 +158,7 @@ returnLobbyBtns.forEach(btn => {
         if (!isHost) return;
         // bomb.js에 자체 핸들러가 있으므로 중복 방지
         if (window.gameType === 'bomb') return;
-        
+
         socket.emit('return to lobby');
     });
 });
@@ -165,7 +166,7 @@ returnLobbyBtns.forEach(btn => {
 // =============================================
 //  게스트 대기실 파티클 + 팁 로테이션
 // =============================================
-(function() {
+(function () {
     // --- 배경 파티클 생성 ---
     const particleContainer = document.getElementById('gw-particles');
     if (particleContainer) {
@@ -243,7 +244,7 @@ socket.on('game changed', (newGameType) => {
 
     // 대기방 상태로 돌려놓기 (항상 lobby-container를 먼저 보여줌)
     showContainer('lobby-container');
-    
+
     const stageSelection = document.getElementById('selection-stage');
     const stageWaiting = document.getElementById('waiting-stage');
 
@@ -256,19 +257,19 @@ socket.on('game changed', (newGameType) => {
     });
 
     if (newGameType === 'lobby') {
-        stylesheetLink.href = ""; 
+        stylesheetLink.href = "";
         document.getElementById('game-title').textContent = "PickPlay 대기실";
-        
+
         if (stageSelection) stageSelection.style.display = 'flex';
         if (stageWaiting) stageWaiting.style.display = 'none';
-        
+
         // 대기실 진입 시 이모지 팔레트 표시
         emojiSetLobbyMode(true);
     } else {
         // 게임 대기방 단계
         if (stageSelection) stageSelection.style.display = 'none';
         if (stageWaiting) stageWaiting.style.display = 'flex';
-        
+
         // 대기실 헤더 텍스트 변경
         const waitingTitleEl = document.getElementById('waiting-game-title');
         if (newGameType === 'bingo') {
@@ -284,16 +285,16 @@ socket.on('game changed', (newGameType) => {
             gameContainer.classList.add('game-active-liar');
             if (window.initLiarUI) window.initLiarUI(isHost);
         } else if (newGameType === 'bomb') {
-            stylesheetLink.href = ""; 
-            document.getElementById('game-title').textContent = "폭탄 돌리기 대기방";
-            if (waitingTitleEl) waitingTitleEl.innerHTML = `💣 주제 폭탄돌리기 대기방`;
+            stylesheetLink.href = "";
+            document.getElementById('game-title').textContent = "폭탄 돌리기 게임 대기방";
+            if (waitingTitleEl) waitingTitleEl.innerHTML = `💣 폭탄 돌리기 게임 대기방`;
             gameContainer.classList.add('game-active-bomb');
             if (window.initBombUI) window.initBombUI(isHost);
         }
-        
+
         // 프리뷰 렌더링 호출
         updateIntegratedLobbySettingsPreview(newGameType);
-        
+
         // 게임 대기실에서는 팔레트 표시 유지
         emojiSetLobbyMode(true);
     }
@@ -425,13 +426,13 @@ function renderPlayerMatrix(users) {
             const isMe = user.id === socket.id;
             const isUserHost = users[0] && users[0].id === user.id;
             const isReady = user.isReady || isUserHost; // 방장은 기본 ready로 간주
-            
+
             let crownHtml = isUserHost ? `<i class="fas fa-crown host-crown" style="color: #f1c40f;"></i>` : '';
             let borderStyle = isUserHost ? `border-color: #f1c40f;` : '';
-            
+
             let badgeClass = '';
             let badgeText = '';
-            
+
             // [이슈 26] 아직 결과를 확인하지 않은 경우 대기방 배지에 표시
             if (user.confirmedResult === false) {
                 badgeClass = 'badge-unconfirmed';
@@ -440,7 +441,7 @@ function renderPlayerMatrix(users) {
                 badgeClass = isReady ? 'badge-ready' : 'badge-waiting';
                 badgeText = isUserHost ? '방장' : (isReady ? '준비 완료' : '대기 중...');
             }
-            
+
             // 강퇴 버튼 (방장이고 내가 아닌 다른 타인 카드일 때) + 강퇴 전 경고창 confirm 추가
             let kickHtml = (isHost && !isMe) ? `<div class="slot-kick-btn" onclick="window.confirmKick('${user.id}', '${user.name.replace(/'/g, "\\'")}')">✕</div>` : '';
 
@@ -461,7 +462,7 @@ function renderPlayerMatrix(users) {
 
     if (lobbyMatrix) lobbyMatrix.innerHTML = html;
     if (waitingMatrix) waitingMatrix.innerHTML = html;
-    
+
     const countText = `참가: ${users.length} / 8`;
     if (lobbyCount) lobbyCount.textContent = countText;
     if (waitingCount) waitingCount.textContent = countText;
@@ -473,7 +474,7 @@ socket.on('lobby settings updated', (data) => {
         if (data.bingo) latestSettings.bingo = data.bingo;
         if (data.liar) latestSettings.liar = data.liar;
         if (data.bomb) latestSettings.bomb = data.bomb;
-        
+
         // 현재 특정 대기방 상태라면 통합 프리뷰 리렌더링
         if (window.gameType && window.gameType !== 'lobby') {
             updateIntegratedLobbySettingsPreview(window.gameType);
@@ -501,8 +502,8 @@ function updateIntegratedLobbySettingsPreview(gameType) {
         `;
     } else if (gameType === 'liar') {
         const settings = latestSettings.liar;
-        const categories = (settings.selectedCategories && settings.selectedCategories.length > 0) 
-            ? settings.selectedCategories.join(', ') 
+        const categories = (settings.selectedCategories && settings.selectedCategories.length > 0)
+            ? settings.selectedCategories.join(', ')
             : '전체 랜덤';
         html = `
             <span class="preview-badge"><i class="fas fa-trophy"></i> 목표 승수: <strong>${settings.winTarget}승</strong></span>
@@ -594,7 +595,7 @@ if (document.readyState === 'loading') {
 }
 
 // 방장 대기방 유저 강퇴 확인창 헬퍼 함수
-window.confirmKick = function(targetId, targetName) {
+window.confirmKick = function (targetId, targetName) {
     if (window.showConfirm) {
         window.showConfirm(`${targetName}님을 강퇴하시겠습니까?`, () => {
             socket.emit('kick user', targetId);

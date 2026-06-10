@@ -225,7 +225,7 @@
             const hShowTimerStr = document.getElementById('bomb-show-timer')?.value || 'true';
             const showTimerChecked = (hShowTimerStr === 'true');
 
-            modalTitle.textContent = '폭탄 돌리기 설정';
+            modalTitle.textContent = '폭탄 돌리기 게임 설정';
             modalBody.innerHTML = `
                 <div class="smodal-section">
                     <label class="smodal-label">시작 목숨</label>

@@ -26,9 +26,21 @@ function getSortedUserList(room) {
         ? room.turnOrder
         : room.joinOrder;
 
-    return orderArray
+    const list = orderArray
         .filter(id => room.players[id])
-        .map(id => room.players[id]);
+        .map(id => {
+            const p = { ...room.players[id] };
+            delete p.disconnectTimeout;
+            return p;
+        });
+
+    // [Bug Fix] 방장을 항상 index 0으로 보장 (크라운 표시 위치 오류 방지)
+    const hostIdx = list.findIndex(p => p.id === room.hostId);
+    if (hostIdx > 0) {
+        const [host] = list.splice(hostIdx, 1);
+        list.unshift(host);
+    }
+    return list;
 }
 
 function updateReadyStatus(io, room, roomId) {

@@ -36,6 +36,9 @@
     const myThemeList = document.getElementById('my-theme-list');
     const closeModal = document.querySelector('.close-modal');
     const autoFillBtn = document.getElementById('auto-fill-btn');
+    const shuffleBtn = document.getElementById('bingo-shuffle-btn');
+    const rerollBtn = document.getElementById('bingo-reroll-btn');
+    const rerollCountDisplay = document.getElementById('reroll-count-display');
 
     const themeTopicInput = document.getElementById('theme-topic-input');
     const turnTimeLimitSelect = document.getElementById('turn-time-limit');
@@ -73,6 +76,10 @@
     let isGameStarted = false;
     let isMyReady = false;
     let currentProgressMap = {};
+    let currentThemeWords = [];
+    let rerollCount = 0;
+    let maxRerollLimit = 0;
+    let isRerollMode = false;
     let currentTurnPlayerName = "";
     let currentTurnId = "";
     let myUsedEventCount = 0;
@@ -85,6 +92,13 @@
     let popupActive = false;
     let lockedWords = {}; // [유령의 장난] 잠긴 단어 관리
     let lastBingoSettings = { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true };
+
+    let myIgnoredNumbers = [];
+    function getActiveCalledNumbers() {
+        const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
+        const ignoreSet = new Set(myIgnoredNumbers.map(normalize));
+        return calledNumbers.filter(num => !ignoreSet.has(normalize(num)));
+    }
 
     function getUserId() {
         let userId = localStorage.getItem('bingo_user_id');
@@ -161,7 +175,8 @@
         users.forEach(user => {
             if (user.id === socket.id) {
                 myUsedEventCount = user.usedEventCount || 0;
-                updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
+                myIgnoredNumbers = user.ignoredNumbers || [];
+                updateBingoActionButtons(checkBingoLines(myBoard, getActiveCalledNumbers()));
             }
 
             const card = document.createElement('div');
@@ -344,9 +359,10 @@
             }
         });
 
+        const activeNums = getActiveCalledNumbers();
         cells.forEach(cell => {
             const word = cell.dataset.word;
-            const isCalled = calledNumbers.some(num => normalize(num) === normalize(word));
+            const isCalled = activeNums.some(num => normalize(num) === normalize(word));
             if (isCalled) cell.classList.add('checked');
             else cell.classList.remove('checked');
             cell.classList.remove('bingo-completed');
@@ -362,7 +378,7 @@
             }
         });
 
-        const { count, lines } = getBingoLines(myBoard, calledNumbers);
+        const { count, lines } = getBingoLines(myBoard, activeNums);
         const stampedIndices = new Set();
 
         lines.forEach(lineIndices => {
@@ -387,10 +403,10 @@
 
     function getCellFontSize(word) {
         const len = String(word).length;
-        if (len <= 4)  return '1.1rem';
-        if (len <= 6)  return '0.95rem';
-        if (len <= 9)  return '0.82rem';
-        return '0.7rem';
+        if (len <= 4) return '4.2cqw';
+        if (len <= 6) return '3.6cqw';
+        if (len <= 9) return '3.1cqw';
+        return '2.6cqw';
     }
 
     function renderBoard(boardData) {
@@ -413,6 +429,11 @@
                     return;
                 }
                 if (calledNumbers.includes(word)) {
+                    // [블랙홀 격리 복구] 격리 기간 동안 무시되었던 단어인 경우 마킹 복원 허용
+                    if (myIgnoredNumbers.includes(word)) {
+                        socket.emit('theme word selected', { roomId: window.roomId, word });
+                        return;
+                    }
                     if (window.showToast) window.showToast("이미 선택된 단어입니다.", "warning");
                     else alert("이미 선택된 단어입니다.");
                     return;
@@ -463,15 +484,24 @@
         const words = [];
         let isAllFilled = true;
         inputs.forEach(input => {
-            const val = input.value.trim() || input.placeholder;
-            if (!val) isAllFilled = false;
+            const val = (input.value || '').trim() || (input.placeholder || '').trim();
+            if (!val || val.startsWith('단어 ')) isAllFilled = false;
             words.push(val);
         });
         if (!isAllFilled) {
-            if (window.showToast) window.showToast("모든 칸을 채운 뒤 저장해주세요.", "warning");
-            else alert("모든 칸을 채운 뒤 저장해주세요.");
+            if (window.showToast) window.showToast("모든 칸을 진짜 단어로 채운 뒤 저장해주세요.", "warning");
+            else alert("모든 칸을 진짜 단어로 채운 뒤 저장해주세요.");
             return;
         }
+        
+        // 단어 유효성 검사 (특수문자만 있거나 공백 단어 방지)
+        const invalidWord = words.find(w => !w.trim() || /^[!@#$%^&*(),.?":{}|<>+=\-_'~` ]+$/.test(w));
+        if (invalidWord) {
+            if (window.showToast) window.showToast(`유효하지 않은 단어가 있습니다: '${invalidWord}'`, "warning");
+            else alert(`유효하지 않은 단어가 있습니다: '${invalidWord}'`);
+            return;
+        }
+
         const duplicates = getDuplicates(words);
         if (duplicates.length > 0) {
             const msg = `중복된 단어: ${duplicates.join(', ')}`;
@@ -479,8 +509,38 @@
             else alert(msg);
             return;
         }
-        const title = prompt("테마 제목 입력:");
+        
+        let title = prompt("테마 제목 입력 (최대 20자):");
         if (!title) return;
+        title = title.trim();
+        if (title.length > 20) {
+            if (window.showToast) window.showToast("테마 제목은 최대 20자까지 가능합니다.", "warning");
+            else alert("테마 제목은 최대 20자까지 가능합니다.");
+            return;
+        }
+        if (/^[!@#$%^&*(),.?":{}|<>+=\-_'~` ]+$/.test(title)) {
+            if (window.showToast) window.showToast("유효한 제목을 입력해 주세요.", "warning");
+            return;
+        }
+
+        // 로컬 스토리지 저장 헬퍼
+        const saveLocal = () => {
+            let localThemes = [];
+            try {
+                localThemes = JSON.parse(localStorage.getItem('my_local_themes')) || [];
+            } catch (e) {
+                localThemes = [];
+            }
+            localThemes.push({
+                id: 'local_' + Date.now(),
+                title: title,
+                words: words,
+                creator: 'Local',
+                created_at: new Date().toISOString()
+            });
+            localStorage.setItem('my_local_themes', JSON.stringify(localThemes));
+        };
+
         try {
             const res = await fetch('/api/themes', {
                 method: 'POST',
@@ -488,17 +548,55 @@
                 body: JSON.stringify({ title, words, userId: myUserId })
             });
             if (res.ok) {
-                if (window.showToast) window.showToast("저장되었습니다!", "success");
+                if (window.showToast) window.showToast("서버 DB에 저장되었습니다!", "success");
                 else alert("저장되었습니다!");
             } else {
-                if (window.showToast) window.showToast("저장 실패", "error");
-                else alert("저장 실패");
+                // DB 저장 실패 시 로컬 스토리지 Fallback 저장
+                saveLocal();
+                if (window.showToast) window.showToast("서버 저장 실패: 로컬 브라우저에 저장 완료!", "success");
+                else alert("로컬에 저장 완료!");
             }
         } catch (e) {
-            if (window.showToast) window.showToast("오류 발생", "error");
-            else alert("오류 발생");
+            // DB 연결 불가능 시 로컬 스토리지 Fallback 저장
+            saveLocal();
+            if (window.showToast) window.showToast("네트워크 연결 실패: 로컬 브라우저에 저장 완료!", "success");
+            else alert("로컬에 저장 완료!");
         }
     });
+
+    // AI 생성 로딩 모달 취소 버튼 이벤트 바인딩
+    const loadingCancelBtn = document.getElementById('ai-loading-cancel-btn');
+    if (loadingCancelBtn) {
+        loadingCancelBtn.addEventListener('click', () => {
+            if (!amIHost) return; // 방장만 취소 가능
+
+            if (confirm("주제 단어 생성을 취소하시겠습니까?")) {
+                window.isFetchingTheme = false;
+
+                // 서버에 취소 소켓 전송
+                socket.emit('cancel theme generation');
+
+                // 호스트 UI 컨트롤 복구
+                const themeInput = document.getElementById('theme-topic-input');
+                const startGameBtn = document.getElementById('start-game-bingo');
+
+                if (window.aiCooldownInterval) {
+                    clearInterval(window.aiCooldownInterval);
+                    window.aiCooldownInterval = null;
+                }
+                window.aiCooldownEndTime = null;
+
+                if (startGameBtn) {
+                    startGameBtn.textContent = "게임 시작";
+                    startGameBtn.disabled = false;
+                }
+                if (themeInput) themeInput.disabled = false;
+
+                resetAILoader();
+                if (window.showToast) window.showToast("단어 생성이 취소되었습니다.", "info");
+            }
+        });
+    }
 
     readyButton.addEventListener('click', () => {
         if (isMyReady) {
@@ -513,6 +611,9 @@
             document.querySelectorAll('.board-input').forEach(input => {
                 input.disabled = false;
             });
+
+            // [리롤 & 셔플 연동] 준비 해제 시 버튼 복원
+            updateRerollUI();
 
             return;
         }
@@ -540,6 +641,17 @@
             return;
         }
 
+        // [리롤 & 셔플 연동] 준비 완료 시 리롤 모드 해제 및 버튼 비활성화
+        isRerollMode = false;
+        if (rerollBtn) {
+            rerollBtn.classList.remove('reroll-active');
+            rerollBtn.disabled = true;
+        }
+        if (shuffleBtn) {
+            shuffleBtn.disabled = true;
+        }
+        inputs.forEach(input => input.classList.remove('rerollable'));
+
         isMyReady = true;
         readyButton.textContent = "준비 해제";
         readyButton.style.background = "linear-gradient(135deg, #ff7675, #ee5253)";
@@ -557,15 +669,69 @@
         });
     });
 
+    if (shuffleBtn) {
+        shuffleBtn.addEventListener('click', () => {
+            if (isMyReady) return;
+            
+            const inputs = document.querySelectorAll('.board-input');
+            const words = [];
+            inputs.forEach(input => words.push(input.value.trim()));
+            
+            const shuffled = [...words].sort(() => Math.random() - 0.5);
+            inputs.forEach((input, index) => {
+                input.value = shuffled[index] || '';
+            });
+            
+            if (window.showToast) window.showToast("빙고판 배치가 섞였습니다!", "info");
+        });
+    }
+
+    if (rerollBtn) {
+        rerollBtn.addEventListener('click', () => {
+            if (isMyReady) return;
+            if (maxRerollLimit <= 0 || rerollCount >= maxRerollLimit) {
+                if (window.showToast) window.showToast("리롤을 더 이상 사용할 수 없습니다.", "warning");
+                return;
+            }
+            
+            isRerollMode = !isRerollMode;
+            const inputs = document.querySelectorAll('.board-input');
+            
+            if (isRerollMode) {
+                rerollBtn.classList.add('reroll-active');
+                inputs.forEach(input => input.classList.add('rerollable'));
+                if (window.showToast) window.showToast("교체할 빙고 칸을 선택하세요!", "info");
+            } else {
+                rerollBtn.classList.remove('reroll-active');
+                inputs.forEach(input => input.classList.remove('rerollable'));
+            }
+        });
+    }
+
     async function loadThemes() {
         if (systemThemeList) systemThemeList.innerHTML = '<li>로딩 중...</li>';
         if (myThemeList) myThemeList.innerHTML = '<li>로딩 중...</li>';
+
+        let localThemes = [];
         try {
-            const res = await fetch(`/api/themes?userId=${myUserId}`);
-            const themes = await res.json();
+            localThemes = JSON.parse(localStorage.getItem('my_local_themes')) || [];
+        } catch (e) {
+            localThemes = [];
+        }
+
+        const renderThemesList = (themes) => {
             if (systemThemeList) systemThemeList.innerHTML = '';
             if (myThemeList) myThemeList.innerHTML = '';
-            themes.forEach(theme => {
+
+            // DB 테마 목록에 로컬 스토리지 테마를 중복 없이 병합
+            const allThemes = [...themes];
+            localThemes.forEach(lt => {
+                if (!allThemes.some(t => t.id === lt.id)) {
+                    allThemes.push(lt);
+                }
+            });
+
+            allThemes.forEach(theme => {
                 const li = document.createElement('li');
                 const titleSpan = document.createElement('span');
                 titleSpan.textContent = theme.title;
@@ -573,6 +739,7 @@
                 titleSpan.style.fontWeight = "bold";
                 titleSpan.style.cursor = "pointer";
                 titleSpan.onclick = () => { selectTheme(theme.id); };
+                
                 if (theme.creator === 'System') {
                     li.appendChild(titleSpan);
                     const tag = document.createElement('span');
@@ -591,46 +758,137 @@
                     if (myThemeList) myThemeList.appendChild(li);
                 }
             });
+
             if (systemThemeList && systemThemeList.children.length === 0) systemThemeList.innerHTML = '<li style="color:#999">기본 테마 없음</li>';
             if (myThemeList && myThemeList.children.length === 0) myThemeList.innerHTML = '<li style="color:#999">저장된 테마 없음</li>';
-        } catch (e) { console.error(e); }
+        };
+
+        try {
+            const res = await fetch(`/api/themes?userId=${myUserId}`);
+            if (res.ok) {
+                const themes = await res.json();
+                renderThemesList(themes);
+            } else {
+                // 서버 오류 시 로컬 스토리지의 테마 목록으로 채우기
+                renderThemesList([]);
+                if (window.showToast) window.showToast("서버 목록 로드 실패: 로컬 테마만 표시합니다.", "warning");
+            }
+        } catch (e) {
+            // 네트워크 끊겼을 때 로컬 테마만 출력
+            renderThemesList([]);
+            if (window.showToast) window.showToast("네트워크 장애: 로컬 테마만 표시합니다.", "warning");
+        }
     }
 
     async function deleteTheme(id) {
         if (!confirm("삭제하시겠습니까?")) return;
+
+        // 로컬 테마인 경우
+        if (typeof id === 'string' && id.startsWith('local_')) {
+            try {
+                let localThemes = JSON.parse(localStorage.getItem('my_local_themes')) || [];
+                localThemes = localThemes.filter(t => t.id !== id);
+                localStorage.setItem('my_local_themes', JSON.stringify(localThemes));
+                if (window.showToast) window.showToast("로컬 테마가 삭제되었습니다.", "success");
+                loadThemes();
+            } catch (e) {
+                if (window.showToast) window.showToast("로컬 삭제 실패", "error");
+            }
+            return;
+        }
+
+        // DB 테마인 경우
         try {
             const res = await fetch(`/api/themes/${id}?userId=${myUserId}`, { method: 'DELETE' });
             if (res.ok) {
                 if (window.showToast) window.showToast("삭제되었습니다.", "success");
-                else alert("삭제됨");
                 loadThemes();
             } else {
-                if (window.showToast) window.showToast("실패하였습니다.", "error");
-                else alert("실패");
+                if (window.showToast) window.showToast("서버 삭제 실패", "error");
             }
         } catch (e) {
-            if (window.showToast) window.showToast("오류가 발생했습니다.", "error");
-            else alert("오류");
+            if (window.showToast) window.showToast("네트워크 오류로 삭제 불가", "error");
+        }
+    }
+
+    function updateRerollUI() {
+        if (!rerollBtn || !rerollCountDisplay) return;
+        
+        if (maxRerollLimit > 0 && rerollCount < maxRerollLimit) {
+            rerollBtn.disabled = false;
+            rerollCountDisplay.textContent = `${rerollCount}/${maxRerollLimit}`;
+            if (shuffleBtn) shuffleBtn.disabled = false;
+        } else {
+            rerollBtn.disabled = true;
+            rerollBtn.classList.remove('reroll-active');
+            isRerollMode = false;
+            document.querySelectorAll('.board-input').forEach(input => input.classList.remove('rerollable'));
+            
+            if (maxRerollLimit === 0) {
+                rerollCountDisplay.textContent = `불가`;
+            } else {
+                rerollCountDisplay.textContent = `완료`;
+            }
         }
     }
 
     async function selectTheme(id) {
+        const applyTheme = (title, words) => {
+            if (confirm(`'${title}' 테마를 불러와서 채울까요?`)) {
+                themeModal.style.display = 'none';
+                
+                // [리롤 & 셔플 연동] 전체 단어 목록 저장 및 횟수 리셋
+                currentThemeWords = [...words];
+                rerollCount = 0;
+                maxRerollLimit = Math.max(0, currentThemeWords.length - 25);
+                isRerollMode = false;
+                if (rerollBtn) {
+                    rerollBtn.classList.remove('reroll-active');
+                }
+                updateRerollUI();
+
+                const shuffled = [...words].sort(() => Math.random() - 0.5);
+                const inputs = document.querySelectorAll('.board-input');
+                inputs.forEach((input, index) => { 
+                    if (shuffled[index]) input.value = shuffled[index]; 
+                    else input.value = '';
+                    input.classList.remove('rerollable');
+                });
+                if (window.showToast) window.showToast("자동 입력 완료!", "success");
+            }
+        };
+
+        // 로컬 테마인 경우
+        if (typeof id === 'string' && id.startsWith('local_')) {
+            try {
+                const localThemes = JSON.parse(localStorage.getItem('my_local_themes')) || [];
+                const found = localThemes.find(t => t.id === id);
+                if (found) {
+                    let words = found.words;
+                    if (typeof words === 'string') words = JSON.parse(words);
+                    applyTheme(found.title, words);
+                } else {
+                    if (window.showToast) window.showToast("해당 로컬 테마를 찾을 수 없습니다.", "error");
+                }
+            } catch (e) {
+                if (window.showToast) window.showToast("로컬 로드 오류", "error");
+            }
+            return;
+        }
+
+        // DB 테마인 경우
         try {
             const res = await fetch(`/api/themes/${id}`);
-            const data = await res.json();
-            let words = data.words;
-            if (typeof words === 'string') words = JSON.parse(words);
-            if (confirm(`'${data.title}' 테마를 불러와서 채울까요?`)) {
-                themeModal.style.display = 'none';
-                words = words.sort(() => Math.random() - 0.5);
-                const inputs = document.querySelectorAll('.board-input');
-                inputs.forEach((input, index) => { if (words[index]) input.value = words[index]; });
-                if (window.showToast) window.showToast("자동 입력 완료!", "success");
-                else alert("자동 입력 완료!");
+            if (res.ok) {
+                const data = await res.json();
+                let words = data.words;
+                if (typeof words === 'string') words = JSON.parse(words);
+                applyTheme(data.title, words);
+            } else {
+                if (window.showToast) window.showToast("서버에서 테마를 조회하지 못했습니다.", "error");
             }
         } catch (e) {
-            if (window.showToast) window.showToast("불러오기 실패", "error");
-            else alert("실패");
+            if (window.showToast) window.showToast("불러오기 실패: 네트워크 연결 오류", "error");
         }
     }
 
@@ -671,25 +929,25 @@
             // 쿨타임 정의 및 연동 함수
             function startLocalCooldown(seconds) {
                 if (window.aiCooldownInterval) clearInterval(window.aiCooldownInterval);
-                
+
                 startGameBtn.disabled = true;
                 if (themeInput) themeInput.disabled = true;
-                
+
                 let remaining = seconds;
-                startGameBtn.textContent = `AI 쿨타임 대기 (${remaining}초)...⏳`;
-                
+                startGameBtn.textContent = `생성 쿨타임 대기 (${remaining}초)...⏳`;
+
                 window.aiCooldownInterval = setInterval(() => {
                     remaining--;
                     if (remaining <= 0) {
                         clearInterval(window.aiCooldownInterval);
                         window.aiCooldownInterval = null;
                         window.aiCooldownEndTime = null;
-                        
+
                         startGameBtn.textContent = "게임 시작";
                         startGameBtn.disabled = false;
                         if (themeInput) themeInput.disabled = false;
                     } else {
-                        startGameBtn.textContent = `AI 쿨타임 대기 (${remaining}초)...⏳`;
+                        startGameBtn.textContent = `생성 쿨타임 대기 (${remaining}초)...⏳`;
                     }
                 }, 1000);
             }
@@ -699,7 +957,7 @@
             const localNow = Date.now();
             if (window.aiCooldownEndTime && localNow < window.aiCooldownEndTime) {
                 const remaining = Math.ceil((window.aiCooldownEndTime - localNow) / 1000);
-                if (window.showToast) window.showToast(`AI 테마 생성 쿨타임 대기 중입니다. (${remaining}초 남음)`, 'warning');
+                if (window.showToast) window.showToast(`단어 생성 쿨타임 대기 중입니다. (${remaining}초 남음)`, 'warning');
                 return;
             }
 
@@ -711,21 +969,23 @@
                     return;
                 }
                 const originalText = startGameBtn.textContent;
-                startGameBtn.textContent = "AI가 단어를 고르는 중입니다...⏳";
+                startGameBtn.textContent = "단어를 구성하는 중입니다...⏳";
                 startGameBtn.disabled = true;
                 if (themeInput) themeInput.disabled = true;
 
-                const progressContainer = document.getElementById('ai-progress-container');
+                const progressContainer = document.getElementById('ai-loading-modal');
                 const progressBar = document.getElementById('ai-progress-bar');
                 const progressStep = document.getElementById('ai-progress-step');
-                const progressPercent = document.getElementById('ai-progress-percent');
+                const cancelBtn = document.getElementById('ai-loading-cancel-btn');
 
                 if (progressContainer) {
-                    progressContainer.style.display = 'block';
-                    progressBar.style.width = '0%';
-                    progressPercent.textContent = '0%';
-                    progressStep.innerHTML = '<i class="fas fa-robot" style="margin-right: 8px;"></i> AI 가동 중...';
+                    progressContainer.style.display = 'flex';
+                    if (progressBar) progressBar.style.width = '0%';
+                    if (progressStep) progressStep.innerHTML = '<i class="fas fa-cog fa-spin" style="margin-right: 6px;"></i> 단어 생성 준비 중...';
+                    if (cancelBtn) cancelBtn.style.display = 'block'; // 방장은 항상 취소 노출
                 }
+
+                window.isFetchingTheme = true;
 
                 try {
                     const res = await fetch('/api/themes/generate', {
@@ -733,11 +993,22 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ title: topic, userId: myUserId, roomId: window.roomId })
                     });
+                    
+                    if (!window.isFetchingTheme) {
+                        return; // 중간에 취소된 경우 중단
+                    }
+
                     const data = await res.json();
+
+                    if (!window.isFetchingTheme) {
+                        return; // 중간에 취소된 경우 중단
+                    }
+
+                    window.isFetchingTheme = false;
 
                     if (res.ok && data.success) {
                         presetWords = data.words;
-                        
+
                         // 캐시 미스(실제 AI가 생성한 경우)에만 30초 로컬 쿨다운 적용
                         if (data.source === 'ai') {
                             window.aiCooldownEndTime = Date.now() + 30000;
@@ -748,7 +1019,7 @@
                             startGameBtn.disabled = false;
                             if (themeInput) themeInput.disabled = false;
                         }
-                        
+
                         setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 1000);
                     } else {
                         // 서버 측에서 쿨다운 에러(429)를 반환했을 때 대응
@@ -758,7 +1029,7 @@
                             startLocalCooldown(remaining);
                         } else {
                             // 일반 실패 시 즉시 입력 및 버튼 복구
-                            const msg = "AI 생성 실패: " + (data.error || "알 수 없는 오류");
+                            const msg = "단어 생성 실패: " + (data.message || data.error || "알 수 없는 오류");
                             if (window.showToast) window.showToast(msg, "error");
                             else alert(msg);
                             startGameBtn.textContent = originalText;
@@ -769,6 +1040,7 @@
                         return;
                     }
                 } catch (e) {
+                    window.isFetchingTheme = false;
                     if (window.showToast) window.showToast("서버 연결 오류가 발생했습니다.", "error");
                     else alert("서버 연결 오류가 발생했습니다.");
                     startGameBtn.textContent = originalText;
@@ -802,7 +1074,7 @@
     // 빙고 이벤트 리스너들
     eventTriggerBtn.addEventListener('click', () => {
         if (!isMyTurn || !window.useEventsGlobal) return;
-        const { count } = getBingoLines(myBoard, calledNumbers);
+        const { count } = getBingoLines(myBoard, getActiveCalledNumbers());
         const remaining = count - myUsedEventCount;
         if (remaining > 0) {
             socket.emit('trigger event', { name: window.myName });
@@ -810,7 +1082,7 @@
     });
 
     victoryBingoBtn.addEventListener('click', () => {
-        const { count } = getBingoLines(myBoard, calledNumbers);
+        const { count } = getBingoLines(myBoard, getActiveCalledNumbers());
         if (count >= targetLines) {
             socket.emit('bingo declared', { name: window.myName });
         }
@@ -862,7 +1134,7 @@
                 </div>
             </div>
         `;
-        
+
         if (previewEl) {
             previewEl.innerHTML = html;
             previewEl.style.display = 'block';
@@ -877,63 +1149,133 @@
         if (data && data.bingo) {
             lastBingoSettings = data.bingo;
             updateBingoLobbySettingsUI(data.bingo);
+
+            // [Bug Fix] 수신한 빙고 설정을 hidden input 필드에도 확실히 동기화
+            const settings = data.bingo;
+            const hiddenTurnOrder = document.getElementById('turn-order-select');
+            const hiddenTurnTime = document.getElementById('turn-time-limit');
+            const hiddenTopic = document.getElementById('theme-topic-input');
+            const hiddenWinLines = document.getElementById('win-lines-select');
+            const hiddenEvents = document.getElementById('bingo-use-events');
+
+            if (hiddenTurnOrder && settings.turnOrder !== undefined) hiddenTurnOrder.value = settings.turnOrder;
+            if (hiddenTurnTime && settings.turnTimeLimit !== undefined) {
+                // turnTimeLimit이 수신되지 않거나 turnTime으로 올 경우 대비
+                const limitVal = settings.turnTimeLimit !== undefined ? settings.turnTimeLimit : (settings.turnTime !== undefined ? settings.turnTime : 15);
+                hiddenTurnTime.value = limitVal;
+            }
+            if (hiddenTopic && settings.topic !== undefined) hiddenTopic.value = settings.topic;
+            if (hiddenWinLines && settings.winLines !== undefined) hiddenWinLines.value = settings.winLines;
+            if (hiddenEvents && settings.useEvents !== undefined) hiddenEvents.value = settings.useEvents;
         }
     });
 
     // AI 생성 진행률 수신
     socket.on('theme progress', (data) => {
-        const progressContainer = document.getElementById('ai-progress-container');
+        const progressContainer = document.getElementById('ai-loading-modal');
         const progressBar = document.getElementById('ai-progress-bar');
         const progressStep = document.getElementById('ai-progress-step');
-        const progressPercent = document.getElementById('ai-progress-percent');
+        const cancelBtn = document.getElementById('ai-loading-cancel-btn');
 
         if (progressContainer && progressBar) {
-            progressContainer.style.display = 'block';
-            progressBar.style.width = `${data.percent}%`;
-            if (progressPercent) progressPercent.textContent = `${data.percent}%`;
-            if (progressStep) progressStep.innerHTML = `<i class="fas fa-robot" style="margin-right: 8px;"></i> ${data.step}`;
+            progressContainer.style.display = 'flex';
+            if (cancelBtn) {
+                cancelBtn.style.display = amIHost ? 'block' : 'none'; // 방장만 취소 노출
+            }
+
+            // 실시간 작업 현황 문구 출력 (방장/게스트 문구 완벽 통일)
+            if (progressStep) {
+                const stepMsg = data.step || "단어 생성 중...";
+                const percentSuffix = data.percent !== undefined ? ` (${data.percent}%)` : "";
+                progressStep.innerHTML = `<i class="fas fa-cog fa-spin" style="margin-right: 6px;"></i> ${stepMsg}${percentSuffix}`;
+            }
+
+            // 가상 스무스 로더 타이머 기동 (미세하게 매초마다 차오르게 함)
+            if (!aiFakeProgressInterval) {
+                aiFakePercent = data.percent;
+                progressBar.style.width = `${aiFakePercent}%`;
+
+                aiFakeProgressInterval = setInterval(() => {
+                    if (aiFakePercent < 95) {
+                        aiFakePercent += 0.4; // 100ms 당 0.4%씩 부드럽게 증가시킴
+                        progressBar.style.width = `${aiFakePercent}%`;
+                    }
+                }, 100);
+            }
+
+            // 실제 서버 진행도 수신 시 강제 연동 보정
+            if (data.percent > aiFakePercent) {
+                aiFakePercent = data.percent;
+                progressBar.style.width = `${aiFakePercent}%`;
+            }
+
+            // 실패 또는 취소 문구 핸들링
+            if (data.percent === 0 && (data.step.includes('실패') || data.step === '취소됨')) {
+                if (progressStep) {
+                    if (data.step === '취소됨') {
+                        progressStep.innerHTML = `<i class="fas fa-ban" style="margin-right: 8px; color: #ff7675;"></i> 단어 생성 요청이 취소되었습니다.`;
+                    } else {
+                        progressStep.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-right: 8px; color: #ef4444;"></i> ${data.step}`;
+                    }
+                }
+                
+                // 모든 참여자(호스트/게스트)에게 토스트 팝업으로 명확하게 실패 원인 안내
+                if (window.showToast) {
+                    const toastMsg = data.step === '취소됨' 
+                        ? "단어 생성 요청이 취소되었습니다." 
+                        : `${data.step}`;
+                    const toastType = (data.step === '취소됨' || data.step.includes('쿨타임')) ? "warning" : "error";
+                    window.showToast(toastMsg, toastType);
+                }
+                
+                if (amIHost) {
+                    // 방장 UI 복원
+                    const themeInput = document.getElementById('theme-topic-input');
+                    const startGameBtn = document.getElementById('start-game-bingo');
+                    if (window.aiCooldownInterval) {
+                        clearInterval(window.aiCooldownInterval);
+                        window.aiCooldownInterval = null;
+                    }
+                    window.aiCooldownEndTime = null;
+                    if (startGameBtn) {
+                        startGameBtn.textContent = "게임 시작";
+                        startGameBtn.disabled = false;
+                    }
+                    if (themeInput) themeInput.disabled = false;
+                }
+                
+                setTimeout(resetAILoader, 1500);
+            }
+
+            // 완료
+            if (data.percent === 100) {
+                if (aiFakeProgressInterval) {
+                    clearInterval(aiFakeProgressInterval);
+                    aiFakeProgressInterval = null;
+                }
+                aiFakePercent = 100;
+                progressBar.style.width = '100%';
+            }
         }
 
-        // 게스트 실시간 로그 업데이트 (방안 C)
-        const guestLogContainer = document.getElementById('guest-ai-log-container');
-        const guestLogHistory = document.getElementById('guest-ai-log-history');
-        const guestPercent = document.getElementById('guest-ai-percent');
+        // [Bug Fix #7] 방장이 AI 생성 도중 새로고침하여 들어와서 대기 중일 때 자동 게임 시작 처리
+        if (data.percent === 100 && amIHost && !window.isFetchingTheme && data.words) {
+            const selectedLines = parseInt(document.getElementById('win-lines-select')?.value || '3');
+            const selectedOrder = document.getElementById('turn-order-select')?.value || 'host_first';
+            const turnTime = parseInt(document.getElementById('turn-time-limit')?.value || '15');
+            let topic = document.getElementById('theme-topic-input')?.value || '';
 
-        if (guestLogContainer && guestLogHistory && !amIHost) {
-            guestLogContainer.style.display = 'block';
-            if (guestPercent) guestPercent.textContent = `${data.percent}%`;
+            socket.emit('init theme mode', {
+                roomId: window.roomId,
+                topic,
+                winLines: selectedLines,
+                turnOrder: selectedOrder,
+                turnTimeLimit: turnTime,
+                useEvents: document.getElementById('bingo-use-events')?.value === 'true',
+                presetWords: data.words
+            });
 
-            // 동일한 내용의 로그 중복 노출 방지
-            const lastLog = guestLogHistory.lastElementChild;
-            if (!lastLog || !lastLog.textContent.includes(data.step)) {
-                const logItem = document.createElement('div');
-                logItem.style.display = 'flex';
-                logItem.style.justifyContent = 'space-between';
-                
-                const now = new Date();
-                const timeStr = `[${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
-                
-                logItem.innerHTML = `
-                    <span>${timeStr} ${data.step}</span>
-                    <span style="color: #64b5f6; font-weight: bold;">${data.percent}%</span>
-                `;
-                guestLogHistory.appendChild(logItem);
-                guestLogHistory.scrollTop = guestLogHistory.scrollHeight;
-            }
-
-            // 실패 상황 처리
-            if (data.percent === 0 && data.step.includes('실패')) {
-                const logItem = document.createElement('div');
-                logItem.style.color = '#ef4444';
-                logItem.style.fontWeight = 'bold';
-                logItem.textContent = `[SYSTEM ERROR] ${data.step}`;
-                guestLogHistory.appendChild(logItem);
-                
-                setTimeout(() => {
-                    guestLogContainer.style.display = 'none';
-                    guestLogHistory.innerHTML = '';
-                }, 4000);
-            }
+            setTimeout(resetAILoader, 1000);
         }
     });
 
@@ -1002,26 +1344,42 @@
         ];
     }
 
-    // percentage(0~100)에 따라 녹→황→적 그라디언트 문자열 반환
+    // percentage(0~100)에 따라 황금색/주황색 -> 적색 그라디언트 반환
     function getTimerGradient(percentage) {
-        const green  = [46, 204, 113];
+        const orange = [230, 126, 34];
         const yellow = [241, 196, 15];
-        const red    = [231, 76, 60];
+        const red = [231, 76, 60];
 
         let base;
-        if (percentage >= 50) {
-            // 100% ~ 50%: 녹색 → 노랑
-            const t = 1 - (percentage - 50) / 50;
-            base = lerpColor(green, yellow, t);
+        if (percentage >= 30) {
+            // 100% ~ 30% : 주황색 -> 노란색 (주황빛에서 노란빛 유지)
+            const t = (percentage - 30) / 70;
+            base = lerpColor(orange, yellow, t);
         } else {
-            // 50% ~ 0%: 노랑 → 빨강
-            const t = 1 - percentage / 50;
-            base = lerpColor(yellow, red, t);
+            // 30% ~ 0% : 주황색 -> 빨간색 (30% 이하부터 빨갛게 타오름)
+            const t = 1 - (percentage / 30);
+            base = lerpColor(orange, red, t);
         }
 
-        // 그라디언트용: 같은 색의 75% 밝기 버전을 왼쪽에
+        // 그라디언트용: 같은 색의 72% 밝기 버전을 왼쪽에
         const dark = base.map(v => Math.round(v * 0.72));
         return `linear-gradient(90deg, rgb(${dark.join(',')}), rgb(${base.join(',')}))`;
+    }
+
+    // AI 생성용 부드러운 가상 로더 변수 및 함수
+    let aiFakeProgressInterval = null;
+    let aiFakePercent = 0;
+
+    function resetAILoader() {
+        if (aiFakeProgressInterval) {
+            clearInterval(aiFakeProgressInterval);
+            aiFakeProgressInterval = null;
+        }
+        aiFakePercent = 0;
+        const progressContainer = document.getElementById('ai-loading-modal');
+        const progressBar = document.getElementById('ai-progress-bar');
+        if (progressContainer) progressContainer.style.display = 'none';
+        if (progressBar) progressBar.style.width = '0%';
     }
 
     function updateTurnTimerUI() {
@@ -1047,6 +1405,14 @@
 
     window.updateBingoRoleUI = function (isHostStatus) {
         amIHost = isHostStatus;
+        resetAILoader(); // 대기방 복원/이탈 시 로더 완전 정리
+
+        // 게스트 나가기 버튼 숨김 처리
+        const returnBtn = document.getElementById('integrated-return-btn');
+        if (returnBtn) {
+            returnBtn.style.display = amIHost ? 'inline-block' : 'none';
+        }
+
         const myCard = document.getElementById(`user-${socket.id}`);
         if (myCard && amIHost) myCard.classList.add('is-host');
 
@@ -1072,7 +1438,7 @@
                     if (stageWaiting) stageWaiting.style.display = 'flex';
                 }
             }
-            
+
             // [1-8] 대기실 진입 시 AI 쿨타임이 남아있다면 로컬 카운트다운 타이머 연동 구동
             if (amIHost) {
                 const now = Date.now();
@@ -1104,16 +1470,23 @@
         myUsedEventCount = 0;
         isMyTurn = false;
 
-        // 게스트 AI 생성 로그창 숨김 및 비우기
-        const guestLogContainer = document.getElementById('guest-ai-log-container');
-        const guestLogHistory = document.getElementById('guest-ai-log-history');
-        if (guestLogContainer) guestLogContainer.style.display = 'none';
-        if (guestLogHistory) guestLogHistory.innerHTML = '';
+        // [리롤 & 셔플 연동] 전체 단어 목록 저장 및 횟수 리셋
+        currentThemeWords = data.presetWords || [];
+        rerollCount = 0;
+        maxRerollLimit = Math.max(0, currentThemeWords.length - 25);
+        isRerollMode = false;
+        if (rerollBtn) {
+            rerollBtn.classList.remove('reroll-active');
+        }
+        updateRerollUI();
+
+        // AI 로더 강제 정리 및 초기화
+        resetAILoader();
 
         // 타이머 인터벌 해제
-        if (turnTimerInterval) { 
-            clearInterval(turnTimerInterval); 
-            turnTimerInterval = null; 
+        if (turnTimerInterval) {
+            clearInterval(turnTimerInterval);
+            turnTimerInterval = null;
         }
 
         // UI 컴포넌트 강제 리셋 및 숨김 처리
@@ -1202,6 +1575,40 @@
                     this.value = this.value.slice(0, 15);
                 }
             });
+            inputCell.addEventListener('click', function () {
+                if (!isRerollMode) return;
+                
+                const currentInputs = document.querySelectorAll('.board-input');
+                const usedWords = [];
+                currentInputs.forEach(inp => {
+                    const val = inp.value.trim();
+                    if (val) usedWords.push(val);
+                });
+                
+                const unusedWords = currentThemeWords.filter(w => !usedWords.includes(w));
+                if (unusedWords.length > 0 && rerollCount < maxRerollLimit) {
+                    const randomWord = unusedWords[Math.floor(Math.random() * unusedWords.length)];
+                    const oldWord = this.value;
+                    this.value = randomWord;
+                    rerollCount++;
+                    
+                    if (window.showToast) {
+                        window.showToast(`단어 '${oldWord || "빈칸"}'(이)가 '${randomWord}'(으)로 교체되었습니다!`, "success");
+                    }
+                    
+                    const nextUnused = currentThemeWords.filter(w => !usedWords.includes(w) && w !== randomWord);
+                    if (rerollCount >= maxRerollLimit || nextUnused.length === 0) {
+                        isRerollMode = false;
+                        if (rerollBtn) rerollBtn.classList.remove('reroll-active');
+                        currentInputs.forEach(inp => inp.classList.remove('rerollable'));
+                        if (window.showToast) window.showToast("리롤 한도를 모두 소모했습니다.", "info");
+                    }
+                    
+                    updateRerollUI();
+                } else {
+                    if (window.showToast) window.showToast("교체 가능한 단어가 더 이상 없거나 한도를 초과했습니다.", "warning");
+                }
+            });
             if (preset[i]) inputCell.value = preset[i];
             bingoBoard.appendChild(inputCell);
         }
@@ -1209,6 +1616,7 @@
     });
 
     socket.on('start theme game', (data) => {
+        resetAILoader(); // 인게임 진입 시 AI 로더 잔상 및 타이머 클리어
         readyButton.style.display = 'none';
         if (saveThemeBtn) saveThemeBtn.style.display = 'none';
         if (loadThemeBtn) loadThemeBtn.style.display = 'none';
@@ -1217,6 +1625,7 @@
         manualStartArea.style.display = 'none';
         targetLines = data.winLines;
         calledNumbers = [];
+        myIgnoredNumbers = [];
         myUsedEventCount = 0;
         isGameStarted = true;
         renderBoard(data.board);
@@ -1264,7 +1673,7 @@
 
     socket.on('action failed', (msg) => {
         if (window.showToast) window.showToast(msg, "error");
-        updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
+        updateBingoActionButtons(checkBingoLines(myBoard, getActiveCalledNumbers()));
     });
 
     socket.on('event happened', (data) => {
@@ -1386,6 +1795,7 @@
         playEvent();
         if (turnTimerInterval) clearInterval(turnTimerInterval);
         turnTimerBar.style.display = 'none';
+        myIgnoredNumbers = [];
 
         const resultTitle = document.getElementById('result-title');
         const resultStatHeader1 = document.getElementById('result-stat-header-1');
@@ -1449,7 +1859,7 @@
         if (window.showToast) window.showToast(`🚨 ${msg}`, "error");
         if (isMyTurn) {
             if (victoryBingoBtn) victoryBingoBtn.disabled = false;
-            updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
+            updateBingoActionButtons(checkBingoLines(myBoard, getActiveCalledNumbers()));
         }
     });
 })();
