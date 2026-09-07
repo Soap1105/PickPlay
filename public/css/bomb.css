@@ -405,14 +405,58 @@
 }
 
 .arena-player-slot.is-selectable:hover .arena-avatar-wrap {
-    border-color: #a855f7;
-    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    border-color: #f39c12;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.5);
     transform: scale(1.08);
 }
 
 .arena-player-slot.is-targeted .arena-avatar-wrap {
-    border-color: #a855f7 !important;
-    box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.25), 0 0 30px rgba(168, 85, 247, 0.6) !important;
-    background: rgba(168, 85, 247, 0.15) !important;
+    border-color: #e74c3c !important;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.3), 0 0 25px rgba(231, 76, 60, 0.7) !important;
+    background: rgba(231, 76, 60, 0.15) !important;
     transform: scale(1.12);
+}
+
+/* 전략 모드 플레이어 지목 번호 배지 */
+.target-number-badge {
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #1a1a2e;
+    border: 2px solid #fdcb6e;
+    color: #fdcb6e;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+body.light-mode .target-number-badge {
+    background: #ffffff;
+    border-color: #d35400;
+    color: #d35400;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.arena-player-slot.is-targeted .target-number-badge {
+    background: #e74c3c !important;
+    border-color: #ffffff !important;
+    color: #ffffff !important;
+    transform: scale(1.25);
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.8);
+}
+
+.arena-player-slot.is-selectable:hover .target-number-badge {
+    transform: scale(1.15);
+    border-color: #f39c12;
+    color: #f39c12;
 }

@@ -336,7 +336,7 @@ module.exports = (io, socket, gameRooms) => {
 
         // 본인 투표 방지
         if (targetId === socket.id) {
-            socket.emit('system message', '자신의 힌트에는 투표할 수 없습니다!');
+            socket.emit('system message', '본인에게는 투표할 수 없습니다!');
             return;
         }
 

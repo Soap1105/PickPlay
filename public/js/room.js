@@ -1,5 +1,77 @@
 // public/js/room.js
 
+/* ── 로딩 오버레이 제어 ── */
+const LOADING_MIN_MS = 1500; // 최소 노출 시간
+const _loadingStart = Date.now();
+let _loadingReady = false;
+let _retryTimer = null;
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    const elapsed = Date.now() - _loadingStart;
+    const remaining = Math.max(0, LOADING_MIN_MS - elapsed);
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+    }, remaining);
+}
+
+function showLoading(status = '연결 중...', retryText = '') {
+    const overlay = document.getElementById('loading-overlay');
+    const statusEl = document.getElementById('loading-status');
+    const retryEl = document.getElementById('loading-retry');
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    if (statusEl) statusEl.textContent = status;
+    if (retryEl) retryEl.textContent = retryText;
+}
+
+function startRetryCountdown(seconds) {
+    if (_retryTimer) clearInterval(_retryTimer);
+    let n = seconds;
+    const retryEl = document.getElementById('loading-retry');
+    const update = () => {
+        if (retryEl) retryEl.textContent = `연결 실패 — ${n}초 후 재시도`;
+        if (n <= 0) { clearInterval(_retryTimer); _retryTimer = null; }
+        n--;
+    };
+    update();
+    _retryTimer = setInterval(update, 1000);
+}
+
+// 소켓 연결 끊김
+socket.on('disconnect', () => {
+    showLoading('재연결 중...');
+    startRetryCountdown(5);
+});
+
+// 소켓 재연결 시도
+socket.on('reconnect_attempt', (attempt) => {
+    showLoading('재연결 중...');
+    startRetryCountdown(5);
+});
+
+// 소켓 재연결 성공 → role update 이벤트가 hiding 처리함
+
+/* ── 다크/라이트 모드 토글 (기본: 라이트, dark-mode 클래스로 다크 전환) ── */
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('pickplay-theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+}
+
+// 페이지 로드 시 저장된 테마 복원
+(function applyStoredTheme() {
+    const stored = localStorage.getItem('pickplay-theme');
+    if (stored === 'dark') {
+        document.body.classList.add('dark-mode');
+        const icon = document.getElementById('theme-icon');
+        if (icon) icon.textContent = '☀️';
+    }
+    // 저장값 없으면 라이트 기본값 유지 (아무것도 안 함)
+})();
+
 let isHost = false;
 
 // UI Elements
@@ -42,13 +114,13 @@ function showContainer(containerId) {
 }
 
 socket.on('role update', (data) => {
+    hideLoading(); // 방 진입 완료 → 로딩 숨김
     isHost = data.isHost;
     myRoleDisplay.textContent = isHost ? "👑 방장" : "👤 참가자";
 
     // 1단계 로비 카드들의 클릭/설명 처리
     const cards = document.querySelectorAll('.lobby-game-card');
-    const guideText = document.getElementById('lobby-guide-text');
-    const guideTitle = document.getElementById('lobby-guide-title');
+
     const startBtn = document.getElementById('integrated-start-btn');
     const settingsBtn = document.getElementById('integrated-settings-btn');
     const returnBtn = document.getElementById('integrated-return-btn');
@@ -65,8 +137,7 @@ socket.on('role update', (data) => {
             card.style.opacity = '1';
             card.style.cursor = 'pointer';
         });
-        if (guideTitle) guideTitle.innerHTML = `<i class="fas fa-lightbulb"></i> 대기실 가이드`;
-        if (guideText) guideText.textContent = "원하는 게임을 클릭하면 즉시 방 생성 및 세부 설정 화면으로 전환됩니다.";
+
 
         // 방장 액션 노출
         if (startBtn) startBtn.style.display = 'flex';
@@ -81,8 +152,7 @@ socket.on('role update', (data) => {
             card.style.opacity = '0.85';
             card.style.cursor = 'default';
         });
-        if (guideTitle) guideTitle.innerHTML = `<i class="fas fa-clock"></i> 대기 중...`;
-        if (guideText) guideText.textContent = "방장이 게임을 선택하면 대기방으로 함께 이동합니다. 우측에서 채팅을 나누며 기다리세요!";
+
 
         // 게스트 액션 노출 제한
         if (startBtn) startBtn.style.display = 'none';

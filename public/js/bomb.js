@@ -119,6 +119,16 @@
                 }
             }
 
+            // 전략 모드 지목 번호 배지 (서버 sortedPlayers 순서와 100% 동기화)
+            const sortedIds = Object.keys(window.bombHearts || {}).sort();
+            const playerNum = (sortedIds.length > 0 && sortedIds.includes(user.id))
+                ? (sortedIds.indexOf(user.id) + 1)
+                : (index + 1);
+
+            const badgeHtml = (isGameActive && currentSubMode === 'tactical' && !isDead)
+                ? `<div class="target-number-badge" title="${playerNum}번 플레이어">${playerNum}</div>`
+                : '';
+
             // 하트 HTML
             let heartsHtml = '';
             if (isGameActive) {
@@ -130,6 +140,7 @@
             slot.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
             slot.innerHTML = `
                 <div class="arena-avatar-wrap">
+                    ${badgeHtml}
                     <div class="arena-avatar">${user.avatar}</div>
                     <div class="arena-dead-overlay">💀</div>
                 </div>

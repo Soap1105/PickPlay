@@ -809,8 +809,8 @@
                 <button id="next-round-btn" class="start-btn" style="background:#3498db; margin-top: 20px; width: auto; padding: 12px 36px; font-size:0.95rem;">다음 라운드 시작</button>
             </div>
             <div id="guest-text" style="display: ${guestDisplay};">
-                <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 20px;">
-                    다음 라운드 준비 중...
+                <div style="color: #94a3b8; font-size: 0.95rem; font-weight: 600; margin-top: 20px;">
+                    방장이 다음 라운드를 준비하고 있습니다.
                 </div>
             </div>
         `;

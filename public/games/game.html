@@ -489,6 +489,17 @@
 </head>
 
 <body>
+    <!-- ── 로딩 오버레이 ── -->
+    <div id="loading-overlay">
+        <div class="loading-logo">Pick<span>Play</span></div>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+        <div class="loading-status" id="loading-status">연결 중...</div>
+        <div class="loading-retry" id="loading-retry"></div>
+    </div>
     <!-- 닉네임 입력 모달 (공통) -->
     <div id="nickname-modal" class="modal"
         style="display: none; align-items: center; justify-content: center; z-index: 10000; background: rgba(0,0,0,0.8);">
@@ -545,29 +556,27 @@
 
                 <!-- 1단계: 게임 선택 로비 (selection-stage) -->
                 <div id="selection-stage">
-                    <div class="matrix-header"
-                        style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
-                        <h2
-                            style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-gamepad" style="color:#6c5ce7;"></i> 어떤 게임을 할까요?
-                        </h2>
-                    </div>
+
 
                     <div class="selection-grid-layout">
                         <!-- 좌측: 세련된 게임 카드 컬럼 -->
                         <div class="game-selector-panel" id="lobby-game-selector-panel">
-                            <div
-                                style="font-size: 1rem; font-weight: 800; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; display:flex; align-items:center; gap:8px; width: 100%; text-align: left;">
-                                <i class="fas fa-list"></i> 플레이할 게임 선택
+                            <div class="panel-header-title" style="border-bottom: 1px solid var(--border); padding-bottom: 8px; width: 100%;">
+                                <i class="fas fa-list"></i> 게임 목록
                             </div>
                             <div class="game-cards-column">
                                 <button class="lobby-game-card bingo-card active game-select-btn" data-game="bingo"
                                     id="lobby-card-bingo">
                                     <div class="game-icon-circle" style="color:#0984e3;">🎯</div>
                                     <div class="game-meta">
-                                        <div class="game-title-text" style="color:#74b9ff;">빙고 게임</div>
+                                        <div class="game-title-text">빙고 게임</div>
                                         <div class="game-desc-text">5×5 단어판을 채우고 줄을 완성해 외치세요!</div>
-                                        <span class="game-tag-badge">2인 이상</span>
+                                        <div class="game-tag-row">
+                                            <span class="game-tag-badge">2인 이상</span>
+                                            <span class="game-tag-exp">전략</span>
+                                            <span class="game-tag-exp">운</span>
+                                            <span class="game-tag-exp">판세 역전</span>
+                                        </div>
                                     </div>
                                 </button>
 
@@ -575,9 +584,14 @@
                                     id="lobby-card-liar">
                                     <div class="game-icon-circle" style="color:#d63031;">🕵️</div>
                                     <div class="game-meta">
-                                        <div class="game-title-text" style="color:#ff7675;">라이어 게임</div>
+                                        <div class="game-title-text">라이어 게임</div>
                                         <div class="game-desc-text">진짜 제시어를 모르는 라이어를 골라내야 합니다.</div>
-                                        <span class="game-tag-badge">3인 이상</span>
+                                        <div class="game-tag-row">
+                                            <span class="game-tag-badge">3인 이상</span>
+                                            <span class="game-tag-exp">심리전</span>
+                                            <span class="game-tag-exp">블러핑</span>
+                                            <span class="game-tag-exp">추리</span>
+                                        </div>
                                     </div>
                                 </button>
 
@@ -585,9 +599,14 @@
                                     id="lobby-card-bomb">
                                     <div class="game-icon-circle" style="color:#d35400;">💣</div>
                                     <div class="game-meta">
-                                        <div class="game-title-text" style="color:#fdcb6e;">폭탄 돌리기 게임</div>
+                                        <div class="game-title-text">폭탄 돌리기</div>
                                         <div class="game-desc-text">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
-                                        <span class="game-tag-badge">2인 이상</span>
+                                        <div class="game-tag-row">
+                                            <span class="game-tag-badge">2인 이상</span>
+                                            <span class="game-tag-exp">스피드</span>
+                                            <span class="game-tag-exp">순발력</span>
+                                            <span class="game-tag-exp">전략 지목</span>
+                                        </div>
                                     </div>
                                 </button>
                             </div>
@@ -602,10 +621,8 @@
 
                         <!-- 우측: 대기 중인 플레이어 매트릭스 그리드 -->
                         <div class="lobby-players-panel">
-                            <div
-                                style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
-                                <div
-                                    style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px; width: 100%;">
+                                <div class="panel-header-title">
                                     <i class="fas fa-users"></i> 대기실 파티원
                                 </div>
                                 <div id="lobby-user-count" class="player-count">참가: 0 / 8</div>
@@ -623,10 +640,10 @@
                                 style="flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 20px;">
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span
-                                        style="font-size: 0.75rem; font-weight: 700; color: #a29bfe; background: rgba(108, 92, 231, 0.15); padding: 4px 8px; border-radius: 6px;">ROOM
+                                        style="font-size: 0.75rem; font-weight: 800; color: var(--accent); background: var(--surface-hover); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-subtle);">ROOM
                                         ID</span>
                                     <span
-                                        style="font-size: 0.95rem; font-weight: bold; color: #fff; letter-spacing: 1px;"
+                                        style="font-size: 0.95rem; font-weight: 800; color: var(--text-main); letter-spacing: 1px;"
                                         id="lobby-room-id-display">------</span>
                                 </div>
                                 <button class="btn-action btn-return" id="lobby-invite-btn"
@@ -636,15 +653,7 @@
                             </div>
                         </div>
 
-                        <div class="button-group"
-                            style="padding-left: 20px; align-items: center; justify-content: flex-end;">
-                            <div
-                                style="font-size: 0.82rem; color: var(--text-muted); text-align: right; line-height: 1.4; display: flex; flex-direction: column; justify-content: center; height: 100%;">
-                                <span style="color: #ffeaa7; font-weight: bold; margin-bottom: 2px;"
-                                    id="lobby-guide-title"><i class="fas fa-lightbulb"></i> 대기실 가이드</span>
-                                <span id="lobby-guide-text">원하는 게임을 클릭하면 즉시 방 생성 및 세부 설정 화면으로 전환됩니다.</span>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
 
@@ -653,7 +662,7 @@
                     <div class="matrix-header"
                         style="border:none; padding-bottom:0; margin-bottom: 12px; text-align: left; width: 100%;">
                         <h2 id="waiting-game-title"
-                            style="font-size: 1.4rem; font-weight: 800; color: #fffffe; display: flex; align-items: center; gap: 8px;">
+                            style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
                             🎯 빙고 게임 대기방
                         </h2>
                     </div>
@@ -661,8 +670,8 @@
                     <!-- 중앙 대기실 플레이어 매트릭스 그리드 -->
                     <div class="lobby-players-panel" style="flex: 1; min-height: 0; width: 100%;">
                         <div
-                            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:8px; width: 100%;">
-                            <div style="font-size: 1rem; font-weight: 800; display:flex; align-items:center; gap:8px;">
+                            style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px; width: 100%;">
+                            <div class="panel-header-title">
                                 <i class="fas fa-users"></i> 대기실 파티원
                             </div>
                             <div id="waiting-user-count" class="player-count">참가: 0 / 8</div>
@@ -942,7 +951,7 @@
         </div>
 
         <div id="right-sidebar">
-            <button id="invite-btn"><i class="fas fa-link"></i> 초대 링크 복사</button>
+            <button id="invite-btn" style="display:none"><i class="fas fa-link"></i> 초대 링크 복사</button>
 
             <!-- 이모지 폭죽 ON/OFF 토글 -->
             <div id="emoji-toggle-row">
@@ -959,7 +968,10 @@
             </div>
             <div id="chat-section">
                 <div class="chat-header">
-                    <div class="chat-title"><i class="fas fa-comment-dots"></i> 실시간 채팅 채널</div>
+                    <div class="chat-title"><i class="fas fa-comment-dots"></i> 채팅</div>
+                    <button id="theme-toggle-btn" title="다크/라이트 모드 전환" onclick="toggleTheme()">
+                        <span id="theme-icon">☀️</span>
+                    </button>
                 </div>
                 <div id="chat-history" class="chat-history"></div>
                 <form id="chat-form" action="">
