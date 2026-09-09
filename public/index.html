@@ -19,12 +19,42 @@
             padding: 0;
         }
 
+        /* 라이트 모드 (기본) */
         :root {
             --accent: #6c63ff;
             --accent2: #ff6584;
+            --bg: #cbdceb;
+            --card-bg: rgba(240, 245, 250, 0.75);
+            --card-border: rgba(45, 75, 105, 0.2);
+            --text: #081521;
+            --sub: rgba(8, 21, 33, 0.5);
+            --input-bg: rgba(45, 75, 105, 0.08);
+            --input-border: rgba(45, 75, 105, 0.18);
+            --input-text: #081521;
+            --input-placeholder: rgba(8, 21, 33, 0.35);
+            --arrow-bg: rgba(45, 75, 105, 0.1);
+            --arrow-border: rgba(45, 75, 105, 0.2);
+            --emoji-bg: rgba(45, 75, 105, 0.08);
+            --emoji-border: rgba(45, 75, 105, 0.15);
+            --shadow: 0 28px 80px rgba(13, 30, 45, 0.12);
+        }
+
+        /* 다크 모드 */
+        body.dark-mode {
             --bg: #0f0e17;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --card-border: rgba(255, 255, 255, 0.1);
             --text: #fffffe;
             --sub: rgba(255, 255, 255, 0.45);
+            --input-bg: rgba(255, 255, 255, 0.07);
+            --input-border: rgba(255, 255, 255, 0.12);
+            --input-text: #fffffe;
+            --input-placeholder: rgba(255, 255, 255, 0.28);
+            --arrow-bg: rgba(255, 255, 255, 0.07);
+            --arrow-border: rgba(255, 255, 255, 0.14);
+            --emoji-bg: rgba(255, 255, 255, 0.07);
+            --emoji-border: rgba(255, 255, 255, 0.15);
+            --shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
         }
 
         body {
@@ -37,68 +67,118 @@
             overflow: hidden;
             position: relative;
             color: var(--text);
+            transition: background 0.2s;
         }
 
         /* 배경 블롭 */
         .blob {
             position: fixed;
             border-radius: 50%;
-            filter: blur(90px);
-            opacity: 0.16;
+            filter: blur(70px);
+            opacity: 0.28;
             pointer-events: none;
-            animation: blobDrift ease-in-out infinite alternate;
         }
 
+        /* 다크 모드에서 blob 강도 낮춤 */
+        body.dark-mode .blob { opacity: 0.15; filter: blur(90px); }
+
         .blob-1 {
-            width: 520px;
-            height: 520px;
+            width: 560px;
+            height: 560px;
             background: var(--accent);
-            top: -140px;
-            left: -140px;
-            animation-duration: 9s;
+            top: -160px;
+            left: -160px;
+            animation: blobDrift1 10s ease-in-out infinite alternate;
         }
 
         .blob-2 {
-            width: 420px;
-            height: 420px;
+            width: 460px;
+            height: 460px;
             background: var(--accent2);
-            bottom: -120px;
-            right: -120px;
-            animation-duration: 12s;
+            bottom: -140px;
+            right: -140px;
+            animation: blobDrift2 13s ease-in-out infinite alternate;
         }
 
         .blob-3 {
-            width: 280px;
-            height: 280px;
+            width: 300px;
+            height: 300px;
             background: #43e97b;
-            top: 55%;
-            left: 58%;
-            animation-duration: 7s;
+            top: 50%;
+            left: 55%;
+            animation: blobDrift3 8s ease-in-out infinite alternate;
         }
 
-        @keyframes blobDrift {
-            from {
-                transform: translate(0, 0) scale(1);
-            }
+        .blob-4 {
+            width: 360px;
+            height: 360px;
+            background: #fdcb6e;
+            bottom: -80px;
+            left: -80px;
+            animation: blobDrift1 11s ease-in-out infinite alternate-reverse;
+        }
 
-            to {
-                transform: translate(40px, 28px) scale(1.09);
-            }
+        .blob-5 {
+            width: 260px;
+            height: 260px;
+            background: #74b9ff;
+            top: -60px;
+            right: 15%;
+            animation: blobDrift2 9s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes blobDrift1 {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(50px, 35px) scale(1.1); }
+        }
+        @keyframes blobDrift2 {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(-45px, -30px) scale(1.08); }
+        }
+        @keyframes blobDrift3 {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(30px, -40px) scale(1.12); }
         }
 
         /* 카드 */
         .card {
             position: relative;
             z-index: 10;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
             border-radius: 28px;
             padding: 52px 56px 48px;
             width: min(480px, 94vw);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            box-shadow: var(--shadow), 0 0 0 1px var(--card-border);
             animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        /* 테마 토글 버튼 */
+        .theme-toggle-btn {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            width: 36px;
+            height: 36px;
+            background: var(--arrow-bg);
+            border: 1.5px solid var(--arrow-border);
+            border-radius: 50%;
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.18s;
+            z-index: 20;
+        }
+
+        .theme-toggle-btn:hover {
+            background: rgba(108, 99, 255, 0.2);
+            border-color: var(--accent);
+            transform: scale(1.1);
         }
 
         @keyframes cardIn {
@@ -154,8 +234,8 @@
         .emoji-arrow {
             width: 44px;
             height: 44px;
-            background: rgba(255, 255, 255, 0.07);
-            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            background: var(--arrow-bg);
+            border: 1.5px solid var(--arrow-border);
             border-radius: 50%;
             color: var(--text);
             font-size: 1.1rem;
@@ -187,8 +267,8 @@
         .emoji-display {
             width: 100px;
             height: 100px;
-            background: rgba(255, 255, 255, 0.07);
-            border: 2px solid rgba(255, 255, 255, 0.15);
+            background: var(--emoji-bg);
+            border: 2px solid var(--emoji-border);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -227,10 +307,10 @@
         .nickname-input {
             width: 100%;
             padding: 16px 60px 16px 20px;
-            background: rgba(255, 255, 255, 0.07);
-            border: 2px solid rgba(255, 255, 255, 0.12);
+            background: var(--input-bg);
+            border: 2px solid var(--input-border);
             border-radius: 14px;
-            color: var(--text);
+            color: var(--input-text);
             font-size: 1.1rem;
             font-family: 'Outfit', sans-serif;
             font-weight: 600;
@@ -239,7 +319,7 @@
         }
 
         .nickname-input::placeholder {
-            color: rgba(255, 255, 255, 0.28);
+            color: var(--input-placeholder);
             font-weight: 400;
         }
 
@@ -339,8 +419,15 @@
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+    <div class="blob blob-5"></div>
 
     <div class="card">
+        <!-- 테마 토글 버튼 -->
+        <button class="theme-toggle-btn" id="index-theme-toggle" title="다크/라이트 모드 전환" onclick="toggleIndexTheme()">
+            <span id="index-theme-icon">🌙</span>
+        </button>
+
         <!-- 로고 -->
         <div class="logo-area">
             <div class="logo-title">🎮 PickPlay</div>
@@ -374,6 +461,26 @@
     </div>
 
     <script>
+        /* ── 다크/라이트 모드 (game.html과 동일한 localStorage 키 공유) ── */
+        function toggleIndexTheme() {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('pickplay-theme', isDark ? 'dark' : 'light');
+            const icon = document.getElementById('index-theme-icon');
+            if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+        }
+
+        // 페이지 로드 시 저장된 테마 복원
+        (function applyStoredTheme() {
+            const stored = localStorage.getItem('pickplay-theme');
+            const icon = document.getElementById('index-theme-icon');
+            if (stored === 'dark') {
+                document.body.classList.add('dark-mode');
+                if (icon) icon.textContent = '☀️';
+            } else {
+                // 라이트 모드 기본값
+                if (icon) icon.textContent = '🌙';
+            }
+        })();
         const EMOJIS = [
             '🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯',
             '🐸', '🐵', '🐰', '🐹', '🐺', '🐮', '🐷', '🦉',

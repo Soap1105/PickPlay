@@ -497,7 +497,7 @@
             <div class="loading-dot"></div>
             <div class="loading-dot"></div>
         </div>
-        <div class="loading-status" id="loading-status">연결 중...</div>
+        <div class="loading-status" id="loading-status">서버에 연결하는 중...</div>
         <div class="loading-retry" id="loading-retry"></div>
     </div>
     <!-- 닉네임 입력 모달 (공통) -->
@@ -969,9 +969,14 @@
             <div id="chat-section">
                 <div class="chat-header">
                     <div class="chat-title"><i class="fas fa-comment-dots"></i> 채팅</div>
-                    <button id="theme-toggle-btn" title="다크/라이트 모드 전환" onclick="toggleTheme()">
-                        <span id="theme-icon">☀️</span>
-                    </button>
+                    <div class="chat-header-actions">
+                        <button id="loading-preview-btn" title="로딩 화면 미리보기" onclick="previewLoadingScreen()">
+                            <i class="fas fa-spinner"></i>
+                        </button>
+                        <button id="theme-toggle-btn" title="다크/라이트 모드 전환" onclick="toggleTheme()">
+                            <span id="theme-icon">☀️</span>
+                        </button>
+                    </div>
                 </div>
                 <div id="chat-history" class="chat-history"></div>
                 <form id="chat-form" action="">

@@ -42,6 +42,15 @@
         return { x, y };
     }
 
+    function getHeartsHtml(currentHearts, maxHearts = bombMaxHearts) {
+        let html = '';
+        const count = Math.max(0, currentHearts);
+        for (let i = 0; i < maxHearts; i++) {
+            html += (i < count) ? '❤️' : '🖤';
+        }
+        return html;
+    }
+
     window.initBombUI = function (isHost) {
         localIsHost = isHost;
         const setupArea = bombContainer.querySelector('.bomb-setup');
@@ -130,12 +139,7 @@
                 : '';
 
             // 하트 HTML
-            let heartsHtml = '';
-            if (isGameActive) {
-                for (let i = 0; i < bombMaxHearts; i++) {
-                    heartsHtml += (i < heartCount) ? '❤️' : '🖤';
-                }
-            }
+            const heartsHtml = isGameActive ? getHeartsHtml(heartCount) : '';
 
             slot.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
             slot.innerHTML = `
@@ -263,11 +267,7 @@
             const card = document.createElement('div');
             card.className = `player-score-card ${isMe ? 'is-me' : ''} ${isDead ? 'is-dead' : ''}`;
 
-            let heartHtml = '';
-            for (let i = 0; i < bombMaxHearts; i++) {
-                if (i < heartCount) heartHtml += '❤️';
-                else heartHtml += '🖤';
-            }
+            const heartHtml = getHeartsHtml(heartCount);
 
             card.innerHTML = `
                 <div class="score-p-idx">${index + 1}</div>

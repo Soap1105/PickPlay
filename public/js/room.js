@@ -5,10 +5,25 @@ const LOADING_MIN_MS = 1500; // 최소 노출 시간
 const _loadingStart = Date.now();
 let _loadingReady = false;
 let _retryTimer = null;
+let _stageTimer = null;
+
+// 초기 진입 시 단계별 문구 표시
+_stageTimer = setTimeout(() => {
+    const statusEl = document.getElementById('loading-status');
+    const overlay = document.getElementById('loading-overlay');
+    if (statusEl && overlay && !overlay.classList.contains('hidden') && !_retryTimer) {
+        statusEl.textContent = '게임 환경을 준비하는 중...';
+    }
+}, 700);
 
 function hideLoading() {
     const overlay = document.getElementById('loading-overlay');
     if (!overlay) return;
+    if (_stageTimer) clearTimeout(_stageTimer);
+    const statusEl = document.getElementById('loading-status');
+    if (statusEl && !_retryTimer) {
+        statusEl.textContent = '입장 준비 완료!';
+    }
     const elapsed = Date.now() - _loadingStart;
     const remaining = Math.max(0, LOADING_MIN_MS - elapsed);
     setTimeout(() => {
@@ -16,7 +31,7 @@ function hideLoading() {
     }, remaining);
 }
 
-function showLoading(status = '연결 중...', retryText = '') {
+function showLoading(status = '서버에 연결하는 중...', retryText = '') {
     const overlay = document.getElementById('loading-overlay');
     const statusEl = document.getElementById('loading-status');
     const retryEl = document.getElementById('loading-retry');
@@ -25,6 +40,53 @@ function showLoading(status = '연결 중...', retryText = '') {
     if (statusEl) statusEl.textContent = status;
     if (retryEl) retryEl.textContent = retryText;
 }
+
+let _previewTimers = [];
+
+function clearPreviewTimers() {
+    _previewTimers.forEach(t => clearTimeout(t));
+    _previewTimers = [];
+}
+
+function previewLoadingScreen() {
+    const overlay = document.getElementById('loading-overlay');
+    const statusEl = document.getElementById('loading-status');
+    const retryEl = document.getElementById('loading-retry');
+    if (!overlay) return;
+
+    clearPreviewTimers();
+    if (retryEl) retryEl.textContent = '';
+    if (statusEl) statusEl.textContent = '서버에 연결하는 중...';
+    overlay.classList.remove('hidden');
+
+    _previewTimers.push(setTimeout(() => {
+        if (statusEl && !overlay.classList.contains('hidden')) {
+            statusEl.textContent = '게임 환경을 준비하는 중...';
+        }
+    }, 800));
+
+    _previewTimers.push(setTimeout(() => {
+        if (statusEl && !overlay.classList.contains('hidden')) {
+            statusEl.textContent = '입장 준비 완료!';
+        }
+    }, 1800));
+
+    _previewTimers.push(setTimeout(() => {
+        overlay.classList.add('hidden');
+        clearPreviewTimers();
+    }, 2300));
+}
+
+// 오버레이 클릭 시 수동 닫기 (미리보기 등 언제든 즉시 닫기 가능)
+document.addEventListener('DOMContentLoaded', () => {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', () => {
+            clearPreviewTimers();
+            overlay.classList.add('hidden');
+        });
+    }
+});
 
 function startRetryCountdown(seconds) {
     if (_retryTimer) clearInterval(_retryTimer);
@@ -41,13 +103,13 @@ function startRetryCountdown(seconds) {
 
 // 소켓 연결 끊김
 socket.on('disconnect', () => {
-    showLoading('재연결 중...');
+    showLoading('네트워크 재연결 시도 중...');
     startRetryCountdown(5);
 });
 
 // 소켓 재연결 시도
 socket.on('reconnect_attempt', (attempt) => {
-    showLoading('재연결 중...');
+    showLoading('네트워크 재연결 시도 중...');
     startRetryCountdown(5);
 });
 
