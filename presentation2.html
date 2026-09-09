@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PickPlay 발표</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --a1:#6ee7b7; --a2:#818cf8; --a3:#f472b6; --a4:#fb923c; --a5:#38bdf8;
+      --bg:#0c0f1a; --surface:rgba(255,255,255,.07); --surface2:rgba(255,255,255,.12);
+      --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.20);
+      --text:#f8fafc; --text2:#cbd5e1; --text3:#64748b; --shadow:rgba(0,0,0,.60);
+    }
+    [data-theme="light"] {
+      --bg:#f0f4ff; --surface:rgba(255,255,255,.75); --surface2:rgba(255,255,255,.95);
+      --border:rgba(0,0,0,.08); --border2:rgba(0,0,0,.15);
+      --text:#0f172a; --text2:#334155; --text3:#64748b; --shadow:rgba(0,0,0,.12);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{font-size:clamp(13.5px, 1.08vw, 22.5px);}
+    html,body{width:100%;height:100%;font-family:'Outfit','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;user-select:none;transition:background .4s,color .4s;}
+    #bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+    #deck{position:relative;width:100vw;height:100vh;z-index:1;}
+    .slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:4vh 6vw;opacity:0;transform:translateY(28px) scale(.98);transition:opacity .42s cubic-bezier(.4,0,.2,1),transform .42s cubic-bezier(.4,0,.2,1);pointer-events:none;}
+    .slide.active{opacity:1;transform:none;pointer-events:all;}
+    .slide.exit-up{opacity:0;transform:translateY(-28px) scale(.98);}
+    .slide.exit-dn{opacity:0;transform:translateY(28px) scale(.98);}
+    @keyframes fu{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+    .slide.active .a1{animation:fu .42s .05s both;}
+    .slide.active .a2{animation:fu .42s .12s both;}
+    .slide.active .a3{animation:fu .42s .19s both;}
+    .slide.active .a4{animation:fu .42s .26s both;}
+    .slide.active .a5{animation:fu .42s .33s both;}
+    
+    /* HUD */
+    #hud{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:16px 32px;pointer-events:none;}
+    #hud-logo{font-size:.85rem;font-weight:900;letter-spacing:2px;color:var(--a1);text-transform:uppercase;}
+    #slide-counter{font-size:.8rem;font-weight:700;color:var(--text2);letter-spacing:1px;}
+    
+    /* 토글 */
+    #ttoggle{position:fixed;top:14px;right:90px;z-index:200;width:54px;height:26px;background:var(--surface2);border:1px solid var(--border2);border-radius:13px;cursor:pointer;display:flex;align-items:center;padding:3px;transition:.3s;}
+    #tknob{width:20px;height:20px;border-radius:50%;background:var(--a1);display:flex;align-items:center;justify-content:center;font-size:11px;transition:transform .3s,background .3s;}
+    [data-theme="light"] #tknob{transform:translateX(28px);background:var(--a2);}
+    
+    /* 네비게이션 */
+    #nav{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:11px;z-index:50;background:var(--surface2);border:1px solid var(--border2);border-radius:40px;padding:9px 16px;backdrop-filter:blur(14px);}
+    .nb{width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:.2s;}
+    .nb:hover{background:var(--a1);color:#000;border-color:transparent;}
+    #dots{display:flex;align-items:center;gap:6px;}
+    .nd{width:6px;height:6px;border-radius:50%;background:var(--border2);cursor:pointer;transition:.3s;}
+    .nd.active{width:20px;border-radius:3px;background:var(--a1);}
+    
+    /* 공통 타이포그래피 */
+    .lbl{font-size:.72rem;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--a1);display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+    .lbl::before,.lbl::after{content:'';flex:0 0 24px;height:2px;background:currentColor;opacity:.5;}
+    h2{font-size:2.45rem;font-weight:900;line-height:1.2;}
+    .muted{color:var(--text2);}
+    .c1{color:var(--a1);} .c2{color:var(--a2);} .c3{color:var(--a3);} .c4{color:var(--a4);} .c5{color:var(--a5);}
+    .badge{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:.74rem;font-weight:700;}
+    .bm{background:rgba(110,231,183,.14);border:1px solid rgba(110,231,183,.34);color:var(--a1);}
+    .bi{background:rgba(129,140,248,.14);border:1px solid rgba(129,140,248,.34);color:var(--a2);}
+    .bp{background:rgba(244,114,182,.14);border:1px solid rgba(244,114,182,.34);color:var(--a3);}
+    .bo{background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.34);color:var(--a4);}
+    .bs{background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.34);color:var(--a5);}
+    
+    /* 카드 & 인포바 */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px 22px;}
+    .ibar{padding:12px 18px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;font-size:.84rem;color:var(--text2);line-height:1.55;}
+    .ibar strong{color:var(--text);font-weight:700;}
+
+    /* ─── S1 타이틀 ─── */
+    #s1{text-align:center;}
+    #s1 .logo{font-size:6.8rem;font-weight:900;letter-spacing:-3px;background:linear-gradient(135deg,var(--a1) 0%,#34d399 40%,var(--a2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 40px rgba(110,231,183,.4));line-height:1;}
+    #s1 .sub{font-size:1.25rem;color:var(--text2);margin-top:14px;font-weight:600;}
+    #s1 .badges{display:flex;gap:10px;justify-content:center;margin-top:24px;}
+    #s1 .meta{margin-top:44px;color:var(--text);font-size:1.05rem;font-weight:700;letter-spacing:1px;background:var(--surface2);padding:6px 20px;border-radius:24px;border:1px solid var(--border2);display:inline-block;}
+    #s1 .ring{position:absolute;border-radius:50%;animation:spin 20s linear infinite;pointer-events:none;}
+    #s1 .r1{width:320px;height:320px;border:1px solid rgba(110,231,183,.15);}
+    #s1 .r2{width:520px;height:520px;border:1px solid rgba(129,140,248,.10);animation-direction:reverse;animation-duration:30s;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* ─── S2 소개 ─── */
+    #s2 .wrap{display:grid;grid-template-columns:1.15fr 1fr;gap:50px;align-items:center;width:100%;max-width:1120px;}
+    #s2 .qt{font-size:2.05rem;font-weight:900;line-height:1.45;word-break:keep-all;}
+    #s2 .qs{font-size:.92rem;color:var(--text2);margin-top:18px;line-height:1.7;max-width:440px;}
+    #s2 .ri{display:flex;gap:14px;padding:15px 0;border-bottom:1px solid var(--border);}
+    #s2 .ri:last-child{border-bottom:none;}
+    #s2 .rn{font-size:.74rem;font-weight:900;letter-spacing:1px;color:var(--a1);flex-shrink:0;margin-top:2px;}
+    #s2 .rtl{font-size:1.02rem;font-weight:800;margin-bottom:4px;}
+    #s2 .rds{font-size:.85rem;color:var(--text2);line-height:1.6;}
+
+    /* ─── S3 기술 스택 ─── */
+    #s3 .sg{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:1120px;}
+    #s3 .sc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;transition:transform .25s,box-shadow .25s;}
+    #s3 .sc:hover{transform:translateY(-4px);box-shadow:0 10px 32px var(--shadow);}
+    #s3 .stop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    #s3 .snm{font-size:1.08rem;font-weight:800;}
+    #s3 .sds{font-size:.85rem;color:var(--text2);line-height:1.6;}
+    #s3 .stg{display:inline-block;margin-top:11px;font-size:.72rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:5px;}
+
+    /* ─── S4 아키텍처 ─── */
+    #s4 .aw{display:flex;gap:0;align-items:stretch;width:100%;max-width:1160px;margin-top:20px;}
+    #s4 .an{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:20px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    #s4 .ant{font-size:1.02rem;font-weight:800;margin-bottom:6px;color:var(--a1);}
+    #s4 .and{font-size:.8rem;color:var(--text2);line-height:1.55;}
+    #s4 .arr{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 12px;flex-shrink:0;}
+    #s4 .arrl{font-size:.68rem;color:var(--a1);font-weight:800;letter-spacing:.5px;white-space:nowrap;}
+    #s4 .arrs{font-size:1.1rem;color:var(--a1);}
+    #s4 .er{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+    #s4 .ec{padding:5px 12px;border-radius:20px;font-size:.76rem;font-weight:700;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.26);color:var(--a5);}
+
+    /* ─── S5~7 게임 상세 슬라이드 ─── */
+    .gs{align-items:flex-start;}
+    .gs>*{width:100%;max-width:1220px;}
+    .gh{display:flex;align-items:center;gap:16px;margin-bottom:18px;}
+    .gtl{font-size:2.15rem;font-weight:900;}
+    .gst{font-size:.88rem;color:var(--text2);margin-top:3px;}
+    .gb{display:grid;grid-template-columns:.95fr 1.6fr;gap:32px;align-items:center;}
+    .fl{display:flex;flex-direction:column;gap:12px;}
+    .fi{display:flex;gap:11px;align-items:flex-start;}
+    .fd{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:7px;}
+    .ft{font-size:.96rem;font-weight:700;line-height:1.5;}
+    
+    .gimgb{position:relative;border-radius:15px;overflow:hidden;border:1px solid var(--border2);box-shadow:0 0 36px var(--shadow);background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .gimgb img{width:100%;height:auto;max-height:410px;display:block;object-fit:contain;}
+    .gimg-cap{width:100%;background:rgba(10,14,24,0.85);backdrop-filter:blur(8px);padding:7px 12px;font-size:.78rem;color:var(--text2);text-align:center;border-top:1px solid var(--border);letter-spacing:.3px;font-weight:600;}
+    
+    .emg{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;}
+    .emc{background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:9px 12px;}
+    .emn{font-size:.86rem;font-weight:800;margin-bottom:2px;}
+    .emd{font-size:.74rem;color:var(--text2);line-height:1.45;}
+
+    /* ─── S8, S9 핵심기술 ─── */
+    .tech-wrap{width:100%;max-width:1140px;}
+    .flow{display:flex;align-items:center;gap:9px;margin-top:18px;flex-wrap:wrap;justify-content:center;}
+    .fs{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;text-align:center;min-width:145px;}
+    .fst{font-size:.95rem;font-weight:800;}
+    .fss{font-size:.76rem;color:var(--text2);margin-top:4px;}
+    .fa{font-size:1.3rem;color:var(--a1);font-weight:900;}
+    .aic{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;}
+    .aicb{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 22px;}
+    .aicn{font-size:1.02rem;font-weight:800;color:var(--a1);margin-bottom:6px;}
+    .aicd{font-size:.86rem;color:var(--text2);line-height:1.65;}
+
+    .ux-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px;}
+    .ux-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:18px 22px;}
+    .ux-title{font-size:1.08rem;font-weight:800;color:var(--a1);margin-bottom:3px;}
+    .ux-sub{font-size:.78rem;color:var(--text3);margin-bottom:12px;}
+    .ux-list{display:flex;flex-direction:column;gap:11px;}
+    .ux-item{display:flex;flex-direction:column;gap:2px;}
+    .ux-item-title{font-size:.88rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;}
+    .ux-item-title::before{content:'▸';color:var(--a1);font-weight:900;}
+    .ux-item-desc{font-size:.8rem;color:var(--text2);line-height:1.45;padding-left:14px;word-break:keep-all;}
+
+    /* ─── S10 도전 과제 (트러블슈팅) ─── */
+    .ch-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;width:100%;max-width:1140px;}
+    .ch-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+    .ch-title{font-size:1.02rem;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+    .ch-prob{font-size:.82rem;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:rgba(244,114,182,.09);border-left:3px solid var(--a3);border-radius:4px;line-height:1.55;}
+    .ch-sol{font-size:.84rem;color:var(--text);padding:8px 12px;background:rgba(110,231,183,.09);border-left:3px solid var(--a1);border-radius:4px;line-height:1.55;}
+    .ch-tag{font-size:.68rem;font-weight:800;letter-spacing:1px;color:var(--a1);margin-bottom:3px;}
+
+    /* ─── S10 마무리 ─── */
+    #s10{text-align:center;}
+    #s10 .el{font-size:4.8rem;font-weight:900;letter-spacing:-2px;background:linear-gradient(135deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.1;}
+    #s10 .es{font-size:1.15rem;color:var(--text2);margin-top:10px;font-weight:600;}
+    #s10 .sg{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:800px;margin:28px auto;}
+    #s10 .sc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 12px;}
+    #s10 .sn{font-size:2.1rem;font-weight:900;line-height:1;}
+    #s10 .sl{font-size:.76rem;color:var(--text2);margin-top:6px;font-weight:700;}
+    #s10 .lk{display:flex;gap:14px;justify-content:center;margin-top:24px;flex-wrap:wrap;}
+    #s10 .lb{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:9px;background:var(--surface2);border:1px solid var(--border2);font-size:.85rem;font-weight:700;color:var(--text);text-decoration:none;transition:.2s;}
+    #s10 .lb:hover{color:var(--a1);border-color:var(--a1);transform:translateY(-2px);}
+    #s10 .qa{font-size:1.9rem;font-weight:900;margin-top:28px;color:var(--text3);}
+  </style>
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+  <button id="ttoggle" title="테마 전환" onclick="toggleTheme()"><div id="tknob">🌙</div></button>
+  <div id="hud"><div id="hud-logo">PickPlay</div><div id="slide-counter">01 / 10</div></div>
+
+  <div id="deck">
+
+    <!-- S1 타이틀 -->
+    <div class="slide active" id="s1">
+      <div class="ring r1"></div><div class="ring r2"></div>
+      <div class="logo a1">PickPlay</div>
+      <div class="sub a2">실시간 멀티플레이어 웹 파티 게임 플랫폼</div>
+      <div class="badges a3">
+        <span class="badge bm">3가지 게임</span>
+        <span class="badge bs">Socket.io 실시간 통신</span>
+        <span class="badge bi">AI 연동</span>
+        <span class="badge bo">설치·로그인 프리</span>
+      </div>
+      <div class="meta a4">202251002 &nbsp;·&nbsp; 권다원</div>
+    </div>
+
+    <!-- S2 프로젝트 소개 -->
+    <div class="slide" id="s2">
+      <div class="lbl a1">프로젝트 소개</div>
+      <div class="wrap a2">
+        <div>
+          <div class="qt">"설치와 로그인 없이,<br>링크 하나로<br><span class="c1">여러 파티 게임을 바로.</span>"</div>
+          <div class="qs">별도의 프로그램 설치나 복잡한 가입 절차 없이,<br>웹 브라우저 접속만으로 즐기는 실시간 멀티플레이 플랫폼.</div>
+        </div>
+        <div>
+          <div class="ri"><div class="rn">01</div><div><div class="rtl">왜 만들었나?</div><div class="rds">설치·로그인 장벽 없이 링크 하나로 바로 모여 즐길 수 있는 웹 파티 게임의 높은 수요에서 착안.</div></div></div>
+          <div class="ri"><div class="rn" style="color:var(--a5)">02</div><div><div class="rtl">어떻게 동작하나?</div><div class="rds">방장이 방을 파고 링크를 공유하면 즉시 동시 입장. Socket.io 양방향 통신으로 모든 플레이 상태 동기화.</div></div></div>
+          <div class="ri"><div class="rn" style="color:var(--a2)">03</div><div><div class="rtl">AI를 도입한 이유?</div><div class="rds">고정된 단어 풀의 한계를 깨고, 유저가 입력한 주제에 맞춰 Gemini API가 매판 무한한 단어를 생성.</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S3 기술 스택 (이모지 제거 & 가독성 강화) -->
+    <div class="slide" id="s3">
+      <div class="lbl a1">기술 스택</div>
+      <h2 class="a2" style="margin-bottom:24px;">사용 기술 &amp; 아키텍처 구성</h2>
+      <div class="sg a3">
+        <div class="sc" style="border-top:3px solid #68a063;">
+          <div class="stop"><div class="snm">Node.js + Express</div><span class="stg" style="background:rgba(104,160,99,.15);color:#68a063;">Backend</span></div>
+          <div class="sds">서버 사이드 런타임 및 REST API 라우팅 · 게임 방 메모리 객체 집중 관리</div>
+        </div>
+        <div class="sc" style="border-top:3px solid var(--a5);">
+          <div class="stop"><div class="snm">Socket.io</div><span class="stg" style="background:rgba(56,189,248,.15);color:var(--a5);">Realtime</span></div>
+          <div class="sds">WebSocket 기반 양방향 실시간 통신 · 턴 교체, 투표, 폭탄 카운트다운 즉시 동기화</div>
+        </div>
+        <div class="sc" style="border-top:3px solid #e8d44d;">
+          <div class="stop"><div class="snm">HTML / CSS / JS</div><span class="stg" style="background:rgba(232,212,77,.15);color:#e8d44d;">Frontend</span></div>
+          <div class="sds">외부 무거운 프레임워크 없는 순수 Vanilla JS · 모든 UI와 인터랙션 직접 구현</div>
+        </div>
+        <div class="sc" style="border-top:3px solid var(--a2);">
+          <div class="stop"><div class="snm">Google Gemini API</div><span class="stg" style="background:rgba(129,140,248,.15);color:var(--a2);">AI Engine</span></div>
+          <div class="sds">자연어 주제 기반 25칸 빙고 단어 자동 생성 · DB 캐싱 전략으로 비용과 지연시간 극복</div>
+        </div>
+        <div class="sc" style="border-top:3px solid #00aeff;">
+          <div class="stop"><div class="snm">MySQL</div><span class="stg" style="background:rgba(0,174,255,.15);color:#00aeff;">Database</span></div>
+          <div class="sds">생성된 AI 주제 및 단어 영구 캐싱 · 게임 카테고리 마스터 데이터 저장</div>
+        </div>
+        <div class="sc" style="border-top:3px solid var(--a1);">
+          <div class="stop"><div class="snm">1인 풀스택 설계</div><span class="stg" style="background:rgba(110,231,183,.15);color:var(--a1);">Solo Dev</span></div>
+          <div class="sds">기획부터 백엔드, 프론트엔드, AI 연동, DB 최적화 및 배포 전 과정 단독 완수</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S4 게임 01 : 테마 빙고 -->
+    <div class="slide gs" id="s4">
+      <div class="lbl a1">게임 01</div>
+      <div class="gh a2">
+        <div><div class="gtl">테마 빙고</div><div class="gst">AI가 생성한 단어로 채우는 실시간 턴제 5×5 빙고</div></div>
+        <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;">
+          <span class="badge bm">2~8인</span>
+          <span class="badge bs">턴제</span>
+          <span class="badge bi">AI 연동</span>
+        </div>
+      </div>
+      <div class="gb a3">
+        <div>
+          <div class="fl">
+            <div class="fi"><div class="fd" style="background:var(--a1);"></div><div><div class="ft">AI 주제 단어 자동 완성 및 프리셋 제공</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a5);"></div><div><div class="ft">실시간 순차 턴 동기화 + 제한시간 타이머</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a2);"></div><div><div class="ft">역전용 특수 스킬 이벤트 4종</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a3);"></div><div><div class="ft">빙고 줄 완성 스탬프 및 실시간 현황 공유</div></div></div>
+          </div>
+          <div class="emg">
+            <div class="emc"><div class="emn c2">차원 뒤틀림</div><div class="emd">25칸 배치 전체 셔플</div></div>
+            <div class="emc"><div class="emn c3">유령의 장난</div><div class="emd">호명 단어 2개 삭제·잠금</div></div>
+            <div class="emc"><div class="emn c4">시간 왜곡</div><div class="emd">한 턴에 단어 2개 연속 호명</div></div>
+            <div class="emc"><div class="emn c1">블랙홀</div><div class="emd">타깃 지목 상대 턴 강제 스킵</div></div>
+          </div>
+        </div>
+        <div class="gimgb">
+          <img src="Screenshot/14Week/Silde4.gif" alt="빙고 게임플레이">
+          <div class="gimg-cap">실시간 5×5 단어 호명 및 빙고 완성 스탬프 동기화</div>
+        </div>
+      </div>
+      <div class="ibar a4" style="margin-top:16px;"><strong>핵심 설계:</strong> Gemini AI 실시간 단어 생성 &amp; MySQL 영구 캐싱으로 API 비용 0원 방어 &nbsp;|&nbsp; 30초 쿨타임 어뷰징 차단 &nbsp;|&nbsp; 목표 줄 수(3~5줄) 커스텀</div>
+    </div>
+
+    <!-- S5 게임 02 : 라이어 게임 -->
+    <div class="slide gs" id="s5">
+      <div class="lbl a1">게임 02</div>
+      <div class="gh a2">
+        <div><div class="gtl c3">라이어 게임</div><div class="gst">제시어를 모르는 라이어를 찾아내는 실시간 심리 추리 게임</div></div>
+        <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;">
+          <span class="badge bp">3~8인</span>
+          <span class="badge bo">라운드제</span>
+          <span class="badge bi">역전 추리</span>
+        </div>
+      </div>
+      <div class="gb a3">
+        <div>
+          <div class="fl">
+            <div class="fi"><div class="fd" style="background:var(--a3);"></div><div><div class="ft">비공개 역할 배정 (3D 카드 플립 연출)</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a2);"></div><div><div class="ft">힌트 발언 ➡️ 지목 투표 ➡️ 쇼다운 3단계 진행</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a4);"></div><div><div class="ft">라이어 검거 시 최후의 역전 추리 훔쳐보기 기능</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a5);"></div><div><div class="ft">목표 승수 및 다양한 카테고리 커스텀</div></div></div>
+          </div>
+          <div class="emg">
+            <div class="emc"><div class="emn c1">실시간 쇼다운</div><div class="emd">최다 득표자 지목 화살표 및 투표 현황 즉각 시각화</div></div>
+            <div class="emc"><div class="emn c3">역전 추리 훔쳐보기</div><div class="emd">라이어의 입력 과정을 전원이 실시간 타이핑으로 관전</div></div>
+          </div>
+        </div>
+        <div class="gimgb">
+          <img src="Screenshot/14Week/LiarGameplay.gif" alt="라이어 게임플레이">
+          <div class="gimg-cap">실시간 지목 투표 및 최후의 역전 추리 쇼다운</div>
+        </div>
+      </div>
+      <div class="ibar a4" style="margin-top:16px;"><strong>핵심 설계:</strong> 실시간 투표 배지 및 화살표 쇼다운 시각화 &nbsp;|&nbsp; <code style="font-size:.88em;font-family:monospace;">final guess typing</code> 이벤트로 라이어의 실시간 타이핑 훔쳐보기 구현</div>
+    </div>
+
+    <!-- S6 게임 03 : 주제 폭탄 돌리기 -->
+    <div class="slide gs" id="s6">
+      <div class="lbl a1">게임 03</div>
+      <div class="gh a2">
+        <div><div class="gtl c4">주제 폭탄 돌리기</div><div class="gst">카테고리 단어를 입력해 폭탄을 넘기는 타이머 기반 스피드 게임</div></div>
+        <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;">
+          <span class="badge bo">2~8인</span>
+          <span class="badge bp">목숨제</span>
+        </div>
+      </div>
+      <div class="gb a3">
+        <div>
+          <div class="fl">
+            <div class="fi"><div class="fd" style="background:var(--a4);"></div><div><div class="ft">랜덤 폭탄 모드 &amp; 전략 지목 모드 지원</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a3);"></div><div><div class="ft">상대방 직접 클릭 지목 및 타겟 락온 애니메이션</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a1);"></div><div><div class="ft">타이머 공개 / 블라인드(시한폭탄) 옵션</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a2);"></div><div><div class="ft">하트 차감 시스템 및 최후 1인 생존 배틀</div></div></div>
+          </div>
+          <div class="emg">
+            <div class="emc"><div class="emn c4">전략 타겟 락온</div><div class="emd">상대를 직접 클릭해 폭탄을 넘기는 락온 연출</div></div>
+            <div class="emc"><div class="emn c2">하트 서바이벌</div><div class="emd">서버 정밀 타이머 동기화 및 폭발 시 하트 차감 배틀</div></div>
+          </div>
+        </div>
+        <div class="gimgb">
+          <img src="Screenshot/14Week/BombTactical.gif" alt="폭탄 전략 모드">
+          <div class="gimg-cap">제한시간 시한폭탄 &amp; 상대방 타겟 지목 배틀</div>
+        </div>
+      </div>
+      <div class="ibar a4" style="margin-top:16px;"><strong>핵심 설계:</strong> 서버 중심의 정밀 타이머 동기화 &nbsp;|&nbsp; 이미 사용된 단어 서버 검증으로 부정행위 원천 차단</div>
+    </div>
+
+    <!-- S7 핵심기술 — UX 01 : 다크 / 라이트 테마 -->
+    <div class="slide gs" id="s7">
+      <div class="lbl a1">핵심기술 — UX 01</div>
+      <div class="gh a2">
+        <div><div class="gtl">다크 / 라이트 테마</div><div class="gst">눈의 피로를 덜고 몰입감을 높이는 반응형 듀얼 테마 시스템</div></div>
+        <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;">
+          <span class="badge bm">원클릭 전환</span>
+          <span class="badge bs">설정 자동 기억</span>
+          <span class="badge bi">눈부심 방지</span>
+        </div>
+      </div>
+      <div class="gb a3">
+        <div>
+          <div class="fl">
+            <div class="fi"><div class="fd" style="background:var(--a1);"></div><div><div class="ft">토글 버튼으로 원클릭 즉시 전환</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a5);"></div><div><div class="ft">새로고침하거나 다시 접속해도 쓰던 테마 그대로 기억</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a2);"></div><div><div class="ft">로비부터 대기실, 게임판, 채팅창까지 모든 화면의 색감 통일</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a3);"></div><div><div class="ft">어두운 밤이나 밝은 낮 언제든 눈이 편안한 색상 조합 제공</div></div></div>
+          </div>
+          <div class="emg">
+            <div class="emc"><div class="emn c1">화면 깜빡임 차단</div><div class="emd">테마를 바꿀 때 화면이 번지거나 튀는 어색한 잔상 완전 제거</div></div>
+            <div class="emc"><div class="emn c2">설정 자동 저장</div><div class="emd">별도 로그인 없이도 사용자가 쓰던 테마 환경을 자동 보존</div></div>
+          </div>
+        </div>
+        <div class="gimgb">
+          <img src="Screenshot/16Week/BlackWhiteGame.gif" alt="테마 전환 시연">
+          <div class="gimg-cap">원클릭 테마 즉시 전환 및 다크/라이트 듀얼 시스템</div>
+        </div>
+      </div>
+      <div class="ibar a4" style="margin-top:16px;"><strong>핵심 설계:</strong> 깜빡임 없는 원클릭 테마 전환 &nbsp;|&nbsp; 로그인 없이도 이전 설정 자동 유지</div>
+    </div>
+
+    <!-- S8 핵심기술 — UX 02 : 방 입장 로딩 & 프리뷰 -->
+    <div class="slide gs" id="s8">
+      <div class="lbl a1">핵심기술 — UX 02</div>
+      <div class="gh a2">
+        <div><div class="gtl c5">방 입장 로딩 연출</div><div class="gst">화면 깜빡임 없는 매끄러운 화면 전환과 실시간 접속 안내</div></div>
+        <div style="margin-left:auto;display:flex;gap:9px;flex-wrap:wrap;">
+          <span class="badge bs">깜빡임 차단</span>
+          <span class="badge bm">3단계 진행 안내</span>
+          <span class="badge bi">부드러운 화면 전환</span>
+        </div>
+      </div>
+      <div class="gb a3">
+        <div>
+          <div class="fl">
+            <div class="fi"><div class="fd" style="background:var(--a5);"></div><div><div class="ft">덜 만들어진 빈 화면이 노출되지 않도록 전체 화면을 깔끔하게 가려줌</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a1);"></div><div><div class="ft">[서버 연결 중 ➡️ 방 환경 설정 ➡️ 입장 완료] 순서대로 진행 상황 표시</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a2);"></div><div><div class="ft">로고가 숨쉬듯 부드럽게 빛나는 애니메이션으로 기다리는 지루함 해소</div></div></div>
+            <div class="fi"><div class="fd" style="background:var(--a3);"></div><div><div class="ft">입장 준비가 끝나면 부드러운 전환 효과와 함께 대기실 화면으로 자연스럽게 연결</div></div></div>
+          </div>
+          <div class="emg">
+            <div class="emc"><div class="emn c5">접속 상태 자동 감지</div><div class="emd">서버 연결 과정에 맞춰 안내 문구가 실시간으로 자연스럽게 변경</div></div>
+            <div class="emc"><div class="emn c1">자연스러운 화면 연결</div><div class="emd">로딩이 끝난 후 화면이 튀지 않고 대기실 화면으로 매끄럽게 흡수</div></div>
+          </div>
+        </div>
+        <div class="gimgb">
+          <img src="Screenshot/16Week/LodingGame_clean.gif" alt="로딩 연출 시연">
+          <div class="gimg-cap">부드러운 로고 빛 애니메이션 &amp; 3단계 접속 진행 상황 실시간 안내</div>
+        </div>
+      </div>
+      <div class="ibar a4" style="margin-top:16px;"><strong>핵심 설계:</strong> 미완성 화면 노출 완벽 차단 &nbsp;|&nbsp; 단계별 접속 안내와 매끄러운 화면 전환</div>
+    </div>
+
+    <!-- S9 도전 과제 & 해결 (트러블슈팅) -->
+    <div class="slide" id="s9">
+      <div class="lbl a1">개발 과정</div>
+      <h2 class="a2" style="margin-bottom:6px;">도전 과제 &amp; 해결 방법</h2>
+      <p class="muted a2" style="font-size:.95rem;">실시간 멀티플레이 환경에서 직면한 4가지 핵심 난제 극복기</p>
+      <div class="ch-grid a3">
+        <div class="ch-card">
+          <div class="ch-title">동시에 버튼을 눌렀을 때 판정이 꼬이는 현상</div>
+          <div class="ch-prob">여러 플레이어가 0.1초 차이로 동시에 행동할 때, 누가 먼저인지 꼬이거나 결과가 달라지는 문제</div>
+          <div class="ch-tag">해결 방법</div>
+          <div class="ch-sol">모든 게임 판정을 중앙 서버의 하나의 기준으로 공정하게 처리하고, 모든 유저에게 동일한 결과를 실시간 전달</div>
+        </div>
+        <div class="ch-card">
+          <div class="ch-title">AI 단어 생성 대기 시간과 호출 비용 문제</div>
+          <div class="ch-prob">인공지능에게 새 단어를 받아올 때 1~3초가 걸려 게임 진행 흐름이 끊기고 비용이 계속 발생하는 문제</div>
+          <div class="ch-tag">해결 방법</div>
+          <div class="ch-sol">한 번 만들어진 단어는 데이터베이스에 영구 저장해 다음엔 0초 만에 즉시 꺼내 쓰고, 연속 요청 방지 장치 구축</div>
+        </div>
+        <div class="ch-card">
+          <div class="ch-title">실수로 새로고침(F5)을 눌렀을 때 방이 터지는 현상</div>
+          <div class="ch-prob">게임 도중 실수로 새로고침을 누르면 다른 사람으로 인식되어 강제로 쫓겨나거나 방이 깨지는 문제</div>
+          <div class="ch-tag">해결 방법</div>
+          <div class="ch-sol">브라우저에 고유 열쇠(ID)를 발급하여, 새로고침을 해도 원래 하던 게임 자리와 방장 권한을 100% 자동 복구</div>
+        </div>
+        <div class="ch-card">
+          <div class="ch-title">다크 / 라이트 모드 전환 시 화면 번쩍임</div>
+          <div class="ch-prob">화면 모드를 바꿀 때 일부 색상이 늦게 따라와 화면이 어색하게 번쩍이고 눈이 피로한 잔상 발생</div>
+          <div class="ch-tag">해결 방법</div>
+          <div class="ch-sol">모든 화면 요소의 색상이 지연 없이 찰나에 한 번에 바뀌도록 설계하여, 잔상 없는 눈이 편안한 즉시 전환 구현</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S10 마무리 -->
+    <div class="slide" id="s10">
+      <div class="el a1">PickPlay</div>
+      <div class="es a2">실시간 멀티플레이어 웹 파티 게임 플랫폼</div>
+      <div class="sg a3">
+        <div class="sc"><div class="sn c1">3</div><div class="sl">개의 게임</div></div>
+        <div class="sc"><div class="sn c5">25+</div><div class="sl">소켓 이벤트</div></div>
+        <div class="sc"><div class="sn c2">4</div><div class="sl">빙고 특수 스킬</div></div>
+        <div class="sc"><div class="sn c4">1인</div><div class="sl">기획 · 풀스택 개발</div></div>
+      </div>
+      <div class="lk a4">
+        <a href="https://github.com/Soap1105/PickPlay" class="lb" target="_blank">GitHub Repository</a>
+        <a href="https://pickplay.onrender.com" class="lb" target="_blank">pickplay.onrender.com</a>
+      </div>
+      <div class="qa a5">Q &amp; A</div>
+    </div>
+
+  </div>
+
+  <div id="nav">
+    <button class="nb" onclick="move(-1)">←</button>
+    <div id="dots"></div>
+    <button class="nb" onclick="move(1)">→</button>
+  </div>
+
+  <script>
+    const SLIDES = [
+      {id:'s1', label:'타이틀'},
+      {id:'s2', label:'소개'},
+      {id:'s3', label:'기술 스택'},
+      {id:'s4', label:'빙고 게임'},
+      {id:'s5', label:'라이어 게임'},
+      {id:'s6', label:'폭탄 돌리기'},
+      {id:'s7', label:'핵심 UX 테마'},
+      {id:'s8', label:'핵심 UX 로딩'},
+      {id:'s9', label:'도전 과제'},
+      {id:'s10', label:'마무리'}
+    ];
+    let cur = 0;
+    const els = SLIDES.map(s => document.getElementById(s.id));
+    const ctr = document.getElementById('slide-counter');
+    const dotsEl = document.getElementById('dots');
+
+    SLIDES.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'nd' + (i === 0 ? ' active' : '');
+      d.title = SLIDES[i].label;
+      d.addEventListener('click', () => goTo(i));
+      dotsEl.appendChild(d);
+    });
+
+    function goTo(n) {
+      if (n === cur || n < 0 || n >= SLIDES.length) return;
+      const dir = n > cur ? 'up' : 'dn';
+      els[cur].classList.remove('active');
+      els[cur].classList.add('exit-' + dir);
+      setTimeout(() => els[cur].classList.remove('exit-up', 'exit-dn'), 450);
+      cur = n;
+      els[cur].classList.add('active');
+      ctr.textContent = String(cur + 1).padStart(2, '0') + ' / ' + String(SLIDES.length).padStart(2, '0');
+      dotsEl.querySelectorAll('.nd').forEach((d, i) => d.classList.toggle('active', i === cur));
+    }
+
+    function move(d) { goTo(cur + d); }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') move(1);
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') move(-1);
+    });
+
+    const root = document.documentElement;
+    const knob = document.getElementById('tknob');
+    const sv = localStorage.getItem('pp-a-theme') || 'dark';
+    root.setAttribute('data-theme', sv);
+    knob.textContent = sv === 'dark' ? '🌙' : '☀️';
+
+    function toggleTheme() {
+      const n = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', n);
+      knob.textContent = n === 'dark' ? '🌙' : '☀️';
+      localStorage.setItem('pp-a-theme', n);
+    }
+
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const PD = ['rgba(110,231,183,', 'rgba(129,140,248,', 'rgba(244,114,182,', 'rgba(56,189,248,'];
+    const PL = ['rgba(16,185,129,', 'rgba(99,102,241,', 'rgba(236,72,153,', 'rgba(14,165,233,'];
+    const pts = Array.from({length: 50}, () => ({
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
+      r: Math.random() * 1.5 + .4,
+      vx: (Math.random() - .5) * .25,
+      vy: (Math.random() - .5) * .25,
+      a: Math.random() * .32 + .07,
+      ci: Math.floor(Math.random() * 4)
+    }));
+
+    (function loop() {
+      requestAnimationFrame(loop);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const isDk = root.getAttribute('data-theme') !== 'light';
+      const pal = isDk ? PD : PL;
+      pts.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = pal[p.ci] + p.a + ')';
+        ctx.fill();
+      });
+    })();
+  </script>
+</body>
+</html>
