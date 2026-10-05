@@ -479,69 +479,247 @@
 
 /* 유저 리스트 내 강퇴 버튼 - common.css에서 상속받음 */
 
-/* 큰 이벤트 모달 애니메이션 */
+/* =====================================================
+   빙고 찬스 이벤트 팝업 - 글래스모피즘 리디자인
+   ===================================================== */
+
 #big-event-display {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    color: white;
+    inset: 0;
     display: none;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 9999;
+    /* 기본 오버레이: 딥 퍼플-블랙 그라디언트 */
+    background: radial-gradient(ellipse at center, rgba(30, 10, 60, 0.92) 0%, rgba(5, 0, 15, 0.97) 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: background 0.3s ease;
 }
 
+/* 이벤트 타입별 오버레이 색조 */
+#big-event-display.type-bad,
+#big-event-display.type-bomb {
+    background: radial-gradient(ellipse at center, rgba(80, 5, 5, 0.93) 0%, rgba(15, 0, 0, 0.97) 100%);
+}
+#big-event-display.type-good,
+#big-event-display.type-bonus {
+    background: radial-gradient(ellipse at center, rgba(5, 55, 20, 0.93) 0%, rgba(0, 10, 5, 0.97) 100%);
+}
+#big-event-display.type-info {
+    background: radial-gradient(ellipse at center, rgba(5, 20, 80, 0.93) 0%, rgba(0, 5, 20, 0.97) 100%);
+}
+
+/* 메인 이벤트 카드 */
 .event-content {
+    position: relative;
     text-align: center;
-    border: 6px solid white;
-    padding: 60px;
-    border-radius: 30px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    transform: scale(1.2);
+    padding: 52px 64px 48px;
+    border-radius: 28px;
+    max-width: 520px;
+    width: 90%;
+
+    /* 글래스모피즘 핵심 */
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(28px) saturate(1.6);
+    -webkit-backdrop-filter: blur(28px) saturate(1.6);
+
+    /* 기본 골드 border (gradient border via box-shadow 레이어링) */
+    border: 1px solid rgba(241, 196, 15, 0.35);
+    box-shadow:
+        0 0 0 1px rgba(241, 196, 15, 0.12),
+        0 8px 48px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 60px rgba(241, 196, 15, 0.08);
+
+    color: #fff;
+    overflow: hidden;
+}
+
+/* 카드 상단 광원 하이라이트 */
+.event-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    border-radius: 50%;
+}
+
+/* 배경 링 장식 */
+.event-content::after {
+    content: '';
+    position: absolute;
+    inset: -60px;
+    border-radius: 50%;
+    border: 1px solid rgba(241, 196, 15, 0.06);
+    animation: eventRingPulse 2.4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+/* 이벤트 타입별 카드 border/glow 오버라이드 */
+.event-content.type-bad,
+.event-content.type-bomb {
+    border-color: rgba(231, 76, 60, 0.45);
+    box-shadow:
+        0 0 0 1px rgba(231, 76, 60, 0.15),
+        0 8px 48px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 100, 80, 0.12),
+        0 0 70px rgba(231, 76, 60, 0.18);
+}
+.event-content.type-bad::after,
+.event-content.type-bomb::after {
+    border-color: rgba(231, 76, 60, 0.08);
+}
+
+.event-content.type-good,
+.event-content.type-bonus {
+    border-color: rgba(46, 213, 115, 0.45);
+    box-shadow:
+        0 0 0 1px rgba(46, 213, 115, 0.15),
+        0 8px 48px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(80, 255, 140, 0.12),
+        0 0 70px rgba(46, 213, 115, 0.18);
+}
+.event-content.type-good::after,
+.event-content.type-bonus::after {
+    border-color: rgba(46, 213, 115, 0.08);
+}
+
+.event-content.type-info {
+    border-color: rgba(74, 144, 226, 0.45);
+    box-shadow:
+        0 0 0 1px rgba(74, 144, 226, 0.15),
+        0 8px 48px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(120, 180, 255, 0.12),
+        0 0 70px rgba(74, 144, 226, 0.18);
+}
+.event-content.type-info::after {
+    border-color: rgba(74, 144, 226, 0.08);
+}
+
+/* 링 펄스 애니메이션 */
+@keyframes eventRingPulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50%       { transform: scale(1.06); opacity: 0.15; }
+}
+
+/* 이벤트 타입 배지 */
+.event-type-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    background: rgba(241, 196, 15, 0.15);
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    color: #f1c40f;
+}
+.event-type-badge.type-bad,
+.event-type-badge.type-bomb {
+    background: rgba(231, 76, 60, 0.15);
+    border-color: rgba(231, 76, 60, 0.3);
+    color: #ff7675;
+}
+.event-type-badge.type-good,
+.event-type-badge.type-bonus {
+    background: rgba(46, 213, 115, 0.15);
+    border-color: rgba(46, 213, 115, 0.3);
+    color: #55efc4;
+}
+.event-type-badge.type-info {
+    background: rgba(74, 144, 226, 0.15);
+    border-color: rgba(74, 144, 226, 0.3);
+    color: #74b9ff;
 }
 
 #event-icon {
-    font-size: 8rem;
-    margin-bottom: 20px;
+    font-size: 5.5rem;
+    margin-bottom: 16px;
+    line-height: 1;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+    animation: eventIconFloat 2.8s ease-in-out infinite;
+}
+
+@keyframes eventIconFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%       { transform: translateY(-6px) scale(1.04); }
 }
 
 #event-title {
-    font-size: 3.5rem;
-    font-weight: bold;
-    margin-bottom: 15px;
+    font-size: 2.6rem;
+    font-weight: 900;
+    margin-bottom: 14px;
+    letter-spacing: -0.02em;
     color: #f1c40f;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    text-shadow: 0 0 30px rgba(241, 196, 15, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
+    line-height: 1.1;
+}
+
+.event-content.type-bad #event-title,
+.event-content.type-bomb #event-title {
+    color: #ff7675;
+    text-shadow: 0 0 30px rgba(231, 76, 60, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.event-content.type-good #event-title,
+.event-content.type-bonus #event-title {
+    color: #55efc4;
+    text-shadow: 0 0 30px rgba(46, 213, 115, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.event-content.type-info #event-title {
+    color: #74b9ff;
+    text-shadow: 0 0 30px rgba(74, 144, 226, 0.5), 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
 #event-msg {
-    font-size: 1.5rem;
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    white-space: pre-line;
 }
 
+/* 진입 애니메이션: 스케일 + 슬라이드 업 복합 */
 .pop-in {
-    animation: popIn 0.4s ease-out forwards;
+    animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes popIn {
     0% {
-        transform: scale(0);
+        transform: scale(0.7) translateY(24px);
         opacity: 0;
+        filter: blur(6px);
     }
-
-    80% {
-        transform: scale(1.1);
+    70% {
+        transform: scale(1.03) translateY(-4px);
         opacity: 1;
+        filter: blur(0);
     }
-
     100% {
-        transform: scale(1);
+        transform: scale(1) translateY(0);
         opacity: 1;
+        filter: blur(0);
     }
 }
+
+/* 오버레이 페이드아웃용 클래스 (JS에서 추가) */
+#big-event-display.fading-out {
+    animation: overlayFadeOut 0.4s ease-in forwards;
+}
+
+@keyframes overlayFadeOut {
+    to { opacity: 0; }
+}
+
 
 .shake-effect {
     animation: shake 0.5s;

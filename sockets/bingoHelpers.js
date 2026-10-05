@@ -24,14 +24,28 @@ function endGame(io, room, roomId, winnerName) {
     if (room.numberInterval) clearInterval(room.numberInterval);
     if (room.turnTimer) clearTimeout(room.turnTimer);
 
-    // Collect stats
+    // 우승자 객체 찾기
+    const winnerPlayer = Object.values(room.players).find(p => p.name === winnerName);
+    const winnerColor = winnerPlayer ? (winnerPlayer.color || '#FC944D') : '#FC944D';
+
+    // Collect stats with multi-tier sorting
     const stats = Object.values(room.players).map(p => ({
+        id: p.id,
         name: p.name,
+        color: p.color || '#FC944D',
         bingoCount: checkBingoLines(p.board, room.calledNumbers),
         eventUsed: p.usedEventCount || 0
-    }));
+    })).sort((a, b) => {
+        if (a.name === winnerName) return -1;
+        if (b.name === winnerName) return 1;
+        if (b.bingoCount !== a.bingoCount) return b.bingoCount - a.bingoCount;
+        return a.eventUsed - b.eventUsed;
+    });
 
-    io.to(roomId).emit('game over', { winner: winnerName, stats });
+    io.to(roomId).emit('game over', { 
+        winner: { name: winnerName, color: winnerColor }, 
+        stats 
+    });
 
     room.gameStarted = false;
     room.status = 'WAITING';

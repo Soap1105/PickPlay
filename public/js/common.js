@@ -12,9 +12,9 @@ const nicknameModal = document.getElementById('nickname-modal');
 const nicknameInput = document.getElementById('nickname-input-modal');
 const joinGameBtn = document.getElementById('join-game-btn');
 
-// localStorage에서 닉네임/이모지 복원 (index.html에서 설정)
+// localStorage에서 닉네임/색상 복원 (index.html에서 설정)
 let myName = localStorage.getItem('pp_nickname') || '';
-let myAvatar = localStorage.getItem('pp_emoji') || '🐱';
+let myColor = localStorage.getItem('pp_color') || '#FC944D';
 
 // 고유 클라이언트 ID 발급 (같은 기기/브라우저 식별용)
 let myClientId = localStorage.getItem('pp_client_id');
@@ -23,11 +23,28 @@ if (!myClientId) {
     localStorage.setItem('pp_client_id', myClientId);
 }
 
+let isInitialJoined = false;
+
 function initConnection() {
+    if (!myName) return;
+    myName = localStorage.getItem('pp_nickname') || myName;
+    myColor = localStorage.getItem('pp_color') || myColor;
     window.myName = myName;
-    window.myAvatar = myAvatar;
-    socket.emit('join room', { roomId: roomId, name: myName, avatar: myAvatar, clientId: myClientId, gameType: gameType });
+    window.myColor = myColor;
+    socket.emit('join room', { 
+        roomId: roomId, 
+        name: myName, 
+        color: myColor, 
+        clientId: myClientId, 
+        gameType: window.gameType || 'lobby' 
+    });
 }
+
+// 소켓 최초 연결 및 연결 끊김 후 재연결 시 자동으로 방 재입장 수행
+socket.on('connect', () => {
+    isInitialJoined = true;
+    initConnection();
+});
 
 if (!myName) {
     // 닉네임 미설정 시 → index.html로 리다이렉트 (현재 경로를 redirect 파라미터로 전달)
@@ -35,7 +52,10 @@ if (!myName) {
     window.location.href = `/?redirect=${redirect}`;
 } else {
     if (nicknameModal) nicknameModal.style.display = 'none';
-    initConnection();
+    if (socket.connected && !isInitialJoined) {
+        isInitialJoined = true;
+        initConnection();
+    }
 }
 // ---------------------------------
 
@@ -219,5 +239,153 @@ window.getUserBadgeHtml = function (user) {
 socket.on('action failed', (msg) => {
     if (window.gameType !== 'bingo') {
         if (window.showToast) window.showToast(msg, 'warning');
+    }
+});
+
+/**
+ * 공통 게임 결과 모달 (#result-modal) 렌더러 함수
+ */
+window.showGameResultModal = function(options) {
+    const modal = document.getElementById('result-modal');
+    if (!modal) return;
+
+    const winnerNameEl = document.getElementById('winner-name');
+    const winnerAvatarBox = document.getElementById('winner-avatar-box');
+    const ruleTitle = document.getElementById('rule-title');
+    const ruleList = document.getElementById('rule-list');
+    const thStat1 = document.getElementById('th-stat-1');
+    const thStat2 = document.getElementById('th-stat-2');
+    const statsBody = document.getElementById('result-stats-body');
+    const tabBar = document.getElementById('result-tab-bar');
+    const panelHistory = document.getElementById('panel-history');
+    const closeBtn = document.getElementById('close-result-btn');
+
+    // 1. 우승자 쇼케이스
+    const winner = options.winner || { name: '알 수 없음', color: '#FC944D' };
+    if (winnerNameEl) winnerNameEl.textContent = winner.name || '-';
+    if (winnerAvatarBox && window.buildMascotSvg) {
+        winnerAvatarBox.innerHTML = window.buildMascotSvg(winner.color || '#FC944D');
+        winnerAvatarBox.style.borderColor = winner.color || '#f59e0b';
+        winnerAvatarBox.style.boxShadow = `0 0 28px ${winner.color || '#f59e0b'}60`;
+    }
+
+    // 2. 우측 상단 순위 산정 조건 팝오버
+    if (ruleTitle) ruleTitle.textContent = `${options.modeName || '게임'} 순위 산정 기준`;
+    if (ruleList && options.rules) {
+        ruleList.innerHTML = options.rules.map((rule, idx) => `
+            <li><span class="step-num">${idx + 1}</span><span>${rule}</span></li>
+        `).join('');
+    }
+
+    // 3. 헤더 명칭 세팅
+    if (thStat1) thStat1.textContent = options.stat1Header || "기록 1";
+    if (thStat2) thStat2.textContent = options.stat2Header || "기록 2";
+
+    // 4. 탭 바 및 라운드 히스토리 세팅
+    const hasHistory = Array.isArray(options.history) && options.history.length > 0;
+    if (tabBar) tabBar.style.display = hasHistory ? 'inline-flex' : 'none';
+
+    if (panelHistory && hasHistory) {
+        panelHistory.innerHTML = options.history.map(h => `
+            <div class="history-card">
+                <div class="history-card-header">
+                    <span class="history-round-badge">${h.round}</span>
+                    <span class="history-result-tag ${h.tagClass || ''}">${h.tag}</span>
+                </div>
+                <div class="history-card-body">
+                    <span class="history-topic-pill">${h.topic}</span>
+                </div>
+                <div class="history-desc">${h.desc}</div>
+            </div>
+        `).join('');
+    }
+
+    // 기본 탭은 항상 '최종 순위'로 초기화
+    window.switchResultTab('rank');
+
+    // 5. 스코어보드 렌더링
+    if (statsBody && options.stats) {
+        statsBody.innerHTML = options.stats.map((p, index) => {
+            const rank = index + 1;
+            const rankClass = rank === 1 ? 'rank-gold' : rank === 2 ? 'rank-silver' : rank === 3 ? 'rank-bronze' : 'rank-default';
+            const isWinner = p.isWinner || (winner && p.name === winner.name);
+            const isMe = p.id === (window.socket && window.socket.id) || p.name === window.myName;
+            const pColor = p.color || '#FC944D';
+            const miniSvg = window.buildMascotSvg ? window.buildMascotSvg(pColor) : '';
+
+            return `
+                <tr class="${isWinner ? 'row-winner' : ''}">
+                    <td class="rank-cell"><span class="rank-badge ${rankClass}">${rank}</span></td>
+                    <td>
+                        <div class="player-cell">
+                            <div class="avatar-mini" style="--player-color: ${pColor}; border-color: ${pColor};">
+                                ${miniSvg}
+                            </div>
+                            <div class="player-info-text">
+                                <span class="player-name-text" title="${p.name}">${p.name}</span>
+                                ${isMe ? '<span class="badge-me">(나)</span>' : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="stat-value" style="text-align: center;">${p.stat1 !== undefined ? p.stat1 : '-'}</td>
+                    <td style="text-align: right; font-weight: 600;">${p.stat2 !== undefined ? p.stat2 : '-'}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 6. 확인 버튼 클릭 핸들러
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            if (options.onConfirm) options.onConfirm();
+        };
+    }
+
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+};
+
+// 탭 전환 헬퍼
+window.switchResultTab = function(tab) {
+    const panelRank = document.getElementById('panel-rank');
+    const panelHistory = document.getElementById('panel-history');
+    const btnRank = document.getElementById('tab-btn-rank');
+    const btnHistory = document.getElementById('tab-btn-history');
+
+    if (!panelRank || !panelHistory) return;
+
+    if (tab === 'rank') {
+        panelRank.style.display = 'block';
+        panelHistory.style.display = 'none';
+        if (btnRank) btnRank.classList.add('active');
+        if (btnHistory) btnHistory.classList.remove('active');
+    } else {
+        panelRank.style.display = 'none';
+        panelHistory.style.display = 'flex';
+        if (btnHistory) btnHistory.classList.add('active');
+        if (btnRank) btnRank.classList.remove('active');
+    }
+};
+
+// 순위 조건 팝오버 토글 헬퍼
+window.toggleRulePopover = function(e) {
+    if (e) e.stopPropagation();
+    const popover = document.getElementById('rule-popover');
+    const btn = document.getElementById('btn-rule-info');
+    if (popover && btn) {
+        popover.classList.toggle('show');
+        btn.classList.toggle('active');
+    }
+};
+
+// 팝오버 외부 클릭 닫기 이벤트 리스너
+document.addEventListener('click', (e) => {
+    const popover = document.getElementById('rule-popover');
+    const btn = document.getElementById('btn-rule-info');
+    if (popover && popover.classList.contains('show')) {
+        popover.classList.remove('show');
+        if (btn) btn.classList.remove('active');
     }
 });

@@ -99,8 +99,8 @@ gameRooms[roomId] = {
 ## 3. 라이어 게임 (Liar) 소켓 API 및 이벤트 흐름
 
 ### 서버 수신 이벤트 (Client → Server)
-- `'setup liar game'` (`{ winTarget, categories }`)
-  - 방장이 라이어 게임을 셋업하고 시작할 때 전송.
+- `'setup liar game'` (`{ winTarget, subMode, categories }`)
+  - 방장이 라이어 게임을 셋업하고 시작할 때 전송. (`subMode`: `'classic'` | `'word'`)
 - `'submit description'` (`desc`)
   - 자신의 발언 턴일 때 30자 이내의 제시어 힌트 설명을 전송.
 - `'vote liar'` (`targetId`)
@@ -113,8 +113,8 @@ gameRooms[roomId] = {
   - 방장이 게임 결과 모달을 닫고 다시 대기실로 게임을 복귀시킬 때 전송.
 
 ### 클라이언트 수신 이벤트 (Server → Client)
-- `'liar role assigned'` (`{ isLiar, category, word/null }`)
-  - 각자의 역할(시민/라이어)과 라이어용 카테고리 또는 시민용 제시어 전송 및 3D 카드 플립 연출.
+- `'liar role assigned'` (`{ isLiar, category, word, subMode }`)
+  - 각자의 역할과 제시어 전송 및 3D 카드 플립 연출. (`subMode === 'word'`일 때는 라이어에게도 유사 단어가 부여되며 본인이 라이어임을 사전에 알 수 없도록 위장 렌더링)
 - `'liar next turn'` (`{ playerId, playerName, isMyTurn }`)
   - 설명할 사람의 순서를 공유하고 발언 턴 광원 하이라이트 부여.
 - `'liar hint received'` (`{ playerId, desc }`)
@@ -125,10 +125,10 @@ gameRooms[roomId] = {
   - 투표 완료된 플레이어들의 체크 아이콘 및 투표 배지를 실시간 동기화.
 - `'liar showdown start'` (`{ votes }`)
   - 투표 결과의 지목 화살표 및 투표자 칩들을 아바타 슬롯 하단에 쇼다운 렌더링.
-- `'final guess phase'` (`{ liarId, liarName, category }`)
+- `'final guess phase'` (`{ liarId, liarName, category, subMode }`)
   - 라이어가 검거되어 최후의 추리 판독 입력창을 띄우거나, 시민들에게 훔쳐보기 패널을 띄우도록 유도.
-- `'round over'` (`{ isFinalGameOver, citizensWon, word, liarName, message, stats }`)
-  - 라운드 또는 최종 게임 종료 시 통계 및 결과 모달을 표출하는 신호.
+- `'round over'` (`{ isFinalGameOver, citizensWon, word, liarWord, subMode, liarName, message, stats, history, winner }`)
+  - 라운드 또는 최종 게임 종료 시 통계 및 결과 모달을 표출하는 신호. (`stats`에 `correctCount`, `citizenRounds`, `voteCorrectRate`, `stat2Text` 포함, `history`에 전 라운드 타임라인 포함, 1위 우승자/승수/검거율 다중 정렬).
 
 ---
 
@@ -155,5 +155,17 @@ gameRooms[roomId] = {
   - 단어가 올바르게 통과되었으며 다음 유저에게 폭탄을 전달하라는 알림.
 - `'bomb word rejected'` (`reason`)
   - 이미 사용한 단어이거나 오답일 때 경고 메시지 공유.
-- `'bomb exploded'` (`{ loserName, message, heartsState, isGameOver, stats, winner }`)
-  - 시간 초과로 폭탄이 터졌을 때 라운드 패배 및 하트 삭감 정보 표출, 게임 완전 종료 여부 판독.
+- `'bomb exploded'` (`{ loserName, message, heartsState, isGameOver, stats, winner, history, revealWord }`)
+  - 시간 초과로 폭탄이 터졌을 때 라운드 패배 및 하트 삭감 정보 표출, 게임 완전 종료 여부 판독 (`stats`에 `hearts`, `passCount`, `eliminatedRound`, `isAlive` 포함, `history`에 라운드별 폭발 기록 포함, 1위 우승자/하트/생존라운드/패스수 다중 정렬).
+
+---
+
+## 5. 공통 게임 결과창 모달 (`#result-modal` & `window.showGameResultModal`)
+
+- **표시 구조**:
+  - **헤더**: 게임 타이틀, 승리 조건 안내 팝오버 `(?)` (클릭 시 세부 순위 산정 기준 노출).
+  - **쇼케이스**: 128px 우승자 마스코트 SVG + 골드 링 펄스 이펙트 + 닉네임 + 승리 서브텍스트.
+  - **세그먼트 탭**: `[최종 순위]`, `[라운드 기록]` (빙고 모드는 라운드 개념이 없으므로 자동 숨김).
+  - **최종 순위 탭**: 1~3위 포디움 메달 뱃지(금/은/동) + 4위 이하 텍스트 순위 + 본인 하이라이트 + 게임별 특화 지표 2종.
+  - **라운드 기록 탭**: 타임라인 리스트 (라운드 뱃지, 주제/키워드, 결과 설명).
+  - **하단 액션**: 직관적인 `확인` 버튼 (클릭 시 `confirm result` 소켓 전송 및 대기방 복귀).

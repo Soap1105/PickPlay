@@ -3,6 +3,14 @@ const bingoHelpers = require('./bingoHelpers');
 const themeController = require('../controllers/themeController');
 
 const MAX_PLAYERS = 8;
+const COLOR_PRESETS = ['#FC944D','#55B4E0','#50C9A0','#A78BFA','#F472B6','#F87171','#FBBF24','#4ADE80'];
+
+function assignColor(room, requestedColor) {
+    const usedColors = new Set(Object.values(room.players).map(p => p.color));
+    if (!usedColors.has(requestedColor)) return requestedColor;
+    // 중복 시 미사용 색 자동 배정
+    return COLOR_PRESETS.find(c => !usedColors.has(c)) || requestedColor;
+}
 
 module.exports = (io, socket, gameRooms) => {
     socket.on('join room', (data) => {
@@ -10,7 +18,6 @@ module.exports = (io, socket, gameRooms) => {
         let nickname = (data.name || '익명').trim();
         if (nickname.length > 10) nickname = nickname.substring(0, 10);
         const clientId = data.clientId || null;
-        const avatar = data.avatar || '🐱';
 
         if (!gameRooms[roomId]) {
             gameRooms[roomId] = {
@@ -19,7 +26,6 @@ module.exports = (io, socket, gameRooms) => {
                 numberInterval: null, turnOrder: [], currentTurnIndex: 0, joinOrder: [],
                 liarGame: { scores: {}, votes: {}, submissions: {} },
                 lobbyVotes: { bingo: 0, liar: 0 }, votedUsers: {},
-                emojiCooldowns: {},
                 clientIds: {}, // clientId → socketId 매핑
                 hostClientId: clientId || null, // [Bug Fix] 방장 clientId 보존 (타이머 만료 후 방장 복원용)
                 pendingDisconnects: 0, // [Bug Fix] 전원 새로고침 시 방 조기 삭제 방지 카운터
@@ -31,6 +37,7 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         const room = gameRooms[roomId];
+        const color = assignColor(room, data.color || '#FC944D');
 
         // clientIds가 없는 기존 방 호환성 처리
         if (!room.clientIds) room.clientIds = {};
@@ -139,9 +146,9 @@ module.exports = (io, socket, gameRooms) => {
 
         room.players[socket.id] = {
             id: socket.id, board: [], ready: false, name: nickname,
-            avatar: avatar,
+            color: color,
             isSkipped: false, skipCount: 0, usedEventCount: 0,
-            confirmedResult: true // [작업 3] 신규 접속 플레이어는 결과 확인 불필요하므로 true로 초기 세팅
+            confirmedResult: true
         };
 
         room.joinOrder.push(socket.id);
@@ -172,6 +179,26 @@ module.exports = (io, socket, gameRooms) => {
         if (themeController.ACTIVE_GENERATIONS && themeController.ACTIVE_GENERATIONS[roomId]) {
             socket.emit('theme progress', themeController.ACTIVE_GENERATIONS[roomId]);
         }
+    });
+
+    // 대기실 색상 변경
+    socket.on('change color', (newColor) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (room.status !== 'WAITING') return;
+        if (!room.players[socket.id]) return;
+
+        // 다른 플레이어가 쓰고 있는지 확인
+        const takenByOther = Object.entries(room.players)
+            .some(([id, p]) => id !== socket.id && p.color === newColor);
+        if (takenByOther) {
+            // 이미 사용 중 → 무시 (클라이언트에서 빗금으로 막음)
+            return;
+        }
+
+        room.players[socket.id].color = newColor;
+        io.to(roomId).emit('update user list', getSortedUserList(room));
     });
 
     socket.on('chat message', (msgData) => {
@@ -280,25 +307,6 @@ module.exports = (io, socket, gameRooms) => {
         }, 1000);
     });
 
-    // 이모지 폭죽 이벤트 (대기실 전용)
-    socket.on('emoji reaction', (emoji) => {
-        const roomId = socket.roomId;
-        if (!roomId || !gameRooms[roomId]) return;
-        const room = gameRooms[roomId];
-        if (room.status !== 'WAITING') return; // 게임 중 비활성
-
-        const ALLOWED = ['🎉', '🔥', '❤️', '😂', '👏', '💀', '🎮', '⭐'];
-        if (!ALLOWED.includes(emoji)) return;
-
-        const now = Date.now();
-        const cooldowns = room.emojiCooldowns;
-        if (cooldowns[socket.id] && now - cooldowns[socket.id] < 2500) return; // 2.5초 쿨다운
-        cooldowns[socket.id] = now;
-
-        const sender = room.players[socket.id]?.name || '익명';
-        io.to(roomId).emit('emoji reaction', { emoji, sender });
-    });
-
     socket.on('vote game', (game) => {
         const roomId = socket.roomId;
         if (!roomId || !gameRooms[roomId]) return;
@@ -387,7 +395,8 @@ module.exports = (io, socket, gameRooms) => {
             // [Bug Fix] 퇴장 대기 카운터 증가 (타이머 만료 전까지 방 삭제 방지)
             room.pendingDisconnects = (room.pendingDisconnects || 0) + 1;
 
-            // 1.5초 세션 복구 대기 타이머 가동
+            // 세션 복구 대기 타이머 가동 (대기실 5초, 게임 진행 중 1.5초)
+            const gracePeriod = room.status === 'WAITING' ? 5000 : 1500;
             if (!room.disconnectTimeouts) room.disconnectTimeouts = {};
             room.disconnectTimeouts[oldSocketId] = setTimeout(() => {
                 // [Bug Fix] 타이머 만료 시 카운터 감소
@@ -490,7 +499,7 @@ module.exports = (io, socket, gameRooms) => {
                     if (room.voteTimer) clearInterval(room.voteTimer);
                     delete gameRooms[roomId];
                 }
-            }, 1500); // 1.5초 대기
+            }, gracePeriod);
         }
     });
 };

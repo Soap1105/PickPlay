@@ -58,6 +58,10 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[roomId];
         if (!room || !room.bombGame) return;
 
+        if (room.bombGame.startDelayTimeout) {
+            clearTimeout(room.bombGame.startDelayTimeout);
+            room.bombGame.startDelayTimeout = null;
+        }
         if (room.bombGame.timerInterval) {
             clearInterval(room.bombGame.timerInterval);
             room.bombGame.timerInterval = null;
@@ -103,8 +107,31 @@ module.exports = (io, socket, gameRooms) => {
         let finalWinner = null;
         let isGameOver = false;
 
+        const curRound = room.bombGame.roundCount || 1;
+        const isEliminated = room.bombGame.hearts[loserId] <= 0;
+        if (!room.bombGame.history) room.bombGame.history = [];
+        if (!room.bombGame.eliminatedRound) room.bombGame.eliminatedRound = {};
+
+        if (isEliminated && !room.bombGame.eliminatedRound[loserId]) {
+            room.bombGame.eliminatedRound[loserId] = curRound;
+        }
+
+        // 라운드 복기 히스토리 기록
+        room.bombGame.history.push({
+            round: `${curRound}R`,
+            tag: isEliminated ? '폭발 (탈락)' : '폭발 (하트 차감)',
+            tagClass: isEliminated ? 'tag-danger' : 'tag-danger',
+            topic: `카테고리: ${room.bombGame.category || '전체'}`,
+            desc: `총 ${room.bombGame.roundTurns || 1}턴 경과 후 폭탄 폭발! <strong>${loserName}</strong>의 손에서 터져 ${isEliminated ? '하트 소진 및 탈락' : `하트 차감 (남은 하트: ${room.bombGame.hearts[loserId]}개)`}`
+        });
+
         if (survivors.length === 1) {
-            finalWinner = { id: survivors[0], name: room.players[survivors[0]].name };
+            const survivorId = survivors[0];
+            finalWinner = { 
+                id: survivorId, 
+                name: room.players[survivorId].name,
+                color: room.players[survivorId].color || '#FC944D'
+            };
             isGameOver = true;
         } else if (survivors.length === 0) {
             // 전원 사망 (잠수 등) -> 무승부 처리
@@ -127,11 +154,28 @@ module.exports = (io, socket, gameRooms) => {
             const { getSortedUserList } = require('./utils');
             io.to(roomId).emit('update user list', getSortedUserList(room));
 
-            const stats = Object.keys(room.players).map(pid => ({
-                id: pid,
-                name: room.players[pid].name,
-                hearts: room.bombGame.hearts[pid]
-            })).sort((a, b) => b.hearts - a.hearts);
+            // 다중 기준 정렬: 1위 우승자 고정 -> 남은 하트 내림차순 -> 탈락 라운드 내림차순 -> 패스 성공 턴 수 내림차순
+            const stats = Object.keys(room.players).map(pid => {
+                const p = room.players[pid];
+                const hearts = room.bombGame.hearts[pid] !== undefined ? room.bombGame.hearts[pid] : 0;
+                const elimRound = room.bombGame.eliminatedRound[pid] || 999;
+                const passes = (room.bombGame.passCounts && room.bombGame.passCounts[pid]) || 0;
+                return {
+                    id: pid,
+                    name: p.name,
+                    color: p.color || '#FC944D',
+                    hearts: hearts,
+                    passCount: passes,
+                    eliminatedRound: elimRound,
+                    isAlive: hearts > 0
+                };
+            }).sort((a, b) => {
+                if (finalWinner && a.id === finalWinner.id) return -1;
+                if (finalWinner && b.id === finalWinner.id) return 1;
+                if (b.hearts !== a.hearts) return b.hearts - a.hearts;
+                if (b.eliminatedRound !== a.eliminatedRound) return b.eliminatedRound - a.eliminatedRound;
+                return b.passCount - a.passCount;
+            });
 
             io.to(roomId).emit('bomb exploded', {
                 loserId: loserId,
@@ -142,6 +186,7 @@ module.exports = (io, socket, gameRooms) => {
                 isGameOver: true,
                 winner: finalWinner,
                 stats: stats,
+                history: room.bombGame.history,
                 revealWord: revealWord
             });
         } else {
@@ -212,14 +257,20 @@ module.exports = (io, socket, gameRooms) => {
             selectedCategories: data.selectedCategories || []
         };
 
-        // 전체 점수 초기화
+        // 전체 점수 및 통계 초기화
         room.bombGame = {
             hearts: {},
             usedWords: [],
-            roundCount: 1
+            roundCount: 1,
+            passCounts: {},
+            eliminatedRound: {},
+            roundTurns: 0,
+            history: []
         };
         players.forEach(pid => {
             room.bombGame.hearts[pid] = room.bombGameConfig.maxHearts;
+            room.bombGame.passCounts[pid] = 0;
+            room.bombGame.eliminatedRound[pid] = null;
         });
 
         // 클라이언트에 초기 승리 조건 및 점수 전송
@@ -244,6 +295,7 @@ module.exports = (io, socket, gameRooms) => {
         // 라운드 데이터 초기화
         room.status = 'playing';
         room.bombGame.usedWords = [];
+        room.bombGame.roundTurns = 0;
         room.bombGame.lastSuccessPId = null; 
         room.bombGame.lastSenderId = null; // 반사 기능을 위해 추가
         
@@ -290,8 +342,20 @@ module.exports = (io, socket, gameRooms) => {
             roundCount: round
         });
 
-        startBombTimer(roomId, randomDuration);
-        startTurnTimeout(roomId);
+        if (round === 1) {
+            // 1라운드 최초 시작 시 클라이언트 3초 카운트다운(약 3.2초) 완료 후 타이머 가동
+            room.bombGame.startDelayTimeout = setTimeout(() => {
+                const currentRoom = gameRooms[roomId];
+                if (!currentRoom || currentRoom.status !== 'playing' || !currentRoom.bombGame) return;
+                currentRoom.bombGame.startDelayTimeout = null;
+                startBombTimer(roomId, randomDuration);
+                startTurnTimeout(roomId);
+            }, 3200);
+        } else {
+            // 2라운드 이후는 카운트다운이 없으므로 즉시 가동
+            startBombTimer(roomId, randomDuration);
+            startTurnTimeout(roomId);
+        }
     }
 
     function startTurnTimeout(roomId) {
@@ -390,6 +454,10 @@ module.exports = (io, socket, gameRooms) => {
             clearTimeout(room.bombGame.turnTimeout);
             room.bombGame.turnTimeout = null;
         }
+
+        if (!room.bombGame.passCounts) room.bombGame.passCounts = {};
+        room.bombGame.passCounts[socket.id] = (room.bombGame.passCounts[socket.id] || 0) + 1;
+        room.bombGame.roundTurns = (room.bombGame.roundTurns || 0) + 1;
 
         // 성공 이벤트 먼저 전송 (화면에 단어 표시)
         io.to(socket.roomId).emit('bomb word accepted', {

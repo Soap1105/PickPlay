@@ -318,6 +318,11 @@
         if (waitingArea) waitingArea.style.display = 'none';
         if (playerUI) playerUI.style.display = 'block';
 
+        // 1라운드 최초 진입 시 3초 카운트다운 실행
+        if (data.roundCount === 1 && window.playStartCountdown) {
+            window.playStartCountdown();
+        }
+
         // 사이드바 숨김
         const sidebar = document.getElementById('right-sidebar');
         if (sidebar) sidebar.classList.add('bomb-game-active');
@@ -332,6 +337,9 @@
         bombRoundResult.style.display = 'none';
         if (bombUsedWordsList) bombUsedWordsList.innerHTML = '';
         if (bombCategory) bombCategory.textContent = `주제: ${data.category}`;
+        if (data.roundCount === 1 && bombTimerText) {
+            bombTimerText.style.display = 'none';
+        }
 
         if (bombGraphic) {
             bombGraphic.className = 'bomb-ticking';
@@ -434,35 +442,41 @@
 
         if (isGameOver) {
             setTimeout(() => {
-                if (!resultModal) return;
-                resultTitle.textContent = "게임 종료";
-                resultWinner.innerHTML = `승자: <span style="font-size: 2rem;">${winner.name}</span>`;
-                if (resultStatHeader1) resultStatHeader1.textContent = "남은 하트";
-                if (resultStatHeader2) resultStatHeader2.textContent = "상태";
+                const formattedStats = (stats || []).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    color: s.color || '#FC944D',
+                    stat1: `${s.hearts}개`,
+                    stat2: s.isAlive ? `생존 (${s.passCount || 0}회)` : (s.eliminatedRound && s.eliminatedRound !== 999 ? `${s.eliminatedRound}R 탈락 (${s.passCount || 0}회)` : `탈락 (${s.passCount || 0}회)`),
+                    isWinner: winner && s.id === winner.id
+                }));
 
-                resultStatsBody.innerHTML = '';
-                if (stats) {
-                    stats.forEach(stat => {
-                        const tr = document.createElement('tr');
-                        const isWinner = winner && stat.id === winner.id;
-                        tr.innerHTML = `
-                            <td style="padding:15px;">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
-                            <td style="padding:15px; font-weight:bold; color:#e67e22;">${stat.hearts}개</td>
-                            <td style="padding:15px; color:${stat.hearts > 0 ? '#2ecc71' : '#999'};">${stat.hearts > 0 ? '생존' : '탈락'}</td>
-                        `;
-                        if (isWinner) tr.style.backgroundColor = 'rgba(241, 196, 15, 0.1)';
-                        resultStatsBody.appendChild(tr);
-                    });
-                }
-                resultModal.style.display = 'block';
-                if (closeResultBtn) {
-                    closeResultBtn.onclick = () => {
-                        resultModal.style.display = 'none';
+                const winnerObj = winner ? {
+                    id: winner.id,
+                    name: winner.name,
+                    color: winner.color || '#FC944D',
+                    scoreText: `${winner.hearts || 0} 하트 생존`
+                } : null;
+
+                window.showGameResultModal({
+                    mode: 'bomb',
+                    modeName: '폭탄 돌리기',
+                    winner: winnerObj,
+                    stat1Header: '남은 하트',
+                    stat2Header: '생존 결과 (패스 성공)',
+                    rules: [
+                        '1위: 최종 하트 보유자 (생존 우승)',
+                        '동점 시: 더 늦은 라운드까지 생존한 순',
+                        '라운드 동일 시: 누적 폭탄 패스(성공) 턴 수 순'
+                    ],
+                    stats: formattedStats,
+                    history: (data && data.history) || [],
+                    onConfirm: () => {
                         socket.emit('confirm result');
                         window.initBombUI(localIsHost);
-                    };
-                }
-            }, 1500);
+                    }
+                });
+            }, 1200);
         }
     });
 

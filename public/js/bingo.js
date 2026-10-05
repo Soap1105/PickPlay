@@ -449,20 +449,58 @@
     }
 
     function showBigEvent(icon, title, msg, type) {
+        const overlay = bigEventDisplay;
+        const content = overlay.querySelector('.event-content');
+
+        // 이전 타입 클래스 클리어
+        const typeClasses = ['type-bad', 'type-bomb', 'type-good', 'type-bonus', 'type-info'];
+        overlay.classList.remove(...typeClasses, 'fading-out');
+        content.classList.remove(...typeClasses);
+
+        // 타입 클래스 부여
+        const normalizedType = type || 'default';
+        if (normalizedType !== 'default') {
+            overlay.classList.add(`type-${normalizedType}`);
+            content.classList.add(`type-${normalizedType}`);
+        }
+
+        // 타입 배지 텍스트
+        const badgeLabels = {
+            bad: '경고 이벤트', bomb: '위험 이벤트',
+            good: '행운 이벤트', bonus: '보너스 이벤트',
+            info: '안내', default: '찬스 이벤트'
+        };
+        const badgeText = badgeLabels[normalizedType] || '찬스 이벤트';
+
+        // 기존 배지 제거 후 새로 삽입
+        const prevBadge = content.querySelector('.event-type-badge');
+        if (prevBadge) prevBadge.remove();
+        const badge = document.createElement('div');
+        badge.className = `event-type-badge type-${normalizedType}`;
+        badge.textContent = badgeText;
+        content.insertBefore(badge, content.firstChild);
+
+        // 텍스트 갱신
         eventIcon.textContent = icon;
         eventTitle.textContent = title;
         eventMsg.textContent = msg;
-        const overlay = bigEventDisplay;
+
+        // 팝업 표시 + pop-in 애니메이션 재실행
         overlay.style.display = 'flex';
-        const content = overlay.querySelector('.event-content');
         content.classList.remove('pop-in');
         void content.offsetWidth;
         content.classList.add('pop-in');
-        if (type === 'bad' || type === 'bomb') content.style.borderColor = '#ff6b6b';
-        else if (type === 'good' || type === 'bonus') content.style.borderColor = '#51cf66';
-        else content.style.borderColor = 'white';
-        setTimeout(() => { overlay.style.display = 'none'; }, 3000);
+
+        // 3초 후 fade-out 처리
+        setTimeout(() => {
+            overlay.classList.add('fading-out');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                overlay.classList.remove('fading-out');
+            }, 400);
+        }, 3000);
     }
+
 
     // 6. UI 이벤트 리스너
 
@@ -1634,7 +1672,13 @@
         bingoActionArea.style.zIndex = '9999';
 
         updateBoardVisuals();
-        showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
+
+        // 3초 카운트다운 연출 실행
+        if (window.playStartCountdown) {
+            window.playStartCountdown();
+        } else {
+            showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
+        }
 
         popupActive = true;
         setTimeout(() => {
@@ -1797,44 +1841,38 @@
         turnTimerBar.style.display = 'none';
         myIgnoredNumbers = [];
 
-        const resultTitle = document.getElementById('result-title');
-        const resultStatHeader1 = document.getElementById('result-stat-header-1');
-        const resultStatHeader2 = document.getElementById('result-stat-header-2');
-        if (resultTitle) resultTitle.textContent = '게임 종료';
-        if (resultStatHeader1) resultStatHeader1.textContent = "빙고 수";
-        if (resultStatHeader2) resultStatHeader2.textContent = "이벤트 사용";
-
-        resultWinner.textContent = `승자: ${data.winner}`;
-        resultStatsBody.innerHTML = '';
-
-        if (closeResultBtn) {
-            closeResultBtn.onclick = () => {
-                resultModal.style.display = 'none';
-                socket.emit('confirm result');
-            };
-        }
-
-        if (data.stats) {
-            data.stats.forEach(stat => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                <td style="padding:10px;">${stat.name}</td>
-                <td style="padding:10px; font-weight:bold;">${stat.bingoCount}줄</td>
-                <td style="padding:10px;">${stat.eventUsed}회</td>
-            `;
-                if (stat.name === data.winner) {
-                    tr.style.backgroundColor = 'rgba(241, 196, 15, 0.2)';
-                    tr.style.color = '#fffffe';
-                    tr.style.fontWeight = 'bold';
-                }
-                resultStatsBody.appendChild(tr);
-            });
-        }
-
-        resultModal.style.display = 'block';
-
         calledNumbersDisplay.textContent = '';
         bingoBoard.innerHTML = '';
+
+        const winnerObj = typeof data.winner === 'object' ? data.winner : { name: data.winner, color: '#50C9A0' };
+        const mappedStats = (data.stats || []).map(s => ({
+            id: s.id,
+            name: s.name,
+            color: s.color || '#FC944D',
+            stat1: `${s.bingoCount || 0}줄`,
+            stat2: `${s.eventUsed || 0}회`,
+            isWinner: s.name === winnerObj.name
+        }));
+
+        if (window.showGameResultModal) {
+            window.showGameResultModal({
+                mode: 'bingo',
+                modeName: '빙고',
+                winner: winnerObj,
+                stat1Header: '빙고 줄 수',
+                stat2Header: '이벤트 사용',
+                rules: [
+                    '1위: 목표 빙고 줄 수 선착순 완성 (우승)',
+                    '2위 이하: 총 완성한 빙고 줄 수가 많은 순',
+                    '줄 수 동점 시: 이벤트 아이템 적게 사용 / 턴 입력 순'
+                ],
+                stats: mappedStats,
+                history: null,
+                onConfirm: () => {
+                    socket.emit('confirm result');
+                }
+            });
+        }
         if (victoryBingoBtn) victoryBingoBtn.style.display = 'none';
         themeTitle.style.display = 'none';
         readyButton.style.display = 'none';

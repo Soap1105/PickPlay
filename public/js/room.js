@@ -113,7 +113,13 @@ socket.on('reconnect_attempt', (attempt) => {
     startRetryCountdown(5);
 });
 
-// 소켓 재연결 성공 → role update 이벤트가 hiding 처리함
+// 소켓 재연결 성공 → 타이머 정리 (hideLoading은 role update가 처리)
+socket.on('connect', () => {
+    if (_retryTimer) {
+        clearInterval(_retryTimer);
+        _retryTimer = null;
+    }
+});
 
 /* ── 다크/라이트 모드 토글 (기본: 라이트, dark-mode 클래스로 다크 전환) ── */
 function toggleTheme() {
@@ -166,6 +172,8 @@ function showContainer(containerId) {
     // 대기실과 인게임 사이드바 전환 분기
     if (containerId !== 'lobby-container') {
         document.body.classList.remove('in-lobby');
+        // 인게임 진입 시 lobby-theme 배경 클리어 (인게임 자체 스타일로 대체)
+        document.body.classList.remove('lobby-theme-bingo', 'lobby-theme-liar', 'lobby-theme-bomb');
         const gameContainer = document.getElementById('game-container');
         if (gameContainer) gameContainer.classList.add('game-active');
     } else {
@@ -188,33 +196,29 @@ socket.on('role update', (data) => {
     const returnBtn = document.getElementById('integrated-return-btn');
 
     const selectorPanel = document.getElementById('lobby-game-selector-panel');
-    const guestWaitingPanel = document.getElementById('lobby-guest-waiting-panel');
+    const panelTitleText = document.getElementById('lobby-panel-title-text');
+
+    if (selectorPanel) selectorPanel.style.display = 'flex';
 
     if (isHost) {
-        if (selectorPanel) selectorPanel.style.display = 'flex';
-        if (guestWaitingPanel) guestWaitingPanel.style.display = 'none';
-
+        if (panelTitleText) panelTitleText.innerHTML = `<i class="fas fa-list"></i> 게임 선택`;
         cards.forEach(card => {
+            card.classList.remove('guest-mode');
             card.style.pointerEvents = 'auto';
-            card.style.opacity = '1';
             card.style.cursor = 'pointer';
         });
-
 
         // 방장 액션 노출
         if (startBtn) startBtn.style.display = 'flex';
         if (settingsBtn) settingsBtn.style.display = 'flex';
         if (returnBtn) returnBtn.innerHTML = `<i class="fas fa-arrow-left"></i> 대기실로`;
     } else {
-        if (selectorPanel) selectorPanel.style.display = 'none';
-        if (guestWaitingPanel) guestWaitingPanel.style.display = 'flex';
-
+        if (panelTitleText) panelTitleText.innerHTML = `<i class="fas fa-gamepad"></i> 플레이할 게임`;
         cards.forEach(card => {
+            card.classList.add('guest-mode');
             card.style.pointerEvents = 'none';
-            card.style.opacity = '0.85';
             card.style.cursor = 'default';
         });
-
 
         // 게스트 액션 노출 제한
         if (startBtn) startBtn.style.display = 'none';
@@ -325,7 +329,6 @@ returnLobbyBtns.forEach(btn => {
         '🎯 <strong>빙고:</strong> 단어 배치 전략이 승패를 가릅니다!',
         '🕵️ <strong>라이어:</strong> 너무 자세히 설명하면 오히려 의심받아요!',
         '💣 <strong>폭탄:</strong> 당황하지 말고 침착하게 단어를 떠올리세요!',
-        '🎮 <strong>PickPlay:</strong> 이모지 폭죽으로 분위기를 올려보세요!',
         '👥 <strong>참가자:</strong> 우측 목록에서 함께하는 친구들을 확인하세요!',
     ];
     let tipIndex = 0;
@@ -360,22 +363,26 @@ socket.on('game changed', (newGameType) => {
     const gameContainer = document.getElementById('game-container');
     // [이슈 26] 대기방 복귀 시 결과 모달을 자동으로 닫지 않음 (사용자 클릭 시에만 닫힘)
 
-    // 1단계 로비 카드/대기 상태 강제 동기화
+    // 1단계 로비 카드/대기 상태 동기화
     const selectorPanel = document.getElementById('lobby-game-selector-panel');
-    const guestWaitingPanel = document.getElementById('lobby-guest-waiting-panel');
-    if (isHost) {
-        if (selectorPanel) selectorPanel.style.display = 'flex';
-        if (guestWaitingPanel) guestWaitingPanel.style.display = 'none';
-    } else {
-        if (selectorPanel) selectorPanel.style.display = 'none';
-        if (guestWaitingPanel) guestWaitingPanel.style.display = 'flex';
-    }
+    if (selectorPanel) selectorPanel.style.display = 'flex';
 
     // 결과 확인창 클리어
     gameContainer.classList.remove('game-active', 'game-active-bingo', 'game-active-liar', 'game-active-bomb');
 
     // 대기방 상태로 돌려놓기 (항상 lobby-container를 먼저 보여줌)
     showContainer('lobby-container');
+
+    // 대기실 배경 무드 테마 전환
+    document.body.classList.remove('lobby-theme-bingo', 'lobby-theme-liar', 'lobby-theme-bomb');
+    if (newGameType === 'bingo') {
+        document.body.classList.add('lobby-theme-bingo');
+    } else if (newGameType === 'liar') {
+        document.body.classList.add('lobby-theme-liar');
+    } else if (newGameType === 'bomb') {
+        document.body.classList.add('lobby-theme-bomb');
+    }
+    // newGameType === 'lobby' 일 때는 클래스 없음 → 기본 배경으로 복귀
 
     const stageSelection = document.getElementById('selection-stage');
     const stageWaiting = document.getElementById('waiting-stage');
@@ -394,9 +401,6 @@ socket.on('game changed', (newGameType) => {
 
         if (stageSelection) stageSelection.style.display = 'flex';
         if (stageWaiting) stageWaiting.style.display = 'none';
-
-        // 대기실 진입 시 이모지 팔레트 표시
-        emojiSetLobbyMode(true);
     } else {
         // 게임 대기방 단계
         if (stageSelection) stageSelection.style.display = 'none';
@@ -426,110 +430,8 @@ socket.on('game changed', (newGameType) => {
 
         // 프리뷰 렌더링 호출
         updateIntegratedLobbySettingsPreview(newGameType);
-
-        // 게임 대기실에서는 팔레트 표시 유지
-        emojiSetLobbyMode(true);
     }
 });
-
-// =============================================
-//  이모지 폭죽 시스템
-// =============================================
-
-const EMOJI_PALETTE_BAR = document.getElementById('emoji-palette-bar');
-const EMOJI_TOGGLE_CHECKBOX = document.getElementById('emoji-toggle-checkbox');
-const EMOJI_FIRE_BTNS = document.querySelectorAll('.emoji-fire-btn');
-
-// localStorage에서 ON/OFF 상태 복원
-let emojiEffectEnabled = localStorage.getItem('emojiEffectEnabled') !== 'false';
-EMOJI_TOGGLE_CHECKBOX.checked = emojiEffectEnabled;
-
-// 팔레트 바 표시/숨기기 (대기실 여부에 따라)
-function emojiSetLobbyMode(isLobby) {
-    if (isLobby) {
-        EMOJI_PALETTE_BAR.classList.remove('emoji-hidden');
-    } else {
-        EMOJI_PALETTE_BAR.classList.add('emoji-hidden');
-    }
-}
-
-// ON/OFF 토글
-EMOJI_TOGGLE_CHECKBOX.addEventListener('change', () => {
-    emojiEffectEnabled = EMOJI_TOGGLE_CHECKBOX.checked;
-    localStorage.setItem('emojiEffectEnabled', emojiEffectEnabled);
-});
-
-// 이모지 버튼 클릭 → 쿨다운 처리 + 서버로 emit
-let emojiLocalCooldown = false;
-
-EMOJI_FIRE_BTNS.forEach(btn => {
-    btn.addEventListener('click', () => {
-        if (emojiLocalCooldown) return;
-        if (window.gameType !== 'lobby') return;
-
-        const emoji = btn.getAttribute('data-emoji');
-        socket.emit('emoji reaction', emoji);
-
-        // 클라이언트 쿨다운 UI (2.5초)
-        emojiLocalCooldown = true;
-        EMOJI_FIRE_BTNS.forEach(b => b.classList.add('on-cooldown'));
-        setTimeout(() => {
-            emojiLocalCooldown = false;
-            EMOJI_FIRE_BTNS.forEach(b => b.classList.remove('on-cooldown'));
-        }, 2500);
-    });
-});
-
-// 서버로부터 이모지 수신 → 파티클 발사
-socket.on('emoji reaction', ({ emoji, sender }) => {
-    if (!emojiEffectEnabled) return;
-    launchEmojiFireworks(emoji, sender);
-});
-
-/**
- * 이모지 파티클을 화면 하단에서 여러 개 분산 발사
- */
-function launchEmojiFireworks(emoji, sender) {
-    const COUNT = 7; // 한 번에 발사할 파티클 수
-    const windowW = window.innerWidth;
-    const windowH = window.innerHeight;
-
-    for (let i = 0; i < COUNT; i++) {
-        // 화면 하단 40% 구간에서 랜덤 x 위치
-        const startX = windowW * (0.1 + Math.random() * 0.8);
-        const startY = windowH * (0.75 + Math.random() * 0.2);
-
-        const duration = 2.2 + Math.random() * 1.2; // 2.2~3.4s
-        const flyHeight = -(55 + Math.random() * 35); // -55vh ~ -90vh
-        const rotate = (Math.random() > 0.5 ? 1 : -1) * (180 + Math.random() * 360);
-        const delay = i * 80; // 80ms 간격으로 순차 발사
-
-        setTimeout(() => {
-            const el = document.createElement('div');
-            el.className = 'emoji-particle';
-            el.textContent = emoji;
-            el.style.setProperty('--duration', `${duration}s`);
-            el.style.setProperty('--fly-height', `${flyHeight}vh`);
-            el.style.setProperty('--rotate', `${rotate}deg`);
-            el.style.left = `${startX}px`;
-            el.style.top = `${startY}px`;
-            document.body.appendChild(el);
-
-            // 첫 번째 파티클에만 이름 라벨 붙이기
-            if (i === 0 && sender) {
-                const label = document.createElement('div');
-                label.className = 'emoji-sender-label';
-                label.textContent = sender;
-                label.style.left = `${startX + 30}px`;
-                label.style.top = `${startY - 18}px`;
-                document.body.appendChild(label);
-                setTimeout(() => label.remove(), 2300);
-            }
-
-            setTimeout(() => el.remove(), duration * 1000 + 100);
-        }, delay);
-    }
-}
 
 // =======================================================
 //  [로비 오버홀] 2x4 매트릭스 그리드 빌더 & 동적 프리뷰 연동
@@ -543,6 +445,31 @@ let latestSettings = {
 };
 
 // 8칸 플레이어 매트릭스 동적 렌더링 함수
+const MASCOT_COLOR_PRESETS = ['#FC944D','#55B4E0','#50C9A0','#A78BFA','#F472B6','#F87171','#FBBF24','#4ADE80'];
+
+function buildMascotSvg(color) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" style="width:100%;height:100%;">
+        <g>
+            <path fill="${color}" style="stroke:#4A1715;stroke-width:12;stroke-linejoin:round;stroke-linecap:round;"
+                  d="M 949,257 937,249 916,240 902,239 897,241 892,251 893,276 887,295 869,313 857,320 842,325 833,323 817,312 781,294 739,280 692,271 634,268 573,274 533,283 502,293 453,315 401,348 386,346 370,339 353,323 348,312 348,284 344,273 332,272 326,274 302,289 281,310 269,328 255,358 247,389 246,421 249,441 262,472 273,486 273,491 254,526 243,553 231,593 224,632 222,670 226,698 231,713 247,738 247,742 240,747 214,748 192,754 174,764 158,779 147,799 142,823 147,848 158,867 168,878 187,892 220,907 261,915 310,915 314,919 310,952 310,978 314,999 323,1021 329,1030 349,1047 363,1054 383,1060 407,1064 440,1065 480,1059 516,1044 547,1022 604,1024 724,1019 754,1042 778,1054 822,1063 852,1063 877,1059 895,1053 920,1038 939,1017 953,986 959,955 960,900 969,894 992,891 1034,878 1062,865 1081,853 1097,840 1112,822 1121,804 1125,787 1124,769 1119,753 1107,734 1098,726 1081,716 1067,712 1042,710 1016,714 1009,709 1009,704 1021,689 1030,672 1037,649 1040,621 1038,589 1031,557 1020,524 1002,486 981,454 981,450 999,420 1005,399 1006,363 1002,343 993,316 983,296 970,277 Z"/>
+            <g fill="#000000" fill-opacity="0.14">
+                <path d="M 152,837 162,860 183,881 214,897 262,908 313,906 334,860 340,848 287,874 244,879 192,868 Z"/>
+                <path d="M 1115,798 1083,829 1041,846 985,851 946,837 947,861 959,888 1009,879 1060,858 1100,826 Z"/>
+                <path d="M 980,308 967,364 956,378 947,376 933,398 924,396 976,441 991,413 997,386 994,345 Z"/>
+                <path d="M 269,344 256,386 255,420 263,453 277,476 321,432 303,426 282,403 270,371 Z"/>
+                <path d="M 767,1041 727,998 712,990 638,1003 556,998 521,1032 541,1015 698,1016 729,1010 Z"/>
+            </g>
+            <g fill="#3A1412">
+                <path d="M 774,512 763,517 754,531 748,558 749,585 753,602 762,621 771,630 787,634 797,630 804,623 809,613 813,593 812,567 807,546 797,526 786,515 Z"/>
+                <path d="M 463,540 456,543 444,559 438,579 436,603 439,627 447,647 458,659 472,662 482,658 489,651 494,641 498,624 499,603 494,573 486,554 474,542 Z"/>
+            </g>
+            <path d="M 634,639 599,647 583,656 566,673 577,707 592,731 615,750 639,755 661,746 677,728 690,698 695,661 672,646 Z"
+                  fill="#F7B4C1" style="stroke:#4A1715;stroke-width:12;stroke-linejoin:round;"/>
+        </g>
+    </svg>`;
+}
+window.buildMascotSvg = buildMascotSvg;
+
 function renderPlayerMatrix(users) {
     const lobbyMatrix = document.getElementById('lobby-player-matrix');
     const waitingMatrix = document.getElementById('waiting-player-matrix');
@@ -550,6 +477,8 @@ function renderPlayerMatrix(users) {
     const waitingCount = document.getElementById('waiting-user-count');
 
     const totalSlots = 8;
+    // 현재 사용 중인 색 목록
+    const usedColors = new Set(users.map(u => u.color).filter(Boolean));
     let html = '';
 
     for (let i = 0; i < totalSlots; i++) {
@@ -557,15 +486,14 @@ function renderPlayerMatrix(users) {
             const user = users[i];
             const isMe = user.id === socket.id;
             const isUserHost = users[0] && users[0].id === user.id;
-            const isReady = user.isReady || isUserHost; // 방장은 기본 ready로 간주
+            const isReady = user.isReady || isUserHost;
+            const userColor = user.color || '#FC944D';
 
-            let crownHtml = isUserHost ? `<i class="fas fa-crown host-crown" style="color: #f1c40f;"></i>` : '';
-            let borderStyle = isUserHost ? `border-color: #f1c40f;` : '';
+            let crownHtml = isUserHost ? `<i class="fas fa-crown host-crown"></i>` : '';
+            let borderStyle = `border-color: ${userColor}; box-shadow: 0 0 0 2px ${userColor}40;`;
 
             let badgeClass = '';
             let badgeText = '';
-
-            // [이슈 26] 아직 결과를 확인하지 않은 경우 대기방 배지에 표시
             if (user.confirmedResult === false) {
                 badgeClass = 'badge-unconfirmed';
                 badgeText = '결과 확인 중';
@@ -574,20 +502,33 @@ function renderPlayerMatrix(users) {
                 badgeText = isUserHost ? '방장' : (isReady ? '준비 완료' : '대기 중...');
             }
 
-            // 강퇴 버튼 (방장이고 내가 아닌 다른 타인 카드일 때) + 강퇴 전 경고창 confirm 추가
             let kickHtml = (isHost && !isMe) ? `<div class="slot-kick-btn" onclick="window.confirmKick('${user.id}', '${user.name.replace(/'/g, "\\'")}')">✕</div>` : '';
 
+            // 본인 카드에만 색 변경 팔레트 표시
+            let paletteHtml = '';
+            if (isMe) {
+                const swatches = MASCOT_COLOR_PRESETS.map(c => {
+                    const isTakenByOther = usedColors.has(c) && c !== userColor;
+                    const isSelected = c === userColor;
+                    const takenClass = isTakenByOther ? 'swatch-taken' : '';
+                    const selectedClass = isSelected ? 'swatch-selected' : '';
+                    const onclick = isTakenByOther ? '' : `window.changeMyColor('${c}')`;
+                    return `<button class="matrix-swatch ${takenClass} ${selectedClass}" style="background:${c}" title="${c}" ${isTakenByOther ? 'disabled' : `onclick="${onclick}"`}></button>`;
+                }).join('');
+                paletteHtml = `<div class="matrix-palette">${swatches}</div>`;
+            }
+
             html += `
-                <div class="player-slot ${isMe ? 'is-me' : ''}">
+                <div class="player-slot ${isMe ? 'is-me' : ''}" style="--slot-color: ${userColor};">
                     ${crownHtml}
-                    <div class="avatar-wrap" style="${borderStyle}">${user.avatar}</div>
+                    <div class="avatar-wrap" style="${borderStyle}">${buildMascotSvg(userColor)}</div>
                     <div class="player-name">${user.name}${isMe ? ' (나)' : ''}</div>
                     <span class="player-badge ${badgeClass}">${badgeText}</span>
+                    ${paletteHtml}
                     ${kickHtml}
                 </div>
             `;
         } else {
-            // 빈 슬롯
             html += `<div class="player-slot empty"></div>`;
         }
     }
@@ -598,7 +539,79 @@ function renderPlayerMatrix(users) {
     const countText = `참가: ${users.length} / 8`;
     if (lobbyCount) lobbyCount.textContent = countText;
     if (waitingCount) waitingCount.textContent = countText;
+
+    // 커스텀 쇼룸이 열려 있다면 팔레트 상태 동기화
+    if (window.isLobbyCustomMode) {
+        renderCustomShowroom();
+    }
 }
+
+// =============================================
+//  로비 마스코트 커스텀 쇼룸 엔진
+// =============================================
+window.isLobbyCustomMode = false;
+
+function renderCustomShowroom() {
+    const avatarStage = document.getElementById('lobby-custom-avatar-stage');
+    const paletteRow = document.getElementById('lobby-custom-palette-row');
+    if (!avatarStage || !paletteRow) return;
+
+    // 현재 본인 색상 탐색
+    const users = window.roomPlayers || [];
+    const me = users.find(u => u.id === socket.id);
+    const myColor = (me && me.color) ? me.color : (localStorage.getItem('pp_color') || '#FC944D');
+
+    // 마스코트 아바타 갱신
+    avatarStage.innerHTML = buildMascotSvg(myColor);
+
+    // 사용 중인 색상 집합
+    const usedColors = new Set(users.map(u => u.color).filter(Boolean));
+
+    // 팔레트 버튼 생성
+    paletteRow.innerHTML = MASCOT_COLOR_PRESETS.map(c => {
+        const isTakenByOther = usedColors.has(c) && c !== myColor;
+        const isSelected = c === myColor;
+        const takenClass = isTakenByOther ? 'swatch-taken' : '';
+        const selectedClass = isSelected ? 'swatch-selected' : '';
+        const onclick = isTakenByOther ? '' : `window.changeMyColor('${c}')`;
+        return `<button class="showroom-swatch ${takenClass} ${selectedClass}" style="background:${c}" title="${c}" ${isTakenByOther ? 'disabled' : `onclick="${onclick}"`}></button>`;
+    }).join('');
+}
+window.renderCustomShowroom = renderCustomShowroom;
+
+// 색상 변경 함수 (본인 카드 팔레트 및 쇼룸에서 호출)
+window.changeMyColor = function(newColor) {
+    localStorage.setItem('pp_color', newColor);
+    socket.emit('change color', newColor);
+    if (window.isLobbyCustomMode) {
+        renderCustomShowroom();
+    }
+};
+
+// 쇼룸 토글 버튼 바인딩
+(function initLobbyCustomToggle() {
+    const toggleBtn = document.getElementById('lobby-custom-toggle-btn');
+    const toggleText = document.getElementById('lobby-custom-toggle-text');
+    const cardsCol = document.getElementById('lobby-banner-cards-column');
+    const showroom = document.getElementById('lobby-custom-showroom');
+
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', () => {
+        window.isLobbyCustomMode = !window.isLobbyCustomMode;
+
+        if (window.isLobbyCustomMode) {
+            if (cardsCol) cardsCol.style.display = 'none';
+            if (showroom) showroom.style.display = 'flex';
+            if (toggleText) toggleText.textContent = '게임 목록 보기';
+            renderCustomShowroom();
+        } else {
+            if (cardsCol) cardsCol.style.display = 'flex';
+            if (showroom) showroom.style.display = 'none';
+            if (toggleText) toggleText.textContent = '내 캐릭터 꾸미기';
+        }
+    });
+})();
 
 // 설정 실시간 수신 핸들러 등록
 socket.on('lobby settings updated', (data) => {
@@ -738,4 +751,66 @@ window.confirmKick = function (targetId, targetName) {
         }
     }
 };
+
+// =======================================================
+// [Task 3] 게임 시작 3초 카운트다운 모듈
+// =======================================================
+
+// 1. 게임 시작 3초 카운트다운 (3 ➡️ 2 ➡️ 1 ➡️ START!)
+(function initStartCountdownModule() {
+    let isCountdownRunning = false;
+
+    window.playStartCountdown = function (onComplete) {
+        if (isCountdownRunning) {
+            if (typeof onComplete === 'function') onComplete();
+            return;
+        }
+
+        const overlay = document.getElementById('game-countdown-overlay');
+        const textEl = document.getElementById('game-countdown-text');
+        if (!overlay || !textEl) {
+            if (typeof onComplete === 'function') onComplete();
+            return;
+        }
+
+        isCountdownRunning = true;
+        overlay.classList.add('active');
+
+        const sequence = ['3', '2', '1', 'START!'];
+        let step = 0;
+
+        function playStep() {
+            if (step >= sequence.length) {
+                overlay.classList.remove('active');
+                textEl.className = 'game-countdown-number';
+                isCountdownRunning = false;
+                if (typeof onComplete === 'function') {
+                    onComplete();
+                }
+                return;
+            }
+
+            const val = sequence[step];
+            textEl.textContent = val;
+            textEl.className = 'game-countdown-number';
+
+            if (val === 'START!') {
+                textEl.classList.add('start-text');
+                if (typeof onComplete === 'function') {
+                    onComplete();
+                    onComplete = null;
+                }
+            }
+
+            // 애니메이션 리플로우 강제
+            void textEl.offsetWidth;
+            textEl.classList.add('animate');
+
+            step++;
+            setTimeout(playStep, 850);
+        }
+
+        playStep();
+    };
+})();
 

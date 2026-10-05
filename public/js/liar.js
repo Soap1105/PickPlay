@@ -270,6 +270,7 @@
         openSettingsBtn.addEventListener('click', () => {
             window.openSettingsModal('liar', (settings) => {
                 window.liarSelectedCategories = settings.selectedCategories;
+                window.liarSubMode = settings.subMode;
                 if (window.showToast) window.showToast('설정이 저장되었습니다!', 'success');
             });
         });
@@ -283,10 +284,12 @@
                 return;
             }
             const winTarget = parseInt(document.getElementById('win-target-select')?.value || '3');
+            const subMode = window.liarSubMode || document.getElementById('liar-sub-mode')?.value || 'classic';
             const categories = window.liarSelectedCategories;
 
             socket.emit('setup liar game', {
                 winTarget: winTarget,
+                subMode: subMode,
                 categories: categories || []
             });
         });
@@ -359,21 +362,47 @@
             if (!slotContent) return;
 
             if (user.id === socket.id) {
-                // 내 카드: 클릭 시 앞면(역할 공개)으로 뒤집어지는 3D 인터랙션 탑재 (이모지 배제, 텍스트 미니멀)
+                // 내 카드: 클릭 시 앞면(역할 공개)으로 뒤집어지는 3D 인터랙션 탑재
+                const isWordMode = (data.subMode === 'word');
+                let cardFrontHtml = '';
+
+                if (isWordMode) {
+                    // [라이어 워드 모드] '시민' 라벨 배제, 카테고리 + 대형 제시어 중심의 미니멀 바이올렛 카드
+                    cardFrontHtml = `
+                        <div class="liar-card-front role-word">
+                            <span class="liar-card-word-cat">${data.category}</span>
+                            <span class="liar-card-word-main">${data.word}</span>
+                            <span class="liar-card-word-hint">서로의 설명 속 미세한 위화감을 찾으세요.</span>
+                        </div>
+                    `;
+                } else {
+                    // [클래식 모드] 기존 시민/라이어 역할 중심 카드
+                    const roleTitle = data.isLiar ? '라이어' : '시민';
+                    const roleTitleColor = data.isLiar ? '#f87171' : '#34d399';
+                    const roleClass = data.isLiar ? 'role-liar' : 'role-citizen';
+                    const roleDesc = data.isLiar
+                        ? `당신은 라이어입니다.<br>카테고리: <strong style="color:#fbbf24;">${data.category}</strong><br>눈치껏 설명하고 정답을 맞추세요.`
+                        : `카테고리: <strong>${data.category}</strong><br>제시어: <strong style="font-size:1.15rem; color:#38bdf8;">${data.word}</strong>`;
+
+                    cardFrontHtml = `
+                        <div class="liar-card-front ${roleClass}">
+                            <span class="liar-card-role-title" style="color: ${roleTitleColor};">
+                                ${roleTitle}
+                            </span>
+                            <span class="liar-card-role-desc" style="color:#e2e8f0;">
+                                ${roleDesc}
+                            </span>
+                        </div>
+                    `;
+                }
+
                 slotContent.innerHTML = `
                     <div class="liar-card-container" id="liar-my-card">
                         <div class="liar-card-inner">
                             <div class="liar-card-back">
                                 <span class="liar-card-back-label" style="font-size:0.75rem; color:rgba(255,255,255,0.45);">클릭해서 역할 확인</span>
                             </div>
-                            <div class="liar-card-front role-${data.isLiar ? 'liar' : 'role-citizen'} role-${data.isLiar ? 'liar' : 'citizen'}">
-                                <span class="liar-card-role-title" style="color: ${data.isLiar ? '#f87171' : '#34d399'};">
-                                    ${data.isLiar ? '라이어' : '시민'}
-                                </span>
-                                <span class="liar-card-role-desc" style="color:#e2e8f0;">
-                                    ${data.isLiar ? `당신은 라이어입니다.<br>카테고리: <strong style="color:#fbbf24;">${data.category}</strong><br>눈치껏 설명하고 정답을 맞추세요.` : `카테고리: <strong>${data.category}</strong><br>제시어: <strong style="font-size:1.15rem; color:#38bdf8;">${data.word}</strong>`}
-                                </span>
-                            </div>
+                            ${cardFrontHtml}
                         </div>
                     </div>
                 `;
@@ -394,10 +423,15 @@
         });
 
         // 3. 슬롯 하단 안내창 연출
+        const isWordMode = (data.subMode === 'word');
+        const guideMsg = isWordMode
+            ? '중앙의 본인 카드를 클릭하여 제시어를 확인하세요. 대화를 통해 서로 다른 단어를 찾아내세요.'
+            : '중앙의 본인 카드를 클릭하여 역할을 뒤집어보세요.';
+
         inputZone.style.display = 'block';
         inputZone.innerHTML = `
-            <div class="liar-turn-panel" style="max-width: 500px; margin: 10px auto; text-align: center; border-color: rgba(129, 140, 248, 0.4); background: rgba(129, 140, 248, 0.05); padding: 16px;">
-                <p style="color: #cbd5e1; font-weight: 800; margin: 0; animation: liarBlink 2s infinite;">중앙의 본인 카드를 클릭하여 역할을 뒤집어보세요.</p>
+            <div class="liar-turn-panel" style="max-width: 550px; margin: 10px auto; text-align: center; border-color: rgba(129, 140, 248, 0.4); background: rgba(129, 140, 248, 0.05); padding: 16px;">
+                <p style="color: #cbd5e1; font-weight: 800; margin: 0; animation: liarBlink 2s infinite;">${guideMsg}</p>
             </div>
         `;
     });
@@ -496,10 +530,10 @@
                 inputZone.style.display = 'block';
                 inputZone.innerHTML = `
                     <div class="liar-turn-panel" style="max-width: 500px; margin: 10px auto; text-align: center; border-color: rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.06); animation: liarCharDrop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);">
-                        <p style="font-size: 1.15rem; color: #fff; margin-bottom: 12px; font-weight: 800;">정말 <span style="color: #f87171;">[${pName}]</span>님에게 투표하시겠습니까?</p>
+                        <p class="liar-vote-prompt" style="font-size: 1.15rem; margin-bottom: 12px; font-weight: 800;">정말 <span style="color: #ef4444;">[${pName}]</span>님에게 투표하시겠습니까?</p>
                         <div style="display: flex; gap: 12px; justify-content: center;">
-                            <button id="vote-confirm-yes" class="start-btn" style="background: #10b981; padding: 8px 24px; font-size: 0.9rem;">투표 완료</button>
-                            <button id="vote-confirm-no" class="start-btn" style="background: rgba(255,255,255,0.15); padding: 8px 24px; font-size: 0.9rem;">취소</button>
+                            <button id="vote-confirm-yes" class="start-btn liar-vote-confirm-btn" style="background: #10b981; padding: 8px 24px; font-size: 0.9rem;">투표 완료</button>
+                            <button id="vote-confirm-no" class="start-btn liar-vote-cancel-btn" style="padding: 8px 24px; font-size: 0.9rem;">취소</button>
                         </div>
                     </div>
                 `;
@@ -558,12 +592,18 @@
 
         if (socket.id === data.liarId) {
             // 내가 걸린 라이어일 때
+            const isWordMode = (data.subMode === 'word');
+            const titleText = isWordMode ? '🚨 당신은 다른 단어를 가진 라이어로 지목되었습니다!' : '🚨 당신은 라이어로 지목되었습니다!';
+            const descText = isWordMode
+                ? '당신이 가졌던 단어와 다른, 시민들의 진짜 제시어를 맞히면 대역전승을 거둡니다!'
+                : '하지만 아직 기회가 있습니다. 진짜 제시어를 정확히 추리해 입력하면 대역전승을 거둡니다!';
+
             inputZone.style.display = 'block';
             inputZone.innerHTML = `
                 <div class="liar-turn-panel" style="max-width: 550px; margin: 10px auto; border-color: #ef4444; background: rgba(239, 68, 68, 0.06); text-align: center; animation: liarCharDrop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);">
-                    <h2 style="color: #f87171; margin-top:0; margin-bottom: 6px; font-size: 1.45rem; font-weight:900;">🚨 당신은 라이어로 지목되었습니다!</h2>
+                    <h2 style="color: #f87171; margin-top:0; margin-bottom: 6px; font-size: 1.45rem; font-weight:900;">${titleText}</h2>
                     <p style="color: #fbbf24; font-size: 1.1rem; font-weight: 800; margin-bottom: 8px;">제시어 카테고리: [${data.category}]</p>
-                    <p style="color: #cbd5e1; font-size: 0.88rem; margin-bottom: 16px;">하지만 아직 기회가 있습니다. 진짜 제시어를 정확히 추리해 입력하면 대역전승을 거둡니다!</p>
+                    <p style="color: #cbd5e1; font-size: 0.88rem; margin-bottom: 16px;">${descText}</p>
                     <div class="liar-input-group" style="display: flex; gap: 10px; margin-top: 0; width: 100%; max-width: 500px; margin-left: auto; margin-right: auto;">
                         <input type="text" id="final-guess-input" class="liar-text-input" style="font-size: 1.1rem; border-color: #ef4444; margin-bottom:0; flex: 1; min-width: 280px; width: 100%;" placeholder="추리한 제시어 정답을 입력하세요..." autocomplete="off">
                         <button id="final-guess-btn" class="start-btn" style="background: #ef4444; padding: 0 24px; font-weight:800; width: auto; white-space: nowrap;">역전 제출</button>
@@ -657,6 +697,38 @@
             gridBoard.classList.add('results-dimmed');
         }
 
+        // 결과 공개 박스 템플릿 생성기 (일반 모드 vs 라이어 워드 모드 분기)
+        const isWordMode = (result.subMode === 'word');
+        const getRevealBoxesHtml = (isFinal = false) => {
+            if (isWordMode) {
+                return `
+                    <div class="reveal-box" style="padding: 10px 14px; min-width: 100px; flex: 1; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);">
+                        <div class="reveal-label">${isFinal ? '마지막 진짜 라이어' : '진짜 라이어'}</div>
+                        <div class="reveal-value reveal-liar" style="font-size: ${isFinal ? '1.35rem' : '1.25rem'};">${result.liarName}</div>
+                    </div>
+                    <div class="reveal-box" style="padding: 10px 14px; min-width: 100px; flex: 1; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3);">
+                        <div class="reveal-label">${isFinal ? '마지막 시민 단어' : '시민 단어'}</div>
+                        <div class="reveal-value reveal-word" style="font-size: ${isFinal ? '1.35rem' : '1.25rem'}; color: #38bdf8;">${result.word}</div>
+                    </div>
+                    <div class="reveal-box" style="padding: 10px 14px; min-width: 100px; flex: 1; background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.3);">
+                        <div class="reveal-label">${isFinal ? '마지막 라이어 단어' : '라이어 단어'}</div>
+                        <div class="reveal-value" style="font-size: ${isFinal ? '1.35rem' : '1.25rem'}; color: #fbbf24; font-weight: 800;">${result.liarWord || '알 수 없음'}</div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="reveal-box" style="padding: ${isFinal ? '12px 24px' : '10px 20px'}; min-width: 150px; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);">
+                        <div class="reveal-label">${isFinal ? '마지막 진짜 라이어' : '진짜 라이어'}</div>
+                        <div class="reveal-value reveal-liar" style="font-size: ${isFinal ? '1.45rem' : '1.35rem'};">${result.liarName}</div>
+                    </div>
+                    <div class="reveal-box" style="padding: ${isFinal ? '12px 24px' : '10px 20px'}; min-width: 150px; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3);">
+                        <div class="reveal-label">${isFinal ? '마지막 정답 단어' : '정답 단어'}</div>
+                        <div class="reveal-value reveal-word" style="font-size: ${isFinal ? '1.45rem' : '1.35rem'}; color: #38bdf8;">${result.word}</div>
+                    </div>
+                `;
+            }
+        };
+
         const resultChatHtml = `
             <!-- 결과창 내장 채팅 섹션 (대안 A) -->
             <div class="liar-result-chat" style="margin-top: 20px; text-align: left; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
@@ -674,17 +746,7 @@
         `;
 
         if (result.isFinalGameOver) {
-            // 게임 완전 종료: 스코어보드 렌더링
-            const btnHtml = `
-                <div style="margin-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
-                    <div style="display: flex; gap: 14px; justify-content: center; width: 100%; max-width: 400px;">
-                        <button id="liar-confirm-result-btn" class="start-btn" style="flex: 1; padding: 12px 24px; font-size: 0.95rem; background: linear-gradient(135deg, #34495e, #2c3e50); border: 1px solid rgba(255,255,255,0.15);">
-                            확인
-                        </button>
-                    </div>
-                </div>
-            `;
-
+            // 게임 완전 종료: 배경 패널 렌더링 + 공통 결과창 모달 팝업
             playerUI.innerHTML = `
                 <div class="liar-glass-panel liar-result-panel" style="border-top: 8px solid #fbbf24; max-width: 650px; margin: 0 auto;">
                     <div style="font-size: 3.5rem; text-align: center; margin-bottom: 6px;">🏆</div>
@@ -697,106 +759,92 @@
                         </h2>
                     </div>
 
-                    <div class="liar-final-reveal" style="margin: 20px 0; gap: 15px;">
-                        <div class="reveal-box" style="padding: 12px 24px; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);">
-                            <div class="reveal-label">마지막 진짜 라이어</div>
-                            <div class="reveal-value reveal-liar" style="font-size: 1.45rem;">${result.liarName}</div>
-                        </div>
-                        <div class="reveal-box" style="padding: 12px 24px; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3);">
-                            <div class="reveal-label">마지막 정답 단어</div>
-                            <div class="reveal-value reveal-word" style="font-size: 1.45rem;">${result.word}</div>
-                        </div>
-                    </div>
-
-                    <!-- 최종 스코어보드 -->
-                    <div style="width: 100%; margin-top: 24px; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); overflow: hidden;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size:0.9rem;">
-                            <thead>
-                                <tr style="background: rgba(255,255,255,0.04); border-bottom: 2px solid rgba(255,255,255,0.08);">
-                                    <th style="padding: 12px 16px; color: #94a3b8; font-weight: bold;">순위</th>
-                                    <th style="padding: 12px 16px; color: #94a3b8; font-weight: bold;">플레이어</th>
-                                    <th style="padding: 12px 16px; color: #94a3b8; font-weight: bold;">최종 승수</th>
-                                    <th style="padding: 12px 16px; color: #94a3b8; font-weight: bold;">마지막 역할</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${result.stats ? result.stats.map((stat, idx) => {
-                const isWinner = stat.score >= (window.winTarget || 3);
-                const rowBg = isWinner ? 'background: rgba(251, 191, 36, 0.08); font-weight: bold;' : 'border-bottom: 1px solid rgba(255,255,255,0.04);';
-                const nameColor = stat.id === socket.id ? 'color: #38bdf8;' : 'color: #f1f5f9;';
-                const roleColor = stat.isLiar ? '<span style="color:#ef4444; font-weight:700;">라이어</span>' : '<span style="color:#cbd5e1;">시민</span>';
-                return `
-                                        <tr style="${rowBg}">
-                                            <td style="padding: 12px 16px; color: ${isWinner ? '#fbbf24' : '#94a3b8'};">${idx + 1}위</td>
-                                            <td style="padding: 12px 16px; ${nameColor}">${stat.id === socket.id ? '<b>(나) </b>' : ''}${stat.name}</td>
-                                            <td style="padding: 12px 16px; color: #fbbf24; font-size: 1.0rem;">${stat.score}승</td>
-                                            <td style="padding: 12px 16px;">${roleColor}</td>
-                                        </tr>
-                                    `;
-            }).join('') : ''}
-                            </tbody>
-                        </table>
+                    <div class="liar-final-reveal" style="margin: 20px 0; gap: 12px; display: flex; justify-content: center; flex-wrap: wrap;">
+                        ${getRevealBoxesHtml(true)}
                     </div>
 
                     ${resultChatHtml}
-
-                    ${btnHtml}
                 </div>
             `;
 
             bindResultChatEvents();
 
-            setTimeout(() => {
-                const confirmBtn = document.getElementById('liar-confirm-result-btn');
-                if (confirmBtn) {
-                    confirmBtn.onclick = () => {
-                        socket.emit('confirm result');
-                        confirmBtn.disabled = true;
-                        confirmBtn.textContent = "확인 ✓";
-                        confirmBtn.style.opacity = '0.6';
-                        confirmBtn.style.background = '#475569';
+            const onConfirmResult = () => {
+                socket.emit('confirm result');
 
-                        // [이슈 23] 방장은 확인 즉시 게임 초기화도 처리
-                        if (amIHost) {
-                            socket.emit('restart liar game');
-                        } else {
-                            // [이슈 30 해결] 게스트는 방장이 게임 초기화하기 전에 스스로 대기방 UI로 복구 처리하여 갇힘 방지
-                            setTimeout(() => {
-                                window.liarVotes = {};
-                                window.gameScores = {};
-                                liarGameStarted = false;
-                                playerUI.innerHTML = '';
+                // [이슈 23] 방장은 확인 즉시 게임 초기화도 처리
+                if (amIHost) {
+                    socket.emit('restart liar game');
+                } else {
+                    // [이슈 30 해결] 게스트는 방장이 게임 초기화하기 전에 스스로 대기방 UI로 복구 처리하여 갇힘 방지
+                    setTimeout(() => {
+                        window.liarVotes = {};
+                        window.gameScores = {};
+                        liarGameStarted = false;
+                        playerUI.innerHTML = '';
 
-                                document.body.classList.remove('game-mode-liar');
-                                if (gridBoard) {
-                                    gridBoard.style.display = 'none';
-                                    gridBoard.classList.remove('results-dimmed');
-                                }
-                                if (liarTimerUI) liarTimerUI.style.display = 'none';
-                                if (inputZone) inputZone.style.display = 'none';
-
-                                const mainWrapper = document.getElementById('main-wrapper');
-                                if (mainWrapper) {
-                                    mainWrapper.className = mainWrapper.className.replace(/\bplayers-\d+\b/g, '').trim();
-                                }
-
-                                setupArea.style.display = 'none';
-                                waitingArea.style.display = 'none';
-
-                                if (typeof showContainer === 'function') {
-                                    showContainer('lobby-container');
-                                }
-
-                                const players = window.roomPlayers || currentUsers || [];
-                                if (window.gameType === 'liar' && players.length > 0) {
-                                    window.updateLiarRoleUI(amIHost);
-                                    window.renderLiarUsers(window.roomPlayers, amIHost);
-                                }
-                            }, 500);
+                        document.body.classList.remove('game-mode-liar');
+                        if (gridBoard) {
+                            gridBoard.style.display = 'none';
+                            gridBoard.classList.remove('results-dimmed');
                         }
-                    };
+                        if (liarTimerUI) liarTimerUI.style.display = 'none';
+                        if (inputZone) inputZone.style.display = 'none';
+
+                        const mainWrapper = document.getElementById('main-wrapper');
+                        if (mainWrapper) {
+                            mainWrapper.className = mainWrapper.className.replace(/\bplayers-\d+\b/g, '').trim();
+                        }
+
+                        setupArea.style.display = 'none';
+                        waitingArea.style.display = 'none';
+
+                        if (typeof showContainer === 'function') {
+                            showContainer('lobby-container');
+                        }
+
+                        const players = window.roomPlayers || currentUsers || [];
+                        if (window.gameType === 'liar' && players.length > 0) {
+                            window.updateLiarRoleUI(amIHost);
+                            window.renderLiarUsers(window.roomPlayers, amIHost);
+                        }
+                    }, 500);
                 }
-            }, 50);
+            };
+
+            setTimeout(() => {
+                const formattedStats = (result.stats || []).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    color: s.color || '#FC944D',
+                    stat1: `${s.score}승`,
+                    stat2: s.stat2Text || '-',
+                    isWinner: result.winner && s.id === result.winner.id
+                }));
+
+                const winnerObj = result.winner ? {
+                    id: result.winner.id,
+                    name: result.winner.name,
+                    color: result.winner.color || '#fbbf24',
+                    scoreText: `${result.winner.name} 우승!`
+                } : null;
+
+                window.showGameResultModal({
+                    mode: 'liar',
+                    modeName: '라이어 게임',
+                    winner: winnerObj,
+                    stat1Header: '최종 승수',
+                    stat2Header: '검거 성공률',
+                    rules: [
+                        '1위: 목표 승수 선착순 달성 (우승)',
+                        '2위 이하: 누적 승수가 높은 순서',
+                        '승수 동점 시: 라이어 검거(지목) 성공률이 높은 순'
+                    ],
+                    stats: formattedStats,
+                    history: result.history || [],
+                    onConfirm: onConfirmResult
+                });
+            }, 800);
             return;
         }
 
@@ -872,15 +920,8 @@
                 </div>
                 <div class="liar-result-msg" style="font-size:1.15rem; line-height:1.4;">${result.message}</div>
                 
-                <div class="liar-final-reveal" style="margin: 15px 0;">
-                    <div class="reveal-box" style="padding:10px 20px; min-width:150px;">
-                        <div class="reveal-label">진짜 라이어</div>
-                        <div class="reveal-value reveal-liar" style="font-size:1.35rem;">${result.liarName}</div>
-                    </div>
-                    <div class="reveal-box" style="padding:10px 20px; min-width:150px;">
-                        <div class="reveal-label">정답 단어</div>
-                        <div class="reveal-value reveal-word" style="font-size:1.35rem;">${result.word}</div>
-                    </div>
+                <div class="liar-final-reveal" style="margin: 15px 0; gap: 10px; display: flex; justify-content: center; flex-wrap: wrap;">
+                    ${getRevealBoxesHtml(false)}
                 </div>
 
                 <div style="width: 100%; margin-top: 20px; text-align:left;">
@@ -960,6 +1001,11 @@
         if (typeof showContainer === 'function') showContainer('liar-container');
         setupArea.style.display = 'none';
         waitingArea.style.display = 'none';
+
+        // 3초 카운트다운 연출 실행
+        if (window.playStartCountdown) {
+            window.playStartCountdown();
+        }
 
         // 카드 배치 활성화를 위해 렌더링 동기화
         liarGameStarted = true;

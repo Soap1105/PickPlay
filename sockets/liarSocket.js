@@ -4,12 +4,21 @@ const { getSortedUserList } = require('./utils');
 
 // 정적 카테고리/단어 DB를 메모리에 로드
 let liarWordsData = [];
+let liarWordPairsData = [];
 try {
     const dataPath = path.join(__dirname, '../data/liarWords.json');
     liarWordsData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 } catch (error) {
     console.error("liarWords.json 로드 오류. 기본값 적용", error);
     liarWordsData = [{ category: '기본 과일', words: ['사과', '바나나'] }];
+}
+
+try {
+    const pairsPath = path.join(__dirname, '../data/liarWordPairs.json');
+    liarWordPairsData = JSON.parse(fs.readFileSync(pairsPath, 'utf8'));
+} catch (error) {
+    console.error("liarWordPairs.json 로드 오류. 기본값 적용", error);
+    liarWordPairsData = [{ category: '음식', pairs: [['사과', '배']] }];
 }
 
 module.exports = (io, socket, gameRooms) => {
@@ -48,9 +57,13 @@ module.exports = (io, socket, gameRooms) => {
         io.to(roomId).emit('liar timer clear');
     }
 
-    // 카테고리 목록 클라이언트에 반환
+    // 카테고리 목록 클라이언트에 반환 (일반 모드 + 라이어 워드 모드 통합)
     socket.on('request liar categories', () => {
-        socket.emit('liar categories', liarWordsData.map(d => d.category));
+        const allCategories = Array.from(new Set([
+            ...liarWordsData.map(d => d.category),
+            ...liarWordPairsData.map(d => d.category)
+        ]));
+        socket.emit('liar categories', allCategories);
     });
 
     // 최초 방 설정 (방장)
@@ -72,9 +85,12 @@ module.exports = (io, socket, gameRooms) => {
             return;
         }
 
+        const subMode = data.subMode === 'word' ? 'word' : 'classic';
+
         // 새로 게임을 엎친 것처럼 scores 초기화
         room.liarGameConfig = {
             winTarget: data.winTarget || 3,
+            subMode: subMode,
             allowedCategories: data.categories || []
         };
         if (!room.liarGame) {
@@ -88,9 +104,10 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig.winTarget);
-        socket.emit('system message', `목표 승수가 ${data.winTarget}승으로 설정되었습니다.`);
+        const modeLabel = subMode === 'word' ? '라이어 워드' : '클래식';
+        socket.emit('system message', `게임 모드: ${modeLabel}, 목표 승수: ${data.winTarget}승으로 설정되었습니다.`);
         
-        // 카운트다운 없이 즉시 라운드 시작
+        // 라운드 시작
         startRound(socket.roomId);
     });
 
@@ -135,25 +152,48 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.liarId = null;
         room.liarGame.category = null;
         room.liarGame.word = null;
+        room.liarGame.liarWord = null;
+        room.liarGame.subMode = room.liarGameConfig?.subMode || 'classic';
         room.liarGame.votes = {};
         room.liarGame.submissions = {};
         if (!room.liarGame.liarHistory) {
             room.liarGame.liarHistory = [];
         }
 
-        // 방장이 선택한 카테고리 풀 필터링
-        let pool = liarWordsData;
-        if (room.liarGameConfig && room.liarGameConfig.allowedCategories && room.liarGameConfig.allowedCategories.length > 0) {
-            const filteredPool = liarWordsData.filter(d => room.liarGameConfig.allowedCategories.includes(d.category));
-            if (filteredPool.length > 0) pool = filteredPool;
-        }
+        if (room.liarGame.subMode === 'word') {
+            // [라이어 워드 모드] 유사 단어 쌍(Pair) 추첨
+            let pool = liarWordPairsData;
+            if (room.liarGameConfig && room.liarGameConfig.allowedCategories && room.liarGameConfig.allowedCategories.length > 0) {
+                const filteredPool = liarWordPairsData.filter(d => room.liarGameConfig.allowedCategories.includes(d.category));
+                if (filteredPool.length > 0) pool = filteredPool;
+            }
 
-        // 카테고리 풀에서 랜덤으로 뽑고 그 안에서 단어를 무작위로 뽑음
-        const pickedCategoryObj = pool[Math.floor(Math.random() * pool.length)];
-        const pickedWord = pickedCategoryObj.words[Math.floor(Math.random() * pickedCategoryObj.words.length)];
-        
-        room.liarGame.category = pickedCategoryObj.category;
-        room.liarGame.word = pickedWord;
+            const pickedCategoryObj = pool[Math.floor(Math.random() * pool.length)];
+            const pickedPair = pickedCategoryObj.pairs[Math.floor(Math.random() * pickedCategoryObj.pairs.length)];
+            
+            // 50% 확률로 시민 단어와 라이어 단어 셔플
+            const isPairReversed = Math.random() < 0.5;
+            const citizenWord = isPairReversed ? pickedPair[1] : pickedPair[0];
+            const liarWord = isPairReversed ? pickedPair[0] : pickedPair[1];
+
+            room.liarGame.category = pickedCategoryObj.category;
+            room.liarGame.word = citizenWord;
+            room.liarGame.liarWord = liarWord;
+        } else {
+            // [일반 라이어 모드] 단일 단어 추첨
+            let pool = liarWordsData;
+            if (room.liarGameConfig && room.liarGameConfig.allowedCategories && room.liarGameConfig.allowedCategories.length > 0) {
+                const filteredPool = liarWordsData.filter(d => room.liarGameConfig.allowedCategories.includes(d.category));
+                if (filteredPool.length > 0) pool = filteredPool;
+            }
+
+            const pickedCategoryObj = pool[Math.floor(Math.random() * pool.length)];
+            const pickedWord = pickedCategoryObj.words[Math.floor(Math.random() * pickedCategoryObj.words.length)];
+            
+            room.liarGame.category = pickedCategoryObj.category;
+            room.liarGame.word = pickedWord;
+            room.liarGame.liarWord = null;
+        }
 
         // 1판 기억식 가중치 기반 라이어 선정 시스템
         const immediatePastLiar = room.liarGame.liarHistory[room.liarGame.liarHistory.length - 1] || null;
@@ -187,10 +227,15 @@ module.exports = (io, socket, gameRooms) => {
 
         players.forEach(playerId => {
             const isLiar = (playerId === room.liarGame.liarId);
+            const userWord = isLiar 
+                ? (room.liarGame.subMode === 'word' ? room.liarGame.liarWord : '?') 
+                : room.liarGame.word;
+
             io.to(playerId).emit('liar role assigned', {
                 isLiar: isLiar,
                 category: room.liarGame.category,
-                word: isLiar ? '?' : room.liarGame.word
+                word: userWord,
+                subMode: room.liarGame.subMode
             });
         });
 
@@ -413,11 +458,11 @@ module.exports = (io, socket, gameRooms) => {
             } else {
                 // 라이어 검거 성공 -> 최후 변론으로 이동
                 currentRoom.status = 'final_guess';
-                // io.to(roomId).emit('system message', `🚨 투표 결과, ${currentRoom.players[currentRoom.liarGame.liarId]?.name}님이 라이어로 검거되었습니다! (제한시간: 30초)`);
                 io.to(roomId).emit('final guess phase', { 
                     liarId: currentRoom.liarGame.liarId, 
                     liarName: currentRoom.players[currentRoom.liarGame.liarId]?.name,
-                    category: currentRoom.liarGame.category
+                    category: currentRoom.liarGame.category,
+                    subMode: currentRoom.liarGame.subMode
                 });
 
                 // 최후 변론 30초 타이머
@@ -499,14 +544,48 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[roomId];
         const target = room.liarGameConfig.winTarget;
 
-        // 점수 갱신 브로드캐스트
-        io.to(roomId).emit('update scores', room.liarGame.scores, target);
+        // 검거율 및 히스토리 저장을 위한 방 객체 프로퍼티 보장
+        if (!room.liarGame.correctVoteCounts) room.liarGame.correctVoteCounts = {};
+        if (!room.liarGame.citizenRoundCounts) room.liarGame.citizenRoundCounts = {};
+        if (!room.liarGame.roundHistory) room.liarGame.roundHistory = [];
+
+        // 이번 라운드 시민들의 라이어 투표 성공 여부 집계
+        const liarId = room.liarGame.liarId;
+        if (room.liarGame.votes) {
+            for (let voter in room.liarGame.votes) {
+                if (voter !== liarId) {
+                    room.liarGame.citizenRoundCounts[voter] = (room.liarGame.citizenRoundCounts[voter] || 0) + 1;
+                    if (room.liarGame.votes[voter] === liarId) {
+                        room.liarGame.correctVoteCounts[voter] = (room.liarGame.correctVoteCounts[voter] || 0) + 1;
+                    }
+                }
+            }
+        }
+
+        // 라운드 복기 히스토리 누적
+        const roundNum = room.liarGame.roundHistory.length + 1;
+        const liarPlayerName = room.players[liarId]?.name || '알 수 없음';
+        room.liarGame.roundHistory.push({
+            round: `${roundNum}R`,
+            tag: resultData.citizensWon ? '시민 승리' : '라이어 승리',
+            tagClass: resultData.citizensWon ? 'tag-win' : 'tag-danger',
+            topic: `제시어: ${room.liarGame.word || '비공개'} / 라이어: ${liarPlayerName}`,
+            desc: resultData.message || (resultData.citizensWon ? '시민들이 라이어를 검거하여 승리했습니다.' : '라이어가 승리했습니다.')
+        });
 
         // 목표 점수 달성자 확인
         let winners = [];
+        let finalWinner = null;
         for (let pid in room.liarGame.scores) {
             if (room.liarGame.scores[pid] >= target) {
                 winners.push(room.players[pid]?.name);
+                if (!finalWinner) {
+                    finalWinner = {
+                        id: pid,
+                        name: room.players[pid]?.name,
+                        color: room.players[pid]?.color || '#FC944D'
+                    };
+                }
             }
         }
 
@@ -514,6 +593,7 @@ module.exports = (io, socket, gameRooms) => {
             // 게임 최종 종료 (목표 점수 도달)
             resultData.isFinalGameOver = true;
             resultData.finalMessage = `🎉 목표 점수(${target}승) 달성! 🏆 최종 우승자: ${winners.join(', ')}`;
+            resultData.winner = finalWinner;
             room.status = 'WAITING'; // 게임 끝나서 다시 셋업 대기
 
             // 모든 참여자 확인 미완료 상태로 세팅 (결과 확인 중 배지 표시용)
@@ -534,14 +614,36 @@ module.exports = (io, socket, gameRooms) => {
             resultData.playerNames[pid] = room.players[pid].name;
         }
         resultData.submissions = room.liarGame.submissions;
+        resultData.subMode = room.liarGame.subMode;
+        resultData.liarWord = room.liarGame.liarWord;
 
-        // 결과 모달용 공통 스탯 형식 생성
-        resultData.stats = Object.keys(room.players).map(pid => ({
-            id: pid,
-            name: room.players[pid].name,
-            score: room.liarGame.scores[pid] || 0,
-            isLiar: pid === room.liarGame.liarId
-        })).sort((a, b) => b.score - a.score);
+        // 결과 모달용 다중 기준 정렬: 1위 우승자 고정 -> 누적 승수 내림차순 -> 검거율 내림차순 -> 검거 성공 횟수 내림차순
+        resultData.stats = Object.keys(room.players).map(pid => {
+            const p = room.players[pid];
+            const score = room.liarGame.scores[pid] || 0;
+            const correctCount = room.liarGame.correctVoteCounts[pid] || 0;
+            const citizenRounds = room.liarGame.citizenRoundCounts[pid] || 0;
+            const rate = citizenRounds > 0 ? Math.round((correctCount / citizenRounds) * 100) : 0;
+            return {
+                id: pid,
+                name: p.name,
+                color: p.color || '#FC944D',
+                score: score,
+                correctCount: correctCount,
+                citizenRounds: citizenRounds,
+                voteCorrectRate: rate,
+                stat2Text: citizenRounds > 0 ? `${rate}% (${correctCount}/${citizenRounds})` : '-',
+                isLiar: pid === room.liarGame.liarId
+            };
+        }).sort((a, b) => {
+            if (finalWinner && a.id === finalWinner.id) return -1;
+            if (finalWinner && b.id === finalWinner.id) return 1;
+            if (b.score !== a.score) return b.score - a.score;
+            if (b.voteCorrectRate !== a.voteCorrectRate) return b.voteCorrectRate - a.voteCorrectRate;
+            return b.correctCount - a.correctCount;
+        });
+
+        resultData.history = room.liarGame.roundHistory;
 
         io.to(roomId).emit('round over', resultData);
 

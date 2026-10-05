@@ -80,6 +80,7 @@
 
         } else if (game === 'liar') {
             const winTarget = parseInt(modalBody.querySelector('#modal-liar-win-target').value);
+            const subMode = modalBody.querySelector('#modal-liar-sub-mode')?.value || 'classic';
             const checkedCbs = modalBody.querySelectorAll('.modal-liar-cat-cb:checked');
             const selectedCategories = Array.from(checkedCbs).map(cb => cb.value);
 
@@ -90,9 +91,11 @@
 
             // hidden 필드에 반영
             const hiddenTarget = document.getElementById('win-target-select');
+            const hiddenSubMode = document.getElementById('liar-sub-mode');
             if (hiddenTarget) hiddenTarget.value = winTarget;
+            if (hiddenSubMode) hiddenSubMode.value = subMode;
 
-            return { winTarget, selectedCategories };
+            return { winTarget, subMode, selectedCategories };
 
         } else if (game === 'bomb') {
             const hearts = parseInt(modalBody.querySelector('input[name="modal-bomb-hearts"]:checked')?.value || '3');
@@ -158,7 +161,7 @@
                     </select>
                 </div>
                 <div class="smodal-section">
-                    <label class="smodal-label">AI 빙고 주제 <span style="font-weight:400; color:#aaa;">(비워두면 자유 주제)</span></label>
+                    <label class="smodal-label">AI 빙고 주제 <span class="smodal-hint">(비워두면 자유 주제)</span></label>
                     <input type="text" id="modal-theme-topic" class="smodal-input" placeholder="예: K-POP 아이돌, 한국 음식..." value="${hTopic}">
                 </div>
                 <div class="smodal-section smodal-toggle-row">
@@ -172,9 +175,22 @@
 
         } else if (game === 'liar') {
             const hWinTarget = document.getElementById('win-target-select')?.value || '3';
+            const hSubMode = document.getElementById('liar-sub-mode')?.value || 'classic';
 
-            modalTitle.textContent = '게임 설정';
+            modalTitle.textContent = '라이어 게임 설정';
             modalBody.innerHTML = `
+                <div class="smodal-section">
+                    <label class="smodal-label">게임 모드</label>
+                    <select id="modal-liar-sub-mode" class="smodal-select">
+                        <option value="classic" ${hSubMode === 'classic' ? 'selected' : ''}>클래식</option>
+                        <option value="word" ${hSubMode === 'word' ? 'selected' : ''}>라이어 워드</option>
+                    </select>
+                    <p id="modal-liar-mode-desc" class="smodal-desc">
+                        ${hSubMode === 'word' 
+                            ? '라이어에게도 유사한 다른 단어가 주어집니다. 본인이 라이어인지 모른 채 대화가 시작됩니다.' 
+                            : '라이어는 제시어를 모른 채 거짓말을 해야 합니다.'}
+                    </p>
+                </div>
                 <div class="smodal-section">
                     <label class="smodal-label">목표 승수</label>
                     <select id="modal-liar-win-target" class="smodal-select">
@@ -192,10 +208,23 @@
                         </div>
                     </div>
                     <div id="liar-modal-category-grid" class="smodal-check-grid">
-                        <span style="color:#aaa; font-size:0.9rem;">카테고리를 불러오는 중...</span>
+                        <span class="smodal-hint">카테고리를 불러오는 중...</span>
                     </div>
                 </div>
             `;
+
+            // 모드 변경 시 설명 문구 동적 반영
+            const modeSelect = document.getElementById('modal-liar-sub-mode');
+            const modeDesc = document.getElementById('modal-liar-mode-desc');
+            if (modeSelect && modeDesc) {
+                modeSelect.addEventListener('change', () => {
+                    if (modeSelect.value === 'word') {
+                        modeDesc.textContent = '라이어에게도 유사한 다른 단어가 주어집니다. 본인이 라이어인지 모른 채 대화가 시작됩니다.';
+                    } else {
+                        modeDesc.textContent = '라이어는 제시어를 모른 채 거짓말을 해야 합니다.';
+                    }
+                });
+            }
             // 카테고리 로드
             socket.emit('request liar categories');
             socket.once('liar categories', (cats) => {
@@ -241,7 +270,7 @@
                         <option value="random" ${hSubMode === 'random' ? 'selected' : ''}>랜덤 모드</option>
                         <option value="tactical" ${hSubMode === 'tactical' ? 'selected' : ''}>전략 모드</option>
                     </select>
-                    <p style="font-size:0.8rem; color:#aaa; margin: 6px 0 0;">전략 모드: 단어 뒤에 번호를 입력해 지목하거나, 빠른 답변으로 반사할 수 있습니다.</p>
+                    <p class="smodal-desc">전략 모드: 단어 뒤에 번호를 입력해 지목하거나, 빠른 답변으로 반사할 수 있습니다.</p>
                 </div>
                 <div class="smodal-section">
                     <label class="smodal-label">폭탄 시간</label>
@@ -267,7 +296,7 @@
                         </div>
                     </div>
                     <div id="bomb-modal-category-grid" class="smodal-check-grid">
-                        <span style="color:#aaa; font-size:0.9rem;">카테고리를 불러오는 중...</span>
+                        <span class="smodal-hint">카테고리를 불러오는 중...</span>
                     </div>
                 </div>
             `;

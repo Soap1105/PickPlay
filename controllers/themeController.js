@@ -76,24 +76,48 @@ exports.generateThemeWords = async (req, res) => {
         
         // 1. DB 캐싱 확인 (이미 만들어진 주제인지)
         const cachedTheme = await ThemeModel.getThemeByTitle(title);
+        let isExpired = false;
+
         if (cachedTheme) {
-            console.log(`[Cache Hit] '${title}' - DB에서 바로 가져옵니다.`);
-            reportProgress("기존 단어 목록 발견! 즉시 로드 중...", 100);
-            delete ACTIVE_GENERATIONS[roomId]; // 캐시 히트는 즉시 완료되므로 캐시 삭제
-            
-            if (typeof cachedTheme.words === 'string') {
-                cachedTheme.words = JSON.parse(cachedTheme.words);
+            // 만료 여부 확인 (60일 TTL)
+            const TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60일
+            const lastUpdated = new Date(cachedTheme.updated_at || cachedTheme.created_at).getTime();
+            isExpired = (Date.now() - lastUpdated) > TTL_MS;
+
+            if (!isExpired) {
+                console.log(`[Cache Hit] '${title}' - DB에서 바로 가져옵니다.`);
+                reportProgress("기존 단어 목록 발견! 즉시 로드 중...", 100);
+                delete ACTIVE_GENERATIONS[roomId]; // 캐시 히트는 즉시 완료되므로 캐시 삭제
+                
+                if (typeof cachedTheme.words === 'string') {
+                    cachedTheme.words = JSON.parse(cachedTheme.words);
+                }
+                return res.json({ success: true, themeId: cachedTheme.id, words: cachedTheme.words, source: 'cache' });
             }
-            return res.json({ success: true, themeId: cachedTheme.id, words: cachedTheme.words, source: 'cache' });
+
+            console.log(`[Cache Expired] '${title}' - 60일이 경과하여 최신 단어로 자동 갱신을 시도합니다.`);
         }
 
-        // 2. 쿨타임 검증 (캐시 미스로 인해 실제 AI 호출이 필요한 시점에만 검사)
+        // 캐시 데이터 파싱 헬퍼 (Fallback용)
+        const getFallbackWords = () => {
+            if (!cachedTheme) return null;
+            return typeof cachedTheme.words === 'string' ? JSON.parse(cachedTheme.words) : cachedTheme.words;
+        };
+
+        // 2. 쿨타임 검증 (캐시 미스 또는 만료 갱신 시)
         const now = Date.now();
         
         // 방 기준 쿨타임 검사
         if (roomId && AI_COOLDOWN_MAP.rooms[roomId]) {
             const timePassed = now - AI_COOLDOWN_MAP.rooms[roomId];
             if (timePassed < COOLDOWN_DURATION) {
+                // 만료 갱신 중 쿨타임에 걸렸다면, 에러를 내지 않고 기존 캐시 단어로 안전하게 즉시 Fallback
+                if (cachedTheme) {
+                    console.log(`[Cooldown Fallback] '${title}' - 쿨타임 대기 대신 기존 단어로 안전하게 시작합니다.`);
+                    delete ACTIVE_GENERATIONS[roomId];
+                    return res.json({ success: true, themeId: cachedTheme.id, words: getFallbackWords(), source: 'cache_fallback' });
+                }
+
                 const remaining = Math.ceil((COOLDOWN_DURATION - timePassed) / 1000);
                 reportProgress("쿨타임 대기 중...", 0);
                 delete ACTIVE_GENERATIONS[roomId];
@@ -109,6 +133,12 @@ exports.generateThemeWords = async (req, res) => {
         if (userId && AI_COOLDOWN_MAP.users[userId]) {
             const timePassed = now - AI_COOLDOWN_MAP.users[userId];
             if (timePassed < COOLDOWN_DURATION) {
+                if (cachedTheme) {
+                    console.log(`[Cooldown Fallback] '${title}' - 쿨타임 대기 대신 기존 단어로 안전하게 시작합니다.`);
+                    delete ACTIVE_GENERATIONS[roomId];
+                    return res.json({ success: true, themeId: cachedTheme.id, words: getFallbackWords(), source: 'cache_fallback' });
+                }
+
                 const remaining = Math.ceil((COOLDOWN_DURATION - timePassed) / 1000);
                 reportProgress("쿨타임 대기 중...", 0);
                 delete ACTIVE_GENERATIONS[roomId];
@@ -120,47 +150,69 @@ exports.generateThemeWords = async (req, res) => {
             }
         }
 
-        reportProgress("주제 관련 단어 수집 중 (약 10~20초)...", 30);
-        console.log(`[Cache Miss] '${title}' - AI에게 생성을 요청합니다.`);
+        const progressMsg = isExpired 
+            ? "최신 트렌드 단어로 갱신 중 (약 10~20초)..." 
+            : "주제 관련 단어 수집 중 (약 10~20초)...";
+        reportProgress(progressMsg, 30);
+        console.log(`[${isExpired ? 'Cache Refresh' : 'Cache Miss'}] '${title}' - AI에게 생성을 요청합니다.`);
         
-        // 3. DB에 없으면 Gemini 호출
-        const aiResult = await geminiService.generateBingoWords(title);
+        // 3. Gemini 호출
+        let aiResult;
+        try {
+            aiResult = await geminiService.generateBingoWords(title);
+        } catch (callErr) {
+            console.error('[Gemini Call Error]', callErr.message);
+            aiResult = { status: 'error', message: callErr.message };
+        }
 
-        if (aiResult.status === "error") {
+        // AI 생성 실패 시: 만료 갱신인 경우 기존 단어로 Fallback
+        if (aiResult.status === "error" || !aiResult.words || aiResult.words.length < 25) {
+            if (cachedTheme) {
+                console.warn(`[AI Refresh Failed] '${title}' - AI 갱신 실패로 기존 캐시 단어로 안전하게 Fallback 진행.`);
+                reportProgress("단어 갱신에 실패하여 기존 단어 목록으로 시작합니다.", 100);
+                delete ACTIVE_GENERATIONS[roomId];
+                return res.json({ success: true, themeId: cachedTheme.id, words: getFallbackWords(), source: 'cache_fallback' });
+            }
+
             reportProgress("단어 생성 실패: 부적절하거나 너무 좁은 주제입니다.", 0);
             delete ACTIVE_GENERATIONS[roomId];
-            return res.status(400).json({ error: aiResult.message });
+            return res.status(400).json({ error: aiResult.message || 'AI가 단어 풀을 충분히 생성하지 못했습니다.' });
         }
 
-        if (aiResult.status === "success" && aiResult.words && aiResult.words.length >= 25) {
-            reportProgress("단어 필터링 및 품질 검수 중...", 70);
-            
-            // 중복 제거
-            aiResult.words = [...new Set(aiResult.words)];
-            
-            if (aiResult.words.length < 25) {
-                reportProgress("단어 필터링 결과 수량 부족으로 다시 진행 중...", 0);
+        // 중복 제거
+        aiResult.words = [...new Set(aiResult.words)];
+        
+        if (aiResult.words.length < 25) {
+            if (cachedTheme) {
                 delete ACTIVE_GENERATIONS[roomId];
-                return res.status(500).json({ error: "중복 제거 후 25개 이하로 남았습니다. 다시 시도해주세요." });
+                return res.json({ success: true, themeId: cachedTheme.id, words: getFallbackWords(), source: 'cache_fallback' });
             }
-            
-            reportProgress("단어판 배치 준비 중...", 90);
-            // 4. AI가 생성 성공 시 -> DB 저장
-            const themeId = await ThemeModel.createTheme(userId, title, aiResult.words, 'System-GeminiAI');
-            
-            // ★ AI 호출 최종 성공 시에만 쿨타임 타임스탬프 갱신 ★
-            const finalNow = Date.now();
-            if (roomId) AI_COOLDOWN_MAP.rooms[roomId] = finalNow;
-            if (userId) AI_COOLDOWN_MAP.users[userId] = finalNow;
-
-            reportProgress("완료! 단어판에 적용합니다.", 100, { words: aiResult.words });
+            reportProgress("단어 필터링 결과 수량 부족으로 다시 진행 중...", 0);
             delete ACTIVE_GENERATIONS[roomId];
-            return res.json({ success: true, themeId, words: aiResult.words, source: 'ai' });
-        } else {
-            reportProgress("단어 목록 구성에 실패했습니다.", 0);
-            delete ACTIVE_GENERATIONS[roomId];
-            return res.status(500).json({ error: 'AI가 단어 풀을 충분히 생성하지 못했습니다.' });
+            return res.status(500).json({ error: "중복 제거 후 25개 이하로 남았습니다. 다시 시도해주세요." });
         }
+        
+        reportProgress("단어판 배치 준비 중...", 90);
+
+        // 4. AI가 생성 성공 시 -> DB 저장 또는 갱신
+        let themeId;
+        if (cachedTheme) {
+            await ThemeModel.updateThemeWords(cachedTheme.id, aiResult.words);
+            themeId = cachedTheme.id;
+            console.log(`[Theme Updated] '${title}'(ID: ${themeId}) 최신 단어로 DB 갱신 완료.`);
+        } else {
+            themeId = await ThemeModel.createTheme(userId, title, aiResult.words, 'System-GeminiAI');
+            console.log(`[Theme Created] '${title}'(ID: ${themeId}) 신규 테마 DB 저장 완료.`);
+        }
+        
+        // ★ AI 호출 최종 성공 시에만 쿨타임 타임스탬프 갱신 ★
+        const finalNow = Date.now();
+        if (roomId) AI_COOLDOWN_MAP.rooms[roomId] = finalNow;
+        if (userId) AI_COOLDOWN_MAP.users[userId] = finalNow;
+
+        reportProgress("완료! 단어판에 적용합니다.", 100, { words: aiResult.words });
+        delete ACTIVE_GENERATIONS[roomId];
+        return res.json({ success: true, themeId, words: aiResult.words, source: isExpired ? 'ai_refreshed' : 'ai' });
 
     } catch (err) {
         console.error(err);

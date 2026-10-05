@@ -30,6 +30,15 @@ class ThemeModel {
         return result.insertId;
     }
 
+    // 테마 단어 및 updated_at 갱신
+    static async updateThemeWords(id, words) {
+        const [result] = await db.query(
+            'UPDATE themes SET words = ?, updated_at = NOW() WHERE id = ?',
+            [JSON.stringify(words), id]
+        );
+        return result.affectedRows;
+    }
+
     // 테마 삭제
     static async deleteTheme(id, userId) {
         const [result] = await db.query(

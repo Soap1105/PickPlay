@@ -34,8 +34,9 @@
             --input-placeholder: rgba(8, 21, 33, 0.35);
             --arrow-bg: rgba(45, 75, 105, 0.1);
             --arrow-border: rgba(45, 75, 105, 0.2);
-            --emoji-bg: rgba(45, 75, 105, 0.08);
-            --emoji-border: rgba(45, 75, 105, 0.15);
+            --mascot-bg: rgba(45, 75, 105, 0.06);
+            --mascot-border: rgba(45, 75, 105, 0.15);
+            --swatch-border: rgba(45, 75, 105, 0.18);
             --shadow: 0 28px 80px rgba(13, 30, 45, 0.12);
         }
 
@@ -52,8 +53,9 @@
             --input-placeholder: rgba(255, 255, 255, 0.28);
             --arrow-bg: rgba(255, 255, 255, 0.07);
             --arrow-border: rgba(255, 255, 255, 0.14);
-            --emoji-bg: rgba(255, 255, 255, 0.07);
-            --emoji-border: rgba(255, 255, 255, 0.15);
+            --mascot-bg: rgba(255, 255, 255, 0.04);
+            --mascot-border: rgba(255, 255, 255, 0.12);
+            --swatch-border: rgba(255, 255, 255, 0.18);
             --shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
         }
 
@@ -219,81 +221,43 @@
             margin-bottom: 12px;
         }
 
-        /* 이모지 사이클러 */
-        .emoji-section {
+        /* 마스코트 섹션 */
+        .mascot-section {
             margin-bottom: 28px;
+            text-align: center;
         }
 
-        .emoji-cycler {
+        .mascot-wrap {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 18px;
+            gap: 16px;
         }
 
-        .emoji-arrow {
-            width: 44px;
-            height: 44px;
-            background: var(--arrow-bg);
-            border: 1.5px solid var(--arrow-border);
+        .mascot-display {
+            width: 120px;
+            height: 120px;
+            background: var(--mascot-bg);
+            border: 2px solid var(--mascot-border);
             border-radius: 50%;
-            color: var(--text);
-            font-size: 1.1rem;
-            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.18s;
-            flex-shrink: 0;
-            user-select: none;
+            padding: 8px;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
-        .emoji-arrow:hover {
-            background: rgba(108, 99, 255, 0.3);
+        .mascot-display:hover {
             border-color: var(--accent);
-            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.15);
         }
 
-        .emoji-arrow:active {
-            transform: scale(0.95);
+        .mascot-display svg {
+            width: 100%;
+            height: 100%;
         }
 
-        .emoji-display-wrap {
-            position: relative;
-            width: 100px;
-            height: 100px;
-        }
 
-        .emoji-display {
-            width: 100px;
-            height: 100px;
-            background: var(--emoji-bg);
-            border: 2px solid var(--emoji-border);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3.2rem;
-            transition: transform 0.18s;
-            cursor: default;
-            user-select: none;
-        }
-
-        .emoji-display.pop {
-            animation: emojiPop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        @keyframes emojiPop {
-            0% {
-                transform: scale(0.7) rotate(-8deg);
-                opacity: 0.5;
-            }
-
-            100% {
-                transform: scale(1) rotate(0deg);
-                opacity: 1;
-            }
-        }
 
         /* 닉네임 입력 */
         .nickname-section {
@@ -433,15 +397,41 @@
             <div class="logo-title">🎮 PickPlay</div>
         </div>
 
-        <!-- 이모지 사이클러 -->
-        <div class="emoji-section">
-            <div class="section-label">내 아이콘</div>
-            <div class="emoji-cycler">
-                <button class="emoji-arrow" id="emoji-prev" title="이전">◀</button>
-                <div class="emoji-display-wrap">
-                    <div class="emoji-display" id="emoji-display">🐱</div>
+        <!-- 마스코트 + 색상 선택 -->
+        <div class="mascot-section">
+            <div class="section-label">내 캐릭터</div>
+            <div class="mascot-wrap">
+                <div class="mascot-display" id="mascot-display">
+                    <svg id="mascot-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254">
+                        <style>
+                            #mascot-svg .player-color { fill: #FC944D; }
+                            #mascot-svg .player-shadow { fill: #FC944D; filter: brightness(0.86); }
+                        </style>
+                        <!-- body + horns silhouette -->
+                        <g id="base-character">
+                            <path class="player-color" style="stroke:#4A1715;stroke-width:12;stroke-linejoin:round;stroke-linecap:round;"
+                                  d="M 949.0,257.0 L 937.0,249.0 L 916.0,240.0 L 902.0,239.0 L 897.0,241.0 L 892.0,251.0 L 893.0,276.0 L 887.0,295.0 L 869.0,313.0 L 857.0,320.0 L 842.0,325.0 L 833.0,323.0 L 817.0,312.0 L 781.0,294.0 L 739.0,280.0 L 692.0,271.0 L 634.0,268.0 L 573.0,274.0 L 533.0,283.0 L 502.0,293.0 L 453.0,315.0 L 401.0,348.0 L 386.0,346.0 L 370.0,339.0 L 353.0,323.0 L 348.0,312.0 L 348.0,284.0 L 344.0,273.0 L 332.0,272.0 L 326.0,274.0 L 302.0,289.0 L 281.0,310.0 L 269.0,328.0 L 255.0,358.0 L 247.0,389.0 L 246.0,421.0 L 249.0,441.0 L 262.0,472.0 L 273.0,486.0 L 273.0,491.0 L 254.0,526.0 L 243.0,553.0 L 231.0,593.0 L 224.0,632.0 L 222.0,670.0 L 226.0,698.0 L 231.0,713.0 L 247.0,738.0 L 247.0,742.0 L 240.0,747.0 L 214.0,748.0 L 192.0,754.0 L 174.0,764.0 L 158.0,779.0 L 147.0,799.0 L 142.0,823.0 L 147.0,848.0 L 158.0,867.0 L 168.0,878.0 L 187.0,892.0 L 220.0,907.0 L 261.0,915.0 L 310.0,915.0 L 314.0,919.0 L 310.0,952.0 L 310.0,978.0 L 314.0,999.0 L 323.0,1021.0 L 329.0,1030.0 L 349.0,1047.0 L 363.0,1054.0 L 383.0,1060.0 L 407.0,1064.0 L 440.0,1065.0 L 480.0,1059.0 L 516.0,1044.0 L 547.0,1022.0 L 604.0,1024.0 L 724.0,1019.0 L 754.0,1042.0 L 778.0,1054.0 L 822.0,1063.0 L 852.0,1063.0 L 877.0,1059.0 L 895.0,1053.0 L 920.0,1038.0 L 939.0,1017.0 L 953.0,986.0 L 959.0,955.0 L 960.0,900.0 L 969.0,894.0 L 992.0,891.0 L 1034.0,878.0 L 1062.0,865.0 L 1081.0,853.0 L 1097.0,840.0 L 1112.0,822.0 L 1121.0,804.0 L 1125.0,787.0 L 1124.0,769.0 L 1119.0,753.0 L 1107.0,734.0 L 1098.0,726.0 L 1081.0,716.0 L 1067.0,712.0 L 1042.0,710.0 L 1016.0,714.0 L 1009.0,709.0 L 1009.0,704.0 L 1021.0,689.0 L 1030.0,672.0 L 1037.0,649.0 L 1040.0,621.0 L 1038.0,589.0 L 1031.0,557.0 L 1020.0,524.0 L 1002.0,486.0 L 981.0,454.0 L 981.0,450.0 L 999.0,420.0 L 1005.0,399.0 L 1006.0,363.0 L 1002.0,343.0 L 993.0,316.0 L 983.0,296.0 L 970.0,277.0 Z"/>
+                        </g>
+                        <!-- shadows -->
+                        <g class="player-shadow">
+                            <path d="M 152.0,837.0 L 162.0,860.0 L 183.0,881.0 L 214.0,897.0 L 262.0,908.0 L 313.0,906.0 L 334.0,860.0 L 335.0,871.0 L 340.0,848.0 L 287.0,874.0 L 244.0,879.0 L 192.0,868.0 Z"/>
+                            <path d="M 1115.0,798.0 L 1083.0,829.0 L 1041.0,846.0 L 985.0,851.0 L 946.0,837.0 L 947.0,861.0 L 959.0,888.0 L 1009.0,879.0 L 1060.0,858.0 L 1100.0,826.0 Z"/>
+                            <path d="M 980.0,308.0 L 967.0,364.0 L 956.0,378.0 L 947.0,376.0 L 955.0,380.0 L 933.0,398.0 L 924.0,396.0 L 976.0,441.0 L 991.0,413.0 L 997.0,386.0 L 994.0,345.0 Z"/>
+                            <path d="M 269.0,344.0 L 256.0,386.0 L 255.0,420.0 L 263.0,453.0 L 277.0,476.0 L 321.0,432.0 L 325.0,434.0 L 323.0,429.0 L 303.0,426.0 L 282.0,403.0 L 270.0,371.0 Z"/>
+                            <path d="M 767.0,1041.0 L 727.0,998.0 L 712.0,990.0 L 638.0,1003.0 L 556.0,998.0 L 521.0,1032.0 L 541.0,1015.0 L 698.0,1016.0 L 729.0,1010.0 Z"/>
+                        </g>
+                        <!-- eyes -->
+                        <g fill="#3A1412">
+                            <path d="M 774.0,512.0 L 763.0,517.0 L 754.0,531.0 L 748.0,558.0 L 749.0,585.0 L 753.0,602.0 L 762.0,621.0 L 771.0,630.0 L 787.0,634.0 L 797.0,630.0 L 804.0,623.0 L 809.0,613.0 L 813.0,593.0 L 812.0,567.0 L 807.0,546.0 L 797.0,526.0 L 786.0,515.0 Z"/>
+                            <path d="M 463.0,540.0 L 456.0,543.0 L 444.0,559.0 L 438.0,579.0 L 436.0,603.0 L 439.0,627.0 L 447.0,647.0 L 458.0,659.0 L 472.0,662.0 L 482.0,658.0 L 489.0,651.0 L 494.0,641.0 L 498.0,624.0 L 499.0,603.0 L 494.0,573.0 L 486.0,554.0 L 474.0,542.0 Z"/>
+                        </g>
+                        <!-- mouth -->
+                        <path d="M 634.0,639.0 L 599.0,647.0 L 583.0,656.0 L 566.0,673.0 L 577.0,707.0 L 592.0,731.0 L 615.0,750.0 L 639.0,755.0 L 661.0,746.0 L 677.0,728.0 L 690.0,698.0 L 695.0,661.0 L 672.0,646.0 Z"
+                              fill="#F7B4C1" style="stroke:#4A1715;stroke-width:12;stroke-linejoin:round;"/>
+                        <!-- 커스터마이징 슬롯 -->
+                        <g id="customization-layer"></g>
+                    </svg>
                 </div>
-                <button class="emoji-arrow" id="emoji-next" title="다음">▶</button>
             </div>
         </div>
 
@@ -481,48 +471,18 @@
                 if (icon) icon.textContent = '🌙';
             }
         })();
-        const EMOJIS = [
-            '🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯',
-            '🐸', '🐵', '🐰', '🐹', '🐺', '🐮', '🐷', '🦉',
-        ];
 
-        const display = document.getElementById('emoji-display');
-        const prevBtn = document.getElementById('emoji-prev');
-        const nextBtn = document.getElementById('emoji-next');
         const nicknameInput = document.getElementById('nickname-input');
         const charCount = document.getElementById('char-count');
-        const errorMsg = document.getElementById('error-msg');
-        const startBtn = document.getElementById('start-btn');
-
-        // 저장된 값 복원
-        const savedNickname = localStorage.getItem('pp_nickname') || '';
-        const savedEmoji = localStorage.getItem('pp_emoji');
-        let emojiIndex = savedEmoji ? EMOJIS.indexOf(savedEmoji) : Math.floor(Math.random() * EMOJIS.length);
-        if (emojiIndex < 0) emojiIndex = 0;
-
-        function updateDisplay() {
-            display.textContent = EMOJIS[emojiIndex];
-            display.classList.remove('pop');
-            void display.offsetWidth; // reflow
-            display.classList.add('pop');
-        }
-
-        prevBtn.addEventListener('click', () => {
-            emojiIndex = (emojiIndex - 1 + EMOJIS.length) % EMOJIS.length;
-            updateDisplay();
-        });
-
-        nextBtn.addEventListener('click', () => {
-            emojiIndex = (emojiIndex + 1) % EMOJIS.length;
-            updateDisplay();
-        });
+        const errorMsg  = document.getElementById('error-msg');
+        const startBtn  = document.getElementById('start-btn');
 
         // 저장된 닉네임 복원
+        const savedNickname = localStorage.getItem('pp_nickname') || '';
         if (savedNickname) {
             nicknameInput.value = savedNickname;
             updateCharCount();
         }
-        updateDisplay();
 
         // 글자 수 카운터
         function updateCharCount() {
@@ -549,7 +509,9 @@
                 return;
             }
             localStorage.setItem('pp_nickname', name);
-            localStorage.setItem('pp_emoji', EMOJIS[emojiIndex]);
+            if (!localStorage.getItem('pp_color')) {
+                localStorage.setItem('pp_color', '#FC944D');
+            }
 
             // redirect 파라미터가 있으면 해당 방으로, 없으면 새 방 생성
             const params = new URLSearchParams(window.location.search);

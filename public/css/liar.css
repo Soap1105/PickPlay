@@ -79,10 +79,7 @@ body.game-mode-liar #game-container {
 body.liar-game-word.word-liar { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
 .word-citizen { color: #38bdf8 !important; -webkit-text-fill-color: #38bdf8 !important; }
 
-/* 대시보드 하단 기본 채팅 폼 및 폭죽 바 가리기 */
-body.game-mode-liar #emoji-palette-bar {
-    display: none !important;
-}
+
 
 /* 턴 제어 영역 */
 .liar-turn-panel {
@@ -480,6 +477,57 @@ body.game-mode-liar #emoji-palette-bar {
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
 }
 
+.liar-card-front.role-word {
+    border-color: #818cf8;
+    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+    box-shadow: 0 0 22px rgba(129, 140, 248, 0.28);
+    padding: 14px 10px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.liar-card-word-cat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #c7d2fe;
+    letter-spacing: 0.3px;
+    background: rgba(129, 140, 248, 0.18);
+    border: 1px solid rgba(129, 140, 248, 0.35);
+    border-radius: 999px;
+    padding: 3px 10px;
+    max-width: 90%;
+    text-align: center;
+    box-sizing: border-box;
+    line-height: 1.25;
+}
+
+.liar-card-word-main {
+    font-size: 1.65rem;
+    font-weight: 900;
+    color: #38bdf8;
+    letter-spacing: 1px;
+    text-align: center;
+    text-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+    margin: 4px 0;
+    line-height: 1.1;
+}
+
+.liar-card-word-hint {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    line-height: 1.35;
+    padding: 0 4px;
+    text-align: center;
+    box-sizing: border-box;
+    word-break: keep-all;
+}
+
 .liar-card-role-title {
     font-size: 1.45rem; /* 카드 크기 비례 폰트 조정 */
     font-weight: 900;
@@ -525,6 +573,22 @@ body.game-mode-liar #emoji-palette-bar {
     animation: fadeInScale 0.15s ease-out;
     letter-spacing: 1.5px;
     text-shadow: 0 0 12px rgba(0,0,0,0.9);
+}
+
+/* 투표 확인 팝업 버튼 및 프롬프트 */
+.liar-vote-prompt {
+    color: #f8fafc;
+}
+
+.liar-vote-cancel-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s;
+}
+
+.liar-vote-cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
 }
 
 /* ======================================================================
@@ -690,4 +754,141 @@ body.game-mode-liar .liar-player-ui {
 .liar-result-chat input:focus {
     border-color: #38bdf8 !important;
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+/* ======================================================================
+   라이트 모드 전용 토큰 및 가독성 최적화 (Light Mode Overrides)
+   ====================================================================== */
+
+/* 1. 플레이어 슬롯 카드 (클린 화이트 글래스모피즘) */
+body:not(.dark-mode) .liar-player-slot {
+    background: rgba(255, 255, 255, 0.86);
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.07);
+}
+
+body:not(.dark-mode) .liar-player-slot.is-me {
+    background: rgba(255, 255, 255, 0.96);
+    border-color: #818cf8;
+    box-shadow: 0 12px 28px rgba(129, 140, 248, 0.22);
+}
+
+body:not(.dark-mode) .liar-player-slot.active-turn {
+    background: rgba(239, 246, 255, 0.96);
+    border-color: #3b82f6;
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.3);
+}
+
+/* 2. 아바타 및 닉네임 (선명한 다크 슬레이트) */
+body:not(.dark-mode) .liar-slot-avatar {
+    background: rgba(241, 245, 249, 0.9);
+    border: 2px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+body:not(.dark-mode) .liar-slot-nickname {
+    color: #0f172a;
+    text-shadow: none;
+}
+
+body:not(.dark-mode) .liar-slot-vote-badge {
+    border-color: #ffffff;
+}
+
+/* 3. 승리 점수 도트 */
+body:not(.dark-mode) .liar-slot-dot {
+    background: rgba(0, 0, 0, 0.12);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+body:not(.dark-mode) .liar-slot-dot.filled {
+    background: #3b82f6;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+/* 4. 발언 턴 말풍선 */
+body:not(.dark-mode) .liar-speech-bubble {
+    background: #ffffff;
+    border-color: #3b82f6;
+    color: #0f172a;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.16);
+}
+
+body:not(.dark-mode) .liar-speech-bubble::after {
+    border-color: #3b82f6 transparent;
+}
+
+/* 5. 상단 타이머 배너 (고대비 가독성) */
+body:not(.dark-mode) #liar-timer-ui {
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f172a;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+body:not(.dark-mode) #liar-timer-ui.timer-green {
+    background: rgba(236, 253, 245, 0.95);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #047857;
+}
+
+body:not(.dark-mode) #liar-timer-ui.timer-yellow {
+    background: rgba(254, 243, 199, 0.95);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #b45309;
+}
+
+body:not(.dark-mode) #liar-timer-ui.timer-red {
+    background: rgba(254, 242, 242, 0.95);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #b91c1c;
+}
+
+/* 6. 하단 안내 및 입력 패널 */
+body:not(.dark-mode) .liar-turn-panel {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+body:not(.dark-mode) .liar-turn-panel p {
+    color: #b45309 !important;
+}
+
+body:not(.dark-mode) .liar-turn-message {
+    color: #0f172a;
+}
+
+body:not(.dark-mode) .liar-text-input {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.2);
+    color: #0f172a;
+}
+
+/* 7. 투표 타겟 오버레이 */
+body:not(.dark-mode) .liar-player-slot.voting-target:hover {
+    background: rgba(254, 242, 242, 0.95);
+    border-color: #ef4444;
+}
+
+body:not(.dark-mode) .liar-player-slot.voting-target:hover::after {
+    background: rgba(255, 255, 255, 0.7);
+    color: #dc2626;
+}
+
+/* 8. 투표 확인 팝업 (라이트 모드) */
+body:not(.dark-mode) .liar-turn-panel p.liar-vote-prompt {
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) .liar-vote-cancel-btn {
+    background: #e2e8f0 !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+body:not(.dark-mode) .liar-vote-cancel-btn:hover {
+    background: #cbd5e1 !important;
+    color: #0f172a !important;
 }

@@ -559,15 +559,22 @@
 
 
                     <div class="selection-grid-layout">
-                        <!-- 좌측: 세련된 게임 카드 컬럼 -->
+                        <!-- 좌측: 세련된 게임 카드 컬럼 (1번 가로 배너형) -->
                         <div class="game-selector-panel" id="lobby-game-selector-panel">
-                            <div class="panel-header-title" style="border-bottom: 1px solid var(--border); padding-bottom: 8px; width: 100%;">
-                                <i class="fas fa-list"></i> 게임 목록
+                            <div class="panel-header-title" style="border-bottom: 1px solid var(--border); padding-bottom: 8px; width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                                <span id="lobby-panel-title-text"><i class="fas fa-list"></i> 게임 목록</span>
+                                <button type="button" class="lobby-custom-toggle-btn" id="lobby-custom-toggle-btn" style="background: rgba(108, 92, 231, 0.12); color: #6c5ce7; border: 1px solid rgba(108, 92, 231, 0.3); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                    <i class="fas fa-paint-brush"></i> <span id="lobby-custom-toggle-text">내 캐릭터 꾸미기</span>
+                                </button>
                             </div>
-                            <div class="game-cards-column">
+
+                            <!-- 방장 및 게스트 공통 게임 배너 카드 컬럼 -->
+                            <div class="game-cards-column" id="lobby-banner-cards-column">
                                 <button class="lobby-game-card bingo-card active game-select-btn" data-game="bingo"
                                     id="lobby-card-bingo">
-                                    <div class="game-icon-circle" style="color:#0984e3;">🎯</div>
+                                    <div class="banner-mascot-box">
+                                        <div class="banner-bingo-emblem">🎯</div>
+                                    </div>
                                     <div class="game-meta">
                                         <div class="game-title-text">빙고 게임</div>
                                         <div class="game-desc-text">5×5 단어판을 채우고 줄을 완성해 외치세요!</div>
@@ -582,7 +589,10 @@
 
                                 <button class="lobby-game-card liar-card game-select-btn" data-game="liar"
                                     id="lobby-card-liar">
-                                    <div class="game-icon-circle" style="color:#d63031;">🕵️</div>
+                                    <div class="banner-mascot-box">
+                                        <img src="/images/PickLiar1.png" alt="라이어 고민" class="banner-mascot-img default" />
+                                        <img src="/images/PickLiar2.png" alt="라이어 팻말" class="banner-mascot-img hover" />
+                                    </div>
                                     <div class="game-meta">
                                         <div class="game-title-text">라이어 게임</div>
                                         <div class="game-desc-text">진짜 제시어를 모르는 라이어를 골라내야 합니다.</div>
@@ -597,7 +607,9 @@
 
                                 <button class="lobby-game-card bomb-card game-select-btn" data-game="bomb"
                                     id="lobby-card-bomb">
-                                    <div class="game-icon-circle" style="color:#d35400;">💣</div>
+                                    <div class="banner-mascot-box">
+                                        <img src="/images/PickBomb.png" alt="폭탄 마스코트" class="banner-mascot-img" />
+                                    </div>
                                     <div class="game-meta">
                                         <div class="game-title-text">폭탄 돌리기</div>
                                         <div class="game-desc-text">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
@@ -610,13 +622,23 @@
                                     </div>
                                 </button>
                             </div>
-                        </div>
 
-                        <!-- 좌측: 게스트용 대기 안내 패널 -->
-                        <div class="guest-waiting-panel" id="lobby-guest-waiting-panel" style="display: none;">
-                            <div class="guest-waiting-icon">🕹️</div>
-                            <h3 class="guest-waiting-title">대기실 입장 완료</h3>
-                            <p class="guest-waiting-desc">방장이 게임을 선택하고 매칭을 준비 중입니다.<br>잠시만 대기해 주시면 곧 재미있는 게임이 시작됩니다!</p>
+                            <!-- 캐릭터 커스텀 쇼룸 패널 -->
+                            <div class="lobby-custom-showroom" id="lobby-custom-showroom" style="display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 10px 0;">
+                                <div style="font-size: 0.95rem; font-weight: 800; color: #6c5ce7;">
+                                    <i class="fas fa-palette"></i> 마스코트 컬러 커스텀
+                                </div>
+                                <div class="custom-avatar-stage" id="lobby-custom-avatar-stage" style="width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle, rgba(108, 92, 231, 0.15) 0%, rgba(108, 92, 231, 0.02) 70%); border: 2px dashed rgba(108, 92, 231, 0.35); display: flex; align-items: center; justify-content: center; padding: 8px; box-sizing: border-box;">
+                                    <!-- JS로 buildMascotSvg 렌더링 -->
+                                </div>
+                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">사용할 색상 선택</div>
+                                <div class="color-palette-row" id="lobby-custom-palette-row" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; max-width: 280px;">
+                                    <!-- JS로 8가지 프리셋 렌더링 -->
+                                </div>
+                                <div style="font-size: 0.76rem; color: var(--text-sub); line-height: 1.45; max-width: 260px;">
+                                    다른 플레이어와 겹치지 않는 고유한 색상을 선택해 나만의 캐릭터를 표현해보세요.
+                                </div>
+                            </div>
                         </div>
 
                         <!-- 우측: 대기 중인 플레이어 매트릭스 그리드 -->
@@ -822,6 +844,7 @@
 
                 <div class="setup-area liar-setup" style="display: none;">
                     <input type="hidden" id="win-target-select" value="3">
+                    <input type="hidden" id="liar-sub-mode" value="classic">
                     <div class="host-setup-glass">
                         <h3>라이어 게임 설정</h3>
                         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
@@ -952,16 +975,6 @@
 
         <div id="right-sidebar">
             <button id="invite-btn" style="display:none"><i class="fas fa-link"></i> 초대 링크 복사</button>
-
-            <!-- 이모지 폭죽 ON/OFF 토글 -->
-            <div id="emoji-toggle-row">
-                <span id="emoji-toggle-label">🎆 폭죽 효과</span>
-                <label class="toggle-switch" title="내 화면에서 폭죽 효과를 켜고 끕니다">
-                    <input type="checkbox" id="emoji-toggle-checkbox" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-
             <div id="user-section">
                 <h3>참여자 목록</h3>
                 <div id="user-grid"></div>
@@ -988,98 +1001,98 @@
         </div>
     </div>
 
-    <!-- 이모지 폭죽 팔레트 바 (대기실 전용) -->
-    <div id="emoji-palette-bar" class="emoji-hidden">
-        <span id="emoji-palette-label">🎆 폭죽</span>
-        <button class="emoji-fire-btn" data-emoji="🎉" title="파티">🎉</button>
-        <button class="emoji-fire-btn" data-emoji="🔥" title="불꽃">🔥</button>
-        <button class="emoji-fire-btn" data-emoji="❤️" title="하트">❤️</button>
-        <button class="emoji-fire-btn" data-emoji="😂" title="웃음">😂</button>
-        <button class="emoji-fire-btn" data-emoji="👏" title="박수">👏</button>
-        <button class="emoji-fire-btn" data-emoji="💀" title="해골">💀</button>
-        <button class="emoji-fire-btn" data-emoji="🎮" title="게임">🎮</button>
-        <button class="emoji-fire-btn" data-emoji="⭐" title="별">⭐</button>
-        <div id="emoji-palette-spacer"></div>
+    <!-- 게임 시작 3초 카운트다운 오버레이 -->
+    <div id="game-countdown-overlay" class="game-countdown-overlay">
+        <div id="game-countdown-text" class="game-countdown-number">3</div>
     </div>
 
     <!-- ================== 게임 설정 통합 모달 ================== -->
-    <div id="settings-modal"
-        style="display:none; position:fixed; inset:0; z-index:5000; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; backdrop-filter: blur(4px);">
-        <div id="settings-modal-inner"
-            style="background:#1a1a2e; border-radius:20px; padding:0; width:min(560px, 95vw); max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.5); position:relative; border: 1px solid rgba(255,255,255,0.1); color: #fffffe;">
-
+    <div id="settings-modal" class="settings-modal-overlay" style="display:none;">
+        <div id="settings-modal-inner" class="settings-modal-card">
             <!-- 헤더 -->
-            <div id="settings-modal-header"
-                style="padding:28px 32px 20px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:space-between; background: rgba(255,255,255,0.02);">
+            <div id="settings-modal-header" class="settings-modal-header">
                 <div>
-                    <div id="settings-modal-game-icon" style="font-size:2rem; margin-bottom:4px;"></div>
-                    <h2 id="settings-modal-title" style="margin:0; font-size:1.4rem; color:#fffffe;"></h2>
-                    <p id="settings-modal-subtitle"
-                        style="margin:4px 0 0; font-size:0.85rem; color:rgba(255,255,255,0.5);"></p>
+                    <div id="settings-modal-game-icon" class="settings-modal-game-icon"></div>
+                    <h2 id="settings-modal-title" class="settings-modal-title"></h2>
+                    <p id="settings-modal-subtitle" class="settings-modal-subtitle"></p>
                 </div>
-                <button id="settings-modal-close"
-                    style="background:none; border:none; font-size:1.6rem; cursor:pointer; color:rgba(255,255,255,0.4); padding:4px 8px; border-radius:8px; transition:all 0.2s;"
-                    onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fffffe'"
-                    onmouseout="this.style.background='none'; this.style.color='rgba(255,255,255,0.4)'">✕</button>
+                <button id="settings-modal-close" class="settings-modal-close-btn" aria-label="닫기">✕</button>
             </div>
 
             <!-- 설정 본문 -->
-            <div id="settings-modal-body" style="padding:24px 32px;"></div>
+            <div id="settings-modal-body" class="settings-modal-body"></div>
 
             <!-- 푸터 -->
-            <div
-                style="padding:16px 32px 24px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:12px; justify-content:flex-end; background: rgba(255,255,255,0.02);">
-                <button id="settings-modal-cancel"
-                    style="padding:12px 28px; border-radius:10px; border:2px solid rgba(255,255,255,0.1); background:transparent; color:rgba(255,255,255,0.6); font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s;"
-                    onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fffffe'"
-                    onmouseout="this.style.background='transparent'; this.style.color='rgba(255,255,255,0.6)'">취소</button>
-                <button id="settings-modal-confirm"
-                    style="padding:12px 32px; border-radius:10px; border:none; background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-size:1rem; font-weight:700; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 15px rgba(102,126,234,0.4);"
-                    onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">💾 설정 저장</button>
+            <div class="settings-modal-footer">
+                <button id="settings-modal-cancel" class="settings-modal-btn settings-modal-cancel-btn">취소</button>
+                <button id="settings-modal-confirm" class="settings-modal-btn settings-modal-confirm-btn">💾 설정 저장</button>
             </div>
         </div>
     </div>
 
     <!-- 게임 결과 모달 -->
     <div id="result-modal" class="modal">
-        <div class="modal-content" style="max-width: 600px; text-align: center; padding: 30px;">
-            <h1 id="result-title" style="color: #fffffe; margin-bottom: 20px;">게임 종료!</h1>
-            <div id="result-winner" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 30px; color: #ff7675;">
+        <div class="result-modal-box">
+            <!-- 우측 상단 순위 산정 조건 물음표 버튼 & 팝오버 -->
+            <div class="rule-info-wrap">
+                <button class="btn-rule-info" id="btn-rule-info" onclick="toggleRulePopover(event)" title="순위 산정 기준 보기">
+                    <i class="fas fa-question"></i>
+                </button>
+                <div class="rule-popover" id="rule-popover" onclick="event.stopPropagation()">
+                    <div class="rule-popover-title">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="rule-title">순위 산정 기준</span>
+                    </div>
+                    <ul class="rule-popover-list" id="rule-list">
+                        <!-- 동적 주입 -->
+                    </ul>
+                </div>
             </div>
 
-            <div id="result-stats-container">
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <!-- 승자 쇼케이스 -->
+            <div class="winner-hero">
+                <div class="winner-avatar-wrap">
+                    <div class="winner-avatar-circle" id="winner-avatar-box">
+                        <!-- SVG 주입 -->
+                    </div>
+                </div>
+                <div class="winner-name-wrap">
+                    <span class="winner-label">우승</span>
+                    <span class="winner-name" id="winner-name">-</span>
+                </div>
+            </div>
+
+            <!-- 세그먼트 탭 바 (히스토리가 있는 모드에서만 표시) -->
+            <div class="result-tab-bar" id="result-tab-bar" style="display: none;">
+                <button class="result-tab-btn active" id="tab-btn-rank" onclick="switchResultTab('rank')">최종 순위</button>
+                <button class="result-tab-btn" id="tab-btn-history" onclick="switchResultTab('history')">라운드 기록</button>
+            </div>
+
+            <!-- 1) 스코어보드 테이블 패널 -->
+            <div class="stats-table-wrap" id="panel-rank">
+                <table class="stats-table">
                     <thead>
-                        <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
-                            <th style="padding: 10px; color: #fffffe;">플레이어</th>
-                            <th id="result-stat-header-1" style="padding: 10px; color: #fffffe;">기록 1</th>
-                            <th id="result-stat-header-2" style="padding: 10px; color: #fffffe;">기록 2</th>
+                        <tr id="stats-thead">
+                            <th style="width: 52px; text-align: center;">순위</th>
+                            <th>플레이어</th>
+                            <th id="th-stat-1" style="text-align: center;">기록 1</th>
+                            <th id="th-stat-2" style="text-align: right;">기록 2</th>
                         </tr>
                     </thead>
-                    <tbody id="result-stats-body" style="color: #fffffe;">
-                        <!-- Stats injected here -->
+                    <tbody id="result-stats-body">
+                        <!-- 스탯 행 주입 -->
                     </tbody>
                 </table>
             </div>
 
-            <style>
-                #result-stats-body tr {
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                }
+            <!-- 2) 라운드 히스토리 타임라인 패널 -->
+            <div class="history-timeline-wrap" id="panel-history" style="display: none;">
+                <!-- 히스토리 카드 주입 -->
+            </div>
 
-                #result-stats-body tr.winner-row {
-                    background: rgba(241, 196, 15, 0.15) !important;
-                    color: #f1c40f !important;
-                    font-weight: bold;
-                }
-
-                #result-stats-body td {
-                    padding: 12px 10px;
-                }
-            </style>
-
-            <button id="close-result-btn" class="start-btn"
-                style="width: auto; padding: 10px 40px; background-color: #34495e;">확인</button>
+            <button id="close-result-btn" class="confirm-btn">
+                확인
+            </button>
         </div>
     </div>
 

@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PickPlay - 대기실 로비 (1번 가로 배너형 최적화 시안)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-base: #f0f3f8;
+            --surface: #ffffff;
+            --surface-glass: rgba(255, 255, 255, 0.7);
+            --border: rgba(0, 0, 0, 0.08);
+            --text-color: #2d3436;
+            --text-muted: #636e72;
+            --input-bg: #f1f2f6;
+        }
+
+        body.dark-mode {
+            --bg-base: #0f111a;
+            --surface: #181b2a;
+            --surface-glass: rgba(24, 27, 42, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-color: #f5f6fa;
+            --text-muted: #a4b0be;
+            --input-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* 헤더 */
+        header {
+            height: 64px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .header-logo {
+            font-size: 1.25rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .role-switch-btn {
+            background: rgba(108, 92, 231, 0.12);
+            color: #6c5ce7;
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-color);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* 메인 레이아웃 */
+        #main-wrap {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 64px);
+            padding: 20px 28px;
+            gap: 22px;
+        }
+
+        #lobby-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .panels-row {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            min-height: 0;
+        }
+
+        /* =================================================================
+           [좌측] 게임 선택 패널 (원본 비율 380px 고정)
+           ================================================================= */
+        .left-game-panel {
+            width: 380px;
+            flex-shrink: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.03);
+        }
+
+        .panel-top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .panel-heading {
+            font-size: 1.05rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .host-sub-toggle-btn {
+            background: rgba(241, 196, 15, 0.15);
+            color: #d4ac0d;
+            border: 1px solid rgba(241, 196, 15, 0.35);
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 1번 가로 배너형 카드 3개 세로 리스트 컬럼 */
+        .banner-cards-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            justify-content: space-between;
+        }
+
+        /* 가로 배너형 카드 공통 (1번 시안) */
+        .game-banner-card {
+            border-radius: 18px;
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid transparent;
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+            flex: 1;
+            min-height: 106px;
+        }
+
+        /* 좌측 컬러 악센트 라인 */
+        .game-banner-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            opacity: 0.6;
+            transition: width 0.2s ease, opacity 0.2s ease;
+        }
+
+        .game-banner-card:hover {
+            transform: translateY(-2px);
+        }
+        .game-banner-card:hover::before {
+            width: 7px;
+            opacity: 1;
+        }
+
+        /* --- 1. 빙고 배너 --- */
+        .game-banner-card.bingo {
+            background: linear-gradient(135deg, rgba(9, 132, 227, 0.08) 0%, rgba(9, 132, 227, 0.02) 100%);
+            border-color: rgba(9, 132, 227, 0.2);
+        }
+        .game-banner-card.bingo::before { background: #0984e3; }
+        .game-banner-card.bingo:hover {
+            background: linear-gradient(135deg, rgba(9, 132, 227, 0.15) 0%, rgba(9, 132, 227, 0.04) 100%);
+            border-color: rgba(9, 132, 227, 0.45);
+            box-shadow: 0 8px 24px rgba(9, 132, 227, 0.16);
+        }
+        .game-banner-card.bingo.active {
+            background: linear-gradient(135deg, rgba(9, 132, 227, 0.2) 0%, rgba(9, 132, 227, 0.06) 100%);
+            border-color: #0984e3;
+            box-shadow: 0 0 0 2px rgba(9, 132, 227, 0.3), 0 8px 24px rgba(9, 132, 227, 0.18);
+        }
+        .game-banner-card.bingo.active::before { width: 7px; opacity: 1; }
+
+        /* --- 2. 라이어 배너 (마스코트 물음표 ↔ 팻말) --- */
+        .game-banner-card.liar {
+            background: linear-gradient(135deg, rgba(214, 48, 49, 0.08) 0%, rgba(214, 48, 49, 0.02) 100%);
+            border-color: rgba(214, 48, 49, 0.2);
+        }
+        .game-banner-card.liar::before { background: #d63031; }
+        .game-banner-card.liar:hover {
+            background: linear-gradient(135deg, rgba(214, 48, 49, 0.15) 0%, rgba(214, 48, 49, 0.04) 100%);
+            border-color: rgba(214, 48, 49, 0.45);
+            box-shadow: 0 8px 24px rgba(214, 48, 49, 0.16);
+        }
+        .game-banner-card.liar.active {
+            background: linear-gradient(135deg, rgba(214, 48, 49, 0.2) 0%, rgba(214, 48, 49, 0.06) 100%);
+            border-color: #d63031;
+            box-shadow: 0 0 0 2px rgba(214, 48, 49, 0.3), 0 8px 24px rgba(214, 48, 49, 0.18);
+        }
+        .game-banner-card.liar.active::before { width: 7px; opacity: 1; }
+
+        /* --- 3. 폭탄 배너 --- */
+        .game-banner-card.bomb {
+            background: linear-gradient(135deg, rgba(211, 84, 0, 0.08) 0%, rgba(211, 84, 0, 0.02) 100%);
+            border-color: rgba(211, 84, 0, 0.2);
+        }
+        .game-banner-card.bomb::before { background: #d35400; }
+        .game-banner-card.bomb:hover {
+            background: linear-gradient(135deg, rgba(211, 84, 0, 0.15) 0%, rgba(211, 84, 0, 0.04) 100%);
+            border-color: rgba(211, 84, 0, 0.45);
+            box-shadow: 0 8px 24px rgba(211, 84, 0, 0.16);
+        }
+        .game-banner-card.bomb.active {
+            background: linear-gradient(135deg, rgba(211, 84, 0, 0.2) 0%, rgba(211, 84, 0, 0.06) 100%);
+            border-color: #d35400;
+            box-shadow: 0 0 0 2px rgba(211, 84, 0, 0.3), 0 8px 24px rgba(211, 84, 0, 0.18);
+        }
+        .game-banner-card.bomb.active::before { width: 7px; opacity: 1; }
+
+
+        /* 마스코트 이미지 컨테이너 (84px 시원한 크기, 박스 없음) */
+        .banner-mascot-box {
+            width: 84px;
+            height: 84px;
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+        }
+
+        .banner-mascot-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .banner-mascot-img.hover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 라이어 마스코트 크로스페이드 인터랙션 */
+        .game-banner-card.liar:hover .banner-mascot-img.default {
+            opacity: 0;
+            transform: scale(0.92) rotate(-3deg);
+        }
+        .game-banner-card.liar:hover .banner-mascot-img.hover {
+            opacity: 1;
+            transform: scale(1.1) rotate(2deg);
+        }
+
+        /* 폭탄 마스코트 호버 효과 */
+        .game-banner-card.bomb:hover .banner-mascot-img {
+            transform: scale(1.1) rotate(-3deg);
+        }
+
+        /* 빙고 엠블럼 */
+        .banner-bingo-emblem {
+            font-size: 3.2rem;
+            line-height: 1;
+            transition: transform 0.25s ease;
+        }
+        .game-banner-card.bingo:hover .banner-bingo-emblem {
+            transform: scale(1.12) rotate(6deg);
+        }
+
+        /* 카드 텍스트 정보 */
+        .banner-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .banner-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 3px;
+            letter-spacing: -0.3px;
+        }
+        .bingo .banner-title { color: #0984e3; }
+        .liar .banner-title { color: #d63031; }
+        .bomb .banner-title { color: #d35400; }
+        body.dark-mode .bingo .banner-title { color: #74b9ff; }
+        body.dark-mode .liar .banner-title { color: #ff7675; }
+        body.dark-mode .bomb .banner-title { color: #fdcb6e; }
+
+        .banner-desc {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            line-height: 1.42;
+            margin-bottom: 7px;
+            white-space: normal;
+            word-break: keep-all;
+            overflow: visible;
+        }
+
+        .banner-tags {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .banner-tag {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.4);
+        }
+        body.dark-mode .banner-tag {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+
+        /* =================================================================
+           [게스트 뷰] 마스코트 커스텀 쇼룸 (좌측 패널 공간 활용)
+           ================================================================= */
+        #guest-custom-view {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            text-align: center;
+        }
+
+        .custom-avatar-stage {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(108, 92, 231, 0.2) 0%, rgba(108, 92, 231, 0.02) 70%);
+            border: 2px dashed rgba(108, 92, 231, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            position: relative;
+        }
+
+        .color-palette-row {
+            display: flex;
+            gap: 10px;
+        }
+        .color-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .color-btn:hover { transform: scale(1.15); }
+
+        .guest-status-msg {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            max-width: 260px;
+        }
+
+
+        /* =================================================================
+           [우측] 대기실 파티원 (8칸 바둑판 매트릭스)
+           ================================================================= */
+        .right-players-panel {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.03);
+        }
+
+        .player-matrix-8 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 12px;
+            flex: 1;
+        }
+
+        .user-slot {
+            background: rgba(0, 0, 0, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px;
+        }
+        body.dark-mode .user-slot {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .user-avatar-circle {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+        .user-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .b-host { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+        .b-ready { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+        .b-empty { opacity: 0.4; }
+
+        /* 하단 바 */
+        .bottom-action-bar {
+            height: 68px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            flex-shrink: 0;
+        }
+
+        .room-code-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+        .action-button-group {
+            display: flex;
+            gap: 12px;
+        }
+        .act-btn {
+            padding: 10px 22px;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.15s;
+        }
+        .act-btn:hover { transform: translateY(-2px); }
+        .act-settings { background: rgba(108, 92, 231, 0.15); color: #6c5ce7; }
+        .act-start { background: #2ed573; color: #fff; }
+
+        /* 우측 채팅 사이드바 */
+        #chat-panel {
+            width: 310px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-title {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 800;
+            font-size: 0.95rem;
+        }
+        .chat-content {
+            flex: 1;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 0.82rem;
+            overflow-y: auto;
+        }
+        .msg-box {
+            background: var(--input-bg);
+            padding: 8px 12px;
+            border-radius: 12px;
+            line-height: 1.4;
+        }
+        .msg-box strong { color: #6c5ce7; }
+        .chat-send-area {
+            padding: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .chat-send-input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text-color);
+            outline: none;
+            font-size: 0.82rem;
+        }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <!-- 상단 헤더 -->
+    <header>
+        <div class="header-logo">
+            <span>🎮 PickPlay</span>
+            <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">(1번 가로 배너형 최적화 시안)</span>
+        </div>
+        <div class="header-controls">
+            <button class="role-switch-btn" onclick="toggleRoleView()">
+                <i class="fas fa-sync-alt"></i> <span id="role-btn-text">게스트 시점으로 전환해보기</span>
+            </button>
+            <button class="theme-btn" onclick="document.body.classList.toggle('dark-mode')">
+                <i class="fas fa-adjust"></i> 다크 / 라이트 모드
+            </button>
+        </div>
+    </header>
+
+    <div id="main-wrap">
+
+        <!-- 좌측 메인 로비 영역 -->
+        <div id="lobby-area">
+
+            <div class="panels-row">
+
+                <!-- [좌측 패널] 1번 가로 배너형 카드 컬럼 (380px 고정) -->
+                <div class="left-game-panel">
+
+                    <div class="panel-top-bar">
+                        <div class="panel-heading">
+                            <span id="panel-title-icon"><i class="fas fa-list"></i></span>
+                            <span id="panel-title-text">게임 목록</span>
+                        </div>
+                        <button class="host-sub-toggle-btn" id="host-sub-custom-btn" onclick="toggleHostSubCustom()">
+                            <i class="fas fa-paint-brush"></i> 내 마스코트 꾸미기
+                        </button>
+                    </div>
+
+                    <!-- 방장용 1번 가로 배너 카드 3장 컬럼 -->
+                    <div class="banner-cards-column" id="host-cards-column">
+
+                        <!-- 1. 빙고 게임 -->
+                        <div class="game-banner-card bingo" onclick="selectCard(this)">
+                            <div class="banner-mascot-box">
+                                <div class="banner-bingo-emblem">🎯</div>
+                            </div>
+                            <div class="banner-content">
+                                <div class="banner-title">빙고 게임</div>
+                                <div class="banner-desc">5×5 단어판을 채우고 줄을 완성해 외치세요!</div>
+                                <div class="banner-tags">
+                                    <span class="banner-tag">2인 이상</span>
+                                    <span class="banner-tag">전략</span>
+                                    <span class="banner-tag">역전</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 라이어 게임 (84px 마스코트 호버 반응) -->
+                        <div class="game-banner-card liar active" onclick="selectCard(this)">
+                            <div class="banner-mascot-box">
+                                <img src="/images/PickLiar1.png" alt="물음표" class="banner-mascot-img default" />
+                                <img src="/images/PickLiar2.png" alt="라이어" class="banner-mascot-img hover" />
+                            </div>
+                            <div class="banner-content">
+                                <div class="banner-title">라이어 게임</div>
+                                <div class="banner-desc">진짜 제시어를 모르는 라이어를 골라내야 합니다.</div>
+                                <div class="banner-tags">
+                                    <span class="banner-tag">3인 이상</span>
+                                    <span class="banner-tag">심리전</span>
+                                    <span class="banner-tag">블러핑</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 폭탄 돌리기 (폭탄 마스코트) -->
+                        <div class="game-banner-card bomb" onclick="selectCard(this)">
+                            <div class="banner-mascot-box">
+                                <img src="/images/PickBomb.png" alt="폭탄" class="banner-mascot-img" />
+                            </div>
+                            <div class="banner-content">
+                                <div class="banner-title">폭탄 돌리기</div>
+                                <div class="banner-desc">주제에 맞는 단어를 뱉고 빠르게 폭탄을 넘기세요!</div>
+                                <div class="banner-tags">
+                                    <span class="banner-tag">2인 이상</span>
+                                    <span class="banner-tag">순발력</span>
+                                    <span class="banner-tag">스피드</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- 게스트용 캐릭터 커스텀 쇼룸 -->
+                    <div id="guest-custom-view">
+                        <div style="font-size: 0.95rem; font-weight: 800; color: #6c5ce7;">🎨 나만의 마스코트 꾸미기</div>
+                        <div class="custom-avatar-stage" id="custom-preview-avatar">
+                            🐰
+                        </div>
+                        <div style="font-size: 0.78rem; font-weight: 700;">아바타 색상 선택</div>
+                        <div class="color-palette-row">
+                            <div class="color-btn" style="background:#ff7675;" onclick="changeAvatarColor('#ff7675')"></div>
+                            <div class="color-btn" style="background:#74b9ff;" onclick="changeAvatarColor('#74b9ff')"></div>
+                            <div class="color-btn" style="background:#55efc4;" onclick="changeAvatarColor('#55efc4')"></div>
+                            <div class="color-btn" style="background:#a29bfe;" onclick="changeAvatarColor('#a29bfe')"></div>
+                            <div class="color-btn" style="background:#ffeaa7;" onclick="changeAvatarColor('#ffeaa7')"></div>
+                        </div>
+                        <div class="guest-status-msg">
+                            방장이 게임을 준비하는 동안 나만의 마스코트를 자유롭게 꾸며보세요!
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- [우측 패널] 대기실 파티원 (8칸) -->
+                <div class="right-players-panel">
+                    <div class="panel-top-bar">
+                        <div class="panel-heading"><i class="fas fa-users"></i> 대기실 파티원</div>
+                        <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">참가: 5 / 8</span>
+                    </div>
+
+                    <div class="player-matrix-8">
+                        <div class="user-slot">
+                            <div class="user-avatar-circle" id="slot-host-avatar" style="border: 2px solid #f1c40f;">🐰</div>
+                            <div style="font-size: 0.78rem; font-weight: 700;">Test1 (나)</div>
+                            <span class="user-badge b-host">방장</span>
+                        </div>
+                        <div class="user-slot">
+                            <div class="user-avatar-circle">🐱</div>
+                            <div style="font-size: 0.78rem; font-weight: 700;">Test2</div>
+                            <span class="user-badge b-ready">준비 완료</span>
+                        </div>
+                        <div class="user-slot">
+                            <div class="user-avatar-circle">🐸</div>
+                            <div style="font-size: 0.78rem; font-weight: 700;">초록개구리</div>
+                            <span class="user-badge b-ready">준비 완료</span>
+                        </div>
+                        <div class="user-slot">
+                            <div class="user-avatar-circle">🦊</div>
+                            <div style="font-size: 0.78rem; font-weight: 700;">붉은여우</div>
+                            <span class="user-badge b-ready">준비 완료</span>
+                        </div>
+                        <div class="user-slot">
+                            <div class="user-avatar-circle">🐼</div>
+                            <div style="font-size: 0.78rem; font-weight: 700;">대왕판다</div>
+                            <span class="user-badge b-ready">준비 완료</span>
+                        </div>
+                        <div class="user-slot b-empty">
+                            <div class="user-avatar-circle"><i class="fas fa-user-plus"></i></div>
+                            <div style="font-size: 0.75rem;">비어있음</div>
+                        </div>
+                        <div class="user-slot b-empty">
+                            <div class="user-avatar-circle"><i class="fas fa-user-plus"></i></div>
+                            <div style="font-size: 0.75rem;">비어있음</div>
+                        </div>
+                        <div class="user-slot b-empty">
+                            <div class="user-avatar-circle"><i class="fas fa-user-plus"></i></div>
+                            <div style="font-size: 0.75rem;">비어있음</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 하단 바 -->
+            <div class="bottom-action-bar">
+                <div class="room-code-badge">
+                    <span style="color: #6c5ce7;"><i class="fas fa-hashtag"></i> ROOM ID :</span>
+                    <span>PICK-PLAY-777</span>
+                    <button style="padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer;" onclick="alert('초대 코드가 복사되었습니다!')"><i class="fas fa-copy"></i></button>
+                </div>
+
+                <div class="action-button-group">
+                    <button class="act-btn act-settings" id="btn-settings"><i class="fas fa-cog"></i> 게임 설정</button>
+                    <button class="act-btn act-start" id="btn-start"><i class="fas fa-play"></i> 게임 시작</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 우측 실시간 채팅 -->
+        <div id="chat-panel">
+            <div class="chat-title"><i class="fas fa-comments"></i> 실시간 채팅</div>
+            <div class="chat-content">
+                <div class="msg-box"><strong>[시스템]</strong> 대기실에 입장했습니다.</div>
+                <div class="msg-box"><strong>Test2:</strong> 가로 배너로 좌측 380px 딱 맞추니까 원본 레이아웃 밸런스 완벽하네요!</div>
+                <div class="msg-box"><strong>초록개구리:</strong> 마스코트 84px로 커져서 이모지 시절이랑 비교가 안 됨</div>
+            </div>
+            <div class="chat-send-area">
+                <input type="text" class="chat-send-input" placeholder="메시지 입력..." />
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentRole = 'host';
+        let hostShowingCustom = false;
+
+        function selectCard(el) {
+            document.querySelectorAll('.game-banner-card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        function toggleRoleView() {
+            currentRole = currentRole === 'host' ? 'guest' : 'host';
+            hostShowingCustom = false;
+            applyRoleUI();
+        }
+
+        function toggleHostSubCustom() {
+            hostShowingCustom = !hostShowingCustom;
+            applyRoleUI();
+        }
+
+        function applyRoleUI() {
+            const hostCol = document.getElementById('host-cards-column');
+            const guestView = document.getElementById('guest-custom-view');
+            const hostSubBtn = document.getElementById('host-sub-custom-btn');
+            const titleText = document.getElementById('panel-title-text');
+            const titleIcon = document.getElementById('panel-title-icon');
+            const btnSettings = document.getElementById('btn-settings');
+            const btnStart = document.getElementById('btn-start');
+            const roleBtnText = document.getElementById('role-btn-text');
+
+            if (currentRole === 'host') {
+                roleBtnText.textContent = '게스트 시점으로 전환해보기';
+                hostSubBtn.style.display = 'flex';
+                btnSettings.style.display = 'flex';
+                btnStart.style.display = 'flex';
+
+                if (hostShowingCustom) {
+                    hostCol.style.display = 'none';
+                    guestView.style.display = 'flex';
+                    titleText.textContent = '내 마스코트 꾸미기 (방장)';
+                    titleIcon.innerHTML = '<i class="fas fa-paint-brush"></i>';
+                    hostSubBtn.innerHTML = '<i class="fas fa-list"></i> 게임 목록으로 돌아가기';
+                } else {
+                    hostCol.style.display = 'flex';
+                    guestView.style.display = 'none';
+                    titleText.textContent = '게임 목록';
+                    titleIcon.innerHTML = '<i class="fas fa-list"></i>';
+                    hostSubBtn.innerHTML = '<i class="fas fa-paint-brush"></i> 내 마스코트 꾸미기';
+                }
+            } else {
+                roleBtnText.textContent = '방장 시점으로 전환해보기';
+                hostSubBtn.style.display = 'none';
+                hostCol.style.display = 'none';
+                guestView.style.display = 'flex';
+                btnSettings.style.display = 'none';
+                btnStart.style.display = 'none';
+                titleText.textContent = '나만의 마스코트 꾸미기';
+                titleIcon.innerHTML = '<i class="fas fa-paint-brush"></i>';
+            }
+        }
+
+        function changeAvatarColor(color) {
+            document.getElementById('custom-preview-avatar').style.borderColor = color;
+            document.getElementById('custom-preview-avatar').style.background = `radial-gradient(circle, ${color}33 0%, ${color}05 70%)`;
+            document.getElementById('slot-host-avatar').style.borderColor = color;
+        }
+    </script>
+</body>
+</html>
