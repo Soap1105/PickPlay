@@ -107,10 +107,9 @@
                 voters.forEach(v => {
                     const chip = document.createElement('span');
                     chip.className = 'liar-voter-chip';
-                    if (v.id === socket.id) {
-                        chip.classList.add('is-me');
-                    }
-                    chip.innerHTML = `${v.avatar || '🐱'} ${v.name}`;
+                    const vColor = v.color || '#FC944D';
+                    const vMascot = window.buildMascotSvg ? `<span style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:4px;">${window.buildMascotSvg(vColor)}</span>` : '';
+                    chip.innerHTML = `${vMascot}${v.name}`;
                     listDiv.appendChild(chip);
                 });
             }
@@ -149,7 +148,12 @@
                 avatarWrapper.className = 'avatar-wrapper';
                 const avatar = document.createElement('div');
                 avatar.className = 'avatar';
-                avatar.textContent = user.avatar || '😀';
+                const userColor = user.color || '#FC944D';
+                if (window.buildMascotSvg) {
+                    avatar.innerHTML = window.buildMascotSvg(userColor);
+                } else {
+                    avatar.textContent = user.avatar || '😀';
+                }
                 avatarWrapper.appendChild(avatar);
 
                 const nickname = document.createElement('div');
@@ -208,10 +212,13 @@
                     badgeHtml = window.getUserBadgeHtml(user);
                 }
 
+                const userColor = user.color || '#FC944D';
+                const mascotHtml = window.buildMascotSvg ? window.buildMascotSvg(userColor) : (user.avatar || '😀');
+
                 card.innerHTML = `
                     ${dotsHtml}
                     <div class="liar-slot-avatar-wrapper">
-                        <div class="liar-slot-avatar">${user.avatar || '🐱'}</div>
+                        <div class="liar-slot-avatar">${mascotHtml}</div>
                         ${voteBadgeHtml}
                     </div>
                     <div class="liar-slot-nickname">
@@ -688,6 +695,18 @@
         window.isGamePlaying = false;
         if (liarTimerUI) liarTimerUI.style.display = 'none';
 
+        // 서버 최신 통계에서 점수 동기화 및 도트 갱신
+        if (result && result.stats && Array.isArray(result.stats)) {
+            if (!window.gameScores) window.gameScores = {};
+            result.stats.forEach(s => {
+                window.gameScores[s.id] = s.score;
+            });
+            // 백그라운드 슬롯 도트 즉시 최신화
+            if (window.roomPlayers && window.renderLiarUsers) {
+                window.renderLiarUsers(window.roomPlayers, amIHost);
+            }
+        }
+
         // 턴 제어창은 즉시 제거
         if (inputZone) inputZone.style.display = 'none';
 
@@ -912,6 +931,33 @@
             </div>
         `;
 
+        // 라운드 종료 스코어보드 (현재 누적 승수 표시)
+        const targetWins = window.winTarget || 3;
+        const scoresBoardHtml = `
+            <div style="margin-top: 15px; text-align: left; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <h4 style="color: #38bdf8; margin: 0; font-size: 0.9rem; font-weight: 700;">
+                        <i class="fas fa-trophy"></i> 현재 승수 현황 (목표: ${targetWins}승)
+                    </h4>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                    ${(result.stats || []).map(s => {
+                        const mascotSvg = window.buildMascotSvg ? window.buildMascotSvg(s.color || '#FC944D') : '';
+                        const isScored = s.score > 0;
+                        return `
+                            <div style="display:flex; align-items:center; gap:8px; padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                                <div style="width:24px; height:24px; flex-shrink:0;">${mascotSvg}</div>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:0.8rem; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</div>
+                                    <div style="font-size:0.75rem; color:${isScored ? '#38bdf8' : '#94a3b8'}; font-weight:800;">${s.score} / ${targetWins}승</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
         // 모든 설명들을 2열 조화로운 콤팩트 카드형으로 대칭 렌더링하여 스크롤 억제
         playerUI.innerHTML = `
             <div class="liar-glass-panel liar-result-panel" style="border-top: 8px solid ${result.citizensWon ? '#10b981' : '#ef4444'}; max-width:650px;">
@@ -923,6 +969,8 @@
                 <div class="liar-final-reveal" style="margin: 15px 0; gap: 10px; display: flex; justify-content: center; flex-wrap: wrap;">
                     ${getRevealBoxesHtml(false)}
                 </div>
+
+                ${scoresBoardHtml}
 
                 <div style="width: 100%; margin-top: 20px; text-align:left;">
                     <h4 style="color: #94a3b8; margin: 0 0 10px 0; font-size: 0.95rem;"><i class="fas fa-list-ul"></i> 플레이어들의 설명 요약</h4>

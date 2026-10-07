@@ -141,11 +141,14 @@
             // 하트 HTML
             const heartsHtml = isGameActive ? getHeartsHtml(heartCount) : '';
 
+            const userColor = user.color || '#FC944D';
+            const mascotHtml = window.buildMascotSvg ? window.buildMascotSvg(userColor) : (user.avatar || '💣');
+
             slot.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
             slot.innerHTML = `
                 <div class="arena-avatar-wrap">
                     ${badgeHtml}
-                    <div class="arena-avatar">${user.avatar}</div>
+                    <div class="arena-avatar">${mascotHtml}</div>
                     <div class="arena-dead-overlay">💀</div>
                 </div>
                 <div class="arena-player-name">${user.isHost ? '👑' : ''}${user.name}</div>

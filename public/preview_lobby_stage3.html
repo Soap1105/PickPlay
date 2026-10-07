@@ -304,18 +304,18 @@
         }
 
         /* 폭탄 마스코트 호버 효과 */
-        .game-banner-card.bomb:hover .banner-mascot-img {
-            transform: scale(1.1) rotate(-3deg);
+        .game-banner-card.bomb:hover .banner-mascot-img.default {
+            opacity: 0;
+            transform: scale(0.92) rotate(-3deg);
+        }
+        .game-banner-card.bomb:hover .banner-mascot-img.hover {
+            opacity: 1;
+            transform: scale(1.15) rotate(1deg);
         }
 
-        /* 빙고 엠블럼 */
-        .banner-bingo-emblem {
-            font-size: 3.2rem;
-            line-height: 1;
-            transition: transform 0.25s ease;
-        }
-        .game-banner-card.bingo:hover .banner-bingo-emblem {
-            transform: scale(1.12) rotate(6deg);
+        /* 빙고 마스코트 호버 반응 */
+        .game-banner-card.bingo:hover .banner-mascot-img {
+            transform: scale(1.1) rotate(2deg);
         }
 
         /* 카드 텍스트 정보 */
@@ -602,7 +602,7 @@
                         <!-- 1. 빙고 게임 -->
                         <div class="game-banner-card bingo" onclick="selectCard(this)">
                             <div class="banner-mascot-box">
-                                <div class="banner-bingo-emblem">🎯</div>
+                                <img src="/images/PickBingo1.png" alt="빙고" class="banner-mascot-img default" />
                             </div>
                             <div class="banner-content">
                                 <div class="banner-title">빙고 게임</div>
@@ -635,7 +635,8 @@
                         <!-- 3. 폭탄 돌리기 (폭탄 마스코트) -->
                         <div class="game-banner-card bomb" onclick="selectCard(this)">
                             <div class="banner-mascot-box">
-                                <img src="/images/PickBomb.png" alt="폭탄" class="banner-mascot-img" />
+                                <img src="/images/PickBomb1.png" alt="폭탄" class="banner-mascot-img default" />
+                                <img src="/images/PickBomb2.png" alt="폭탄 폭발" class="banner-mascot-img hover" />
                             </div>
                             <div class="banner-content">
                                 <div class="banner-title">폭탄 돌리기</div>

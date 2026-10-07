@@ -440,8 +440,8 @@
 }
 
 .progress-dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.3);
     background-color: rgba(255,255,255,0.1);
@@ -451,30 +451,30 @@
 .progress-dot.filled {
     background-color: #2ecc71;
     border-color: #27ae60;
-    box-shadow: 0 0 5px rgba(46, 204, 113, 0.6);
+    box-shadow: 0 0 6px rgba(46, 204, 113, 0.7);
 }
 
 .status-divider {
     color: #95a5a6;
     font-weight: lighter;
-    margin: 0 2px;
+    margin: 0 4px;
 }
 
 .event-progress {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     align-items: center;
 }
 
 .event-star {
-    font-size: 0.72rem;
+    font-size: 0.85rem;
     color: #bdc3c7;
     transition: all 0.3s;
 }
 
 .event-star.filled {
     color: #f1c40f;
-    text-shadow: 0 0 3px rgba(241, 196, 15, 0.5);
+    text-shadow: 0 0 5px rgba(241, 196, 15, 0.6);
 }
 
 /* 유저 리스트 내 강퇴 버튼 - common.css에서 상속받음 */

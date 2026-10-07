@@ -368,6 +368,31 @@ body.dark-mode #game-container.game-active-bomb {
 /* =========================================
    2. ?�측 ?��? �?채팅 ?�역 (공용)
    ========================================= */
+#left-sidebar {
+    display: none;
+}
+
+body.game-mode-bingo #left-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 275px;
+    min-width: 275px;
+    max-width: 275px;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+body.game-mode-bingo #game-container {
+    flex: 1;
+    min-width: 480px;
+}
+
+body.game-mode-bingo #right-sidebar {
+    width: 310px;
+    min-width: 310px;
+    max-width: 310px;
+}
+
 #right-sidebar { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 280px; max-width: 340px; }
 #invite-btn { 
     background: linear-gradient(135deg, #2c3e50, #34495e);
@@ -386,17 +411,34 @@ body.dark-mode #game-container.game-active-bomb {
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border);
     border-radius: 15px; 
-    padding: 15px; 
+    padding: 14px; 
     display: flex; 
     flex-direction: column; 
-    min-height: 200px; 
+    min-height: 200px;
+    gap: 8px;
 }
+.user-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.user-section-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 #user-grid { 
     display: grid; 
-    grid-template-columns: repeat(2, 1fr); 
+    grid-template-columns: 1fr; 
     gap: 8px; 
     overflow-y: auto; 
-    padding-right: 2px; 
+    padding-right: 4px; 
     flex: 1; 
     align-content: start;
 }
@@ -404,20 +446,24 @@ body.dark-mode #game-container.game-active-bomb {
 .user-card {
     background: var(--surface-card); 
     color: var(--text-main); 
-    border-radius: 12px; 
-    padding: 8px 10px;
-    display: flex; align-items: center; gap: 8px; 
+    border-radius: 14px; 
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 12px; 
     border: 1px solid var(--border);
     border-left: 4px solid transparent; 
     transition: all 0.2s; position: relative;
     overflow: hidden;
 }
+.user-card:hover {
+    background: var(--surface-hover);
+    transform: translateX(2px);
+}
 .user-card.is-me { border-left-color: #f1c40f; background: rgba(241, 196, 15, 0.08); }
 .user-card.is-host { border-left-color: #e74c3c; }
 .user-info { flex-grow: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
 .nickname {
-    font-size: 0.8rem;
-    font-weight: bold;
+    font-size: 0.92rem;
+    font-weight: 800;
     color: var(--text-main);
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     white-space: nowrap;
@@ -427,8 +473,19 @@ body.dark-mode #game-container.game-active-bomb {
     align-items: center;
     gap: 4px;
 }
-.avatar-wrapper { position: relative; display: inline-block; margin-right: 5px; flex-shrink: 0; }
-.avatar { font-size: 1.6rem; }
+.avatar-wrapper { position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avatar { 
+    width: 48px; 
+    height: 48px; 
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+.avatar svg { width: 38px; height: 38px; display: block; }
 
 /* 강퇴 버튼 */
 .kick-btn {
@@ -1910,19 +1967,19 @@ body.dark-mode .badge-unconfirmed {
     transform: scale(1.1) rotate(2deg);
 }
 
-/* 폭탄 호버 반응 */
-.lobby-game-card.bomb-card:hover .banner-mascot-img {
-    transform: scale(1.1) rotate(-3deg);
+/* 폭탄 호버 반응: 폭탄 들기 ↔ 폭탄 폭발 */
+.lobby-game-card.bomb-card:hover .banner-mascot-img.default {
+    opacity: 0;
+    transform: scale(0.92) rotate(-3deg);
+}
+.lobby-game-card.bomb-card:hover .banner-mascot-img.hover {
+    opacity: 1;
+    transform: scale(1.15) rotate(1deg);
 }
 
-/* 빙고 엠블럼 */
-.banner-bingo-emblem {
-    font-size: 3.2rem;
-    line-height: 1;
-    transition: transform 0.25s ease;
-}
-.lobby-game-card.bingo-card:hover .banner-bingo-emblem {
-    transform: scale(1.12) rotate(6deg);
+/* 빙고 마스코트 호버 반응 (2번 에셋 추가 전 단일 마스코트 틸트 모션) */
+.lobby-game-card.bingo-card:hover .banner-mascot-img {
+    transform: scale(1.1) rotate(2deg);
 }
 
 

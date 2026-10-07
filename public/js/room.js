@@ -169,6 +169,32 @@ function showContainer(containerId) {
     const activeContainer = document.getElementById(containerId);
     if (activeContainer) activeContainer.classList.remove('hidden-container');
 
+    // 상단 메인 타이틀 (#game-title) 대기방/인게임 동적 갱신
+    const gameTitleEl = document.getElementById('game-title');
+    if (gameTitleEl) {
+        if (containerId === 'bingo-container') {
+            gameTitleEl.textContent = "빙고 게임";
+        } else if (containerId === 'liar-container') {
+            gameTitleEl.textContent = "라이어 게임";
+        } else if (containerId === 'bomb-container') {
+            gameTitleEl.textContent = "폭탄 돌리기";
+        } else if (containerId === 'lobby-container') {
+            const waitingStage = document.getElementById('waiting-stage');
+            const isWaiting = waitingStage && waitingStage.style.display !== 'none';
+            if (isWaiting && window.gameType === 'bingo') gameTitleEl.textContent = "빙고 게임 대기방";
+            else if (isWaiting && window.gameType === 'liar') gameTitleEl.textContent = "라이어 게임 대기방";
+            else if (isWaiting && window.gameType === 'bomb') gameTitleEl.textContent = "폭탄 돌리기 게임 대기방";
+            else gameTitleEl.textContent = "PickPlay 대기실";
+        }
+    }
+
+    // 빙고 인게임 진입 시 좌측 사이드바 3단 분할 레이아웃 클래스 동기화
+    if (containerId === 'bingo-container') {
+        document.body.classList.add('game-mode-bingo');
+    } else {
+        document.body.classList.remove('game-mode-bingo');
+    }
+
     // 대기실과 인게임 사이드바 전환 분기
     if (containerId !== 'lobby-container') {
         document.body.classList.remove('in-lobby');

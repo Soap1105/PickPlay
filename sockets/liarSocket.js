@@ -239,6 +239,7 @@ module.exports = (io, socket, gameRooms) => {
             });
         });
 
+        io.to(roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig?.winTarget || 3);
         io.to(roomId).emit('game started');
 
         // [순차 턴제] 순서 섞기 및 익명 매팅 초기화
@@ -470,9 +471,13 @@ module.exports = (io, socket, gameRooms) => {
                     const latestRoom = gameRooms[roomId];
                     if (!latestRoom || latestRoom.status !== 'final_guess') return;
 
-                    // io.to(roomId).emit('system message', `라이어(${latestRoom.players[latestRoom.liarGame.liarId]?.name})가 제한 시간 내에 정답을 제출하지 못했습니다!`);
-                    
-                    // 시간 초과 시 오답(시민 승리) 처리
+                    // 시간 초과 시 오답(시민 승리) 처리 및 지목한 시민 점수 지급
+                    for (let voter in latestRoom.liarGame.votes) {
+                        if (latestRoom.liarGame.votes[voter] === latestRoom.liarGame.liarId && voter !== latestRoom.liarGame.liarId) {
+                            latestRoom.liarGame.scores[voter] = (latestRoom.liarGame.scores[voter] || 0) + 1;
+                        }
+                    }
+
                     handleRoundEnd(roomId, {
                         message: `라이어가 시간 초과로 변론을 포기했습니다. 시민들이 승리했습니다!`,
                         liarName: latestRoom.players[latestRoom.liarGame.liarId]?.name,
@@ -543,6 +548,9 @@ module.exports = (io, socket, gameRooms) => {
         
         const room = gameRooms[roomId];
         const target = room.liarGameConfig.winTarget;
+
+        // 최신 점수 실시간 브로드캐스트 동기화
+        io.to(roomId).emit('update scores', room.liarGame.scores, target);
 
         // 검거율 및 히스토리 저장을 위한 방 객체 프로퍼티 보장
         if (!room.liarGame.correctVoteCounts) room.liarGame.correctVoteCounts = {};

@@ -193,7 +193,12 @@
             avatarWrapper.className = 'avatar-wrapper';
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
-            avatar.textContent = user.avatar;
+            const userColor = user.color || '#FC944D';
+            if (window.buildMascotSvg) {
+                avatar.innerHTML = window.buildMascotSvg(userColor);
+            } else {
+                avatar.textContent = user.avatar || '😀';
+            }
             avatarWrapper.appendChild(avatar);
             if (user.skipCount > 0) {
                 const overlay = document.createElement('div');
@@ -1654,6 +1659,8 @@
     });
 
     socket.on('start theme game', (data) => {
+        const gameTitleEl = document.getElementById('game-title');
+        if (gameTitleEl) gameTitleEl.textContent = "빙고 게임";
         resetAILoader(); // 인게임 진입 시 AI 로더 잔상 및 타이머 클리어
         readyButton.style.display = 'none';
         if (saveThemeBtn) saveThemeBtn.style.display = 'none';
@@ -1864,7 +1871,7 @@
                 rules: [
                     '1위: 목표 빙고 줄 수 선착순 완성 (우승)',
                     '2위 이하: 총 완성한 빙고 줄 수가 많은 순',
-                    '줄 수 동점 시: 이벤트 아이템 적게 사용 / 턴 입력 순'
+                    '줄 수 동점 시: 이벤트 아이템 적게 사용 순 (동일 시 입장 순)'
                 ],
                 stats: mappedStats,
                 history: null,

@@ -548,6 +548,16 @@
     <h1 id="game-title">PickPlay 대기실</h1>
 
     <div id="main-wrapper">
+        <!-- 좌측 사이드바 (빙고 참여자 목록 패널) -->
+        <div id="left-sidebar">
+            <div id="user-section">
+                <div class="user-section-header">
+                    <span class="user-section-title">참여자 목록</span>
+                </div>
+                <div id="user-grid"></div>
+            </div>
+        </div>
+
         <div id="game-container">
             <div id="my-status-bar"><span id="my-role-display">접속 중...</span></div>
 
@@ -573,7 +583,7 @@
                                 <button class="lobby-game-card bingo-card active game-select-btn" data-game="bingo"
                                     id="lobby-card-bingo">
                                     <div class="banner-mascot-box">
-                                        <div class="banner-bingo-emblem">🎯</div>
+                                        <img src="/images/PickBingo1.png" alt="빙고 마스코트" class="banner-mascot-img default" />
                                     </div>
                                     <div class="game-meta">
                                         <div class="game-title-text">빙고 게임</div>
@@ -608,7 +618,8 @@
                                 <button class="lobby-game-card bomb-card game-select-btn" data-game="bomb"
                                     id="lobby-card-bomb">
                                     <div class="banner-mascot-box">
-                                        <img src="/images/PickBomb.png" alt="폭탄 마스코트" class="banner-mascot-img" />
+                                        <img src="/images/PickBomb1.png" alt="폭탄 마스코트" class="banner-mascot-img default" />
+                                        <img src="/images/PickBomb2.png" alt="폭탄 폭발 마스코트" class="banner-mascot-img hover" />
                                     </div>
                                     <div class="game-meta">
                                         <div class="game-title-text">폭탄 돌리기</div>
@@ -975,10 +986,6 @@
 
         <div id="right-sidebar">
             <button id="invite-btn" style="display:none"><i class="fas fa-link"></i> 초대 링크 복사</button>
-            <div id="user-section">
-                <h3>참여자 목록</h3>
-                <div id="user-grid"></div>
-            </div>
             <div id="chat-section">
                 <div class="chat-header">
                     <div class="chat-title"><i class="fas fa-comment-dots"></i> 채팅</div>

@@ -39,7 +39,10 @@ function endGame(io, room, roomId, winnerName) {
         if (a.name === winnerName) return -1;
         if (b.name === winnerName) return 1;
         if (b.bingoCount !== a.bingoCount) return b.bingoCount - a.bingoCount;
-        return a.eventUsed - b.eventUsed;
+        if (a.eventUsed !== b.eventUsed) return a.eventUsed - b.eventUsed;
+        const orderA = room.joinOrder ? room.joinOrder.indexOf(a.id) : 0;
+        const orderB = room.joinOrder ? room.joinOrder.indexOf(b.id) : 0;
+        return orderA - orderB;
     });
 
     io.to(roomId).emit('game over', { 

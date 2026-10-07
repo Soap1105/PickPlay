@@ -256,6 +256,11 @@ body.liar-game-word.word-liar { color: #f87171 !important; -webkit-text-fill-col
     border: 2px solid rgba(255, 255, 255, 0.15);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
+.liar-slot-avatar svg {
+    width: 48px;
+    height: 48px;
+    display: block;
+}
 
 .liar-slot-nickname {
     font-size: 1.15rem;
