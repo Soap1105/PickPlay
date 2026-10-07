@@ -79,8 +79,8 @@ exports.generateThemeWords = async (req, res) => {
         let isExpired = false;
 
         if (cachedTheme) {
-            // 만료 여부 확인 (60일 TTL)
-            const TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60일
+            // 만료 여부 확인 (30일 TTL)
+            const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30일
             const lastUpdated = new Date(cachedTheme.updated_at || cachedTheme.created_at).getTime();
             isExpired = (Date.now() - lastUpdated) > TTL_MS;
 
@@ -95,7 +95,7 @@ exports.generateThemeWords = async (req, res) => {
                 return res.json({ success: true, themeId: cachedTheme.id, words: cachedTheme.words, source: 'cache' });
             }
 
-            console.log(`[Cache Expired] '${title}' - 60일이 경과하여 최신 단어로 자동 갱신을 시도합니다.`);
+            console.log(`[Cache Expired] '${title}' - 30일이 경과하여 최신 단어로 자동 갱신을 시도합니다.`);
         }
 
         // 캐시 데이터 파싱 헬퍼 (Fallback용)
