@@ -27,12 +27,14 @@ function endGame(io, room, roomId, winnerName) {
     // 우승자 객체 찾기
     const winnerPlayer = Object.values(room.players).find(p => p.name === winnerName);
     const winnerColor = winnerPlayer ? (winnerPlayer.color || '#FC944D') : '#FC944D';
+    const winnerCostume = winnerPlayer ? (winnerPlayer.costume || []) : [];
 
     // Collect stats with multi-tier sorting
     const stats = Object.values(room.players).map(p => ({
         id: p.id,
         name: p.name,
         color: p.color || '#FC944D',
+        costume: p.costume || [],
         bingoCount: checkBingoLines(p.board, room.calledNumbers),
         eventUsed: p.usedEventCount || 0
     })).sort((a, b) => {
@@ -46,7 +48,7 @@ function endGame(io, room, roomId, winnerName) {
     });
 
     io.to(roomId).emit('game over', { 
-        winner: { name: winnerName, color: winnerColor }, 
+        winner: { name: winnerName, color: winnerColor, costume: winnerCostume }, 
         stats 
     });
 

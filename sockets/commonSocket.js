@@ -68,6 +68,9 @@ module.exports = (io, socket, gameRooms) => {
                 // 플레이어 데이터 신규 소켓 ID로 이관
                 room.players[socket.id] = oldPlayer;
                 room.players[socket.id].id = socket.id;
+                // [결과 확인 중 새로고침 대응] 재접속 시 결과 확인 완료 상태로 자동 복원
+                room.players[socket.id].confirmedResult = true;
+                room.players[socket.id].isCustomizing = false;
                 if (oldSocketId !== socket.id) {
                     delete room.players[oldSocketId];
                 }
@@ -112,7 +115,45 @@ module.exports = (io, socket, gameRooms) => {
 
                 io.to(roomId).emit('update user list', getSortedUserList(room));
                 updateReadyStatus(io, room, roomId);
-                io.to(roomId).emit('system message', `🔄 ${oldPlayer.name}님이 재접속하셨습니다.`);
+                io.to(roomId).emit('system message', `${oldPlayer.name}님이 재접속하셨습니다.`);
+
+                // 빙고 게임 진행 중 세션 복구 처리
+                if (room.mode === 'bingo') {
+                    if (room.status === 'PLAYING') {
+                        socket.emit('start theme game', {
+                            board: oldPlayer.board || [],
+                            winLines: room.winLines || 3,
+                            isReconnect: true
+                        });
+                        socket.emit('restore called words', {
+                            calledNumbers: room.calledNumbers || [],
+                            lockedWords: room.lockedWords || {}
+                        });
+                        if (room.turnOrder && room.turnOrder.length > 0) {
+                            const currentTurnId = room.turnOrder[room.currentTurnIndex || 0];
+                            const currentTurnPlayer = room.players[currentTurnId];
+                            let remainingTurnTime = room.turnTimeLimit || 0;
+                            if (room.turnTimeLimit > 0 && room.turnStartTime) {
+                                const elapsed = Math.floor((Date.now() - room.turnStartTime) / 1000);
+                                remainingTurnTime = Math.max(1, room.turnTimeLimit - elapsed);
+                            }
+                            socket.emit('turn update', {
+                                currentTurnId: currentTurnId,
+                                currentTurnName: currentTurnPlayer ? currentTurnPlayer.name : '',
+                                turnTimeLimit: remainingTurnTime
+                            });
+                        }
+                        bingoHelpers.broadcastBingoProgress(io, room, roomId);
+                        socket.emit('update user list', getSortedUserList(room));
+                    } else if (room.status === 'INPUTTING') {
+                        socket.emit('setup theme input', {
+                            topic: room.topic || '',
+                            winLines: room.winLines || 3,
+                            useEvents: room.useEvents !== undefined ? room.useEvents : true,
+                            presetWords: room.presetWords || []
+                        });
+                    }
+                }
 
                 // [Bug Fix #7] AI 주제 생성 중 이탈/재입장 시 진행 상황 복구
                 if (themeController.ACTIVE_GENERATIONS && themeController.ACTIVE_GENERATIONS[roomId]) {
@@ -144,11 +185,15 @@ module.exports = (io, socket, gameRooms) => {
             room.hostId = socket.id;
         }
 
+        const costume = Array.isArray(data.costume) ? data.costume : [];
+
         room.players[socket.id] = {
             id: socket.id, board: [], ready: false, name: nickname,
             color: color,
+            costume: costume,
             isSkipped: false, skipCount: 0, usedEventCount: 0,
-            confirmedResult: true
+            confirmedResult: true,
+            isCustomizing: false
         };
 
         room.joinOrder.push(socket.id);
@@ -198,6 +243,29 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         room.players[socket.id].color = newColor;
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+    });
+
+    // 대기실 코스튬(치장 아이템) 변경
+    socket.on('change costume', (newCostume) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (room.status !== 'WAITING') return;
+        if (!room.players[socket.id]) return;
+
+        room.players[socket.id].costume = Array.isArray(newCostume) ? newCostume : [];
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+    });
+
+    // 대기실/대기방 마스코트 코디 중 상태 동기화
+    socket.on('set customizing status', (isCustomizing) => {
+        const roomId = socket.roomId;
+        if (!roomId || !gameRooms[roomId]) return;
+        const room = gameRooms[roomId];
+        if (!room.players[socket.id]) return;
+
+        room.players[socket.id].isCustomizing = !!isCustomizing;
         io.to(roomId).emit('update user list', getSortedUserList(room));
     });
 
@@ -464,6 +532,9 @@ module.exports = (io, socket, gameRooms) => {
                     }
 
                     if (isInsufficient) {
+                        const prevStatus = room.status;
+                        const prevMode = room.mode;
+
                         room.mode = 'lobby';
                         room.status = 'WAITING';
                         room.lobbyVotes = { bingo: 0, liar: 0 };
@@ -476,7 +547,20 @@ module.exports = (io, socket, gameRooms) => {
                         delete room.bombGame;
 
                         io.to(roomId).emit('game changed', 'lobby');
-                        io.to(roomId).emit('action failed', `🚫 인원이 부족하여 게임이 강제 종료되었습니다. (최소 필요 인원: ${minRequired}명)`);
+
+                        // 빙고 진행 중 상대 이탈로 1명만 잔류 시 기권승(몰수승) 통보
+                        if (prevMode === 'bingo' && prevStatus === 'PLAYING' && remainingPlayers.length === 1) {
+                            const winnerId = remainingPlayers[0];
+                            if (room.players[winnerId]) {
+                                room.players[winnerId].confirmedResult = true;
+                            }
+                            io.to(winnerId).emit('forfeit victory', {
+                                reason: `${leavingPlayerName}님의 연결 종료로 기권승(몰수승) 처리되었습니다.`
+                            });
+                        } else {
+                            io.to(roomId).emit('action failed', `인원이 부족하여 게임이 종료되었습니다. (최소 필요 인원: ${minRequired}명)`);
+                        }
+
                         io.to(roomId).emit('update user list', getSortedUserList(room));
                         return;
                     }

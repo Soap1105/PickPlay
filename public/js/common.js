@@ -29,12 +29,20 @@ function initConnection() {
     if (!myName) return;
     myName = localStorage.getItem('pp_nickname') || myName;
     myColor = localStorage.getItem('pp_color') || myColor;
+    let myCostume = [];
+    try {
+        myCostume = JSON.parse(localStorage.getItem('pp_costume') || '[]');
+    } catch (e) {
+        myCostume = [];
+    }
     window.myName = myName;
     window.myColor = myColor;
+    window.myCostume = myCostume;
     socket.emit('join room', { 
         roomId: roomId, 
         name: myName, 
         color: myColor, 
+        costume: myCostume,
         clientId: myClientId, 
         gameType: window.gameType || 'lobby' 
     });
@@ -230,7 +238,7 @@ window.createKickButton = function(user, amIHost, mySocketId, condition) {
  */
 window.getUserBadgeHtml = function (user) {
     if (user.confirmedResult === false) {
-        return ` <span style="font-size: 0.72rem; color: #f1c40f; background: rgba(241, 196, 15, 0.12); border: 1px solid rgba(241, 196, 15, 0.25); padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: normal; white-space: nowrap;">⏳ 결과 확인 중</span>`;
+        return ` <span style="font-size: 0.72rem; color: #f1c40f; background: rgba(241, 196, 15, 0.12); border: 1px solid rgba(241, 196, 15, 0.25); padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: normal; white-space: nowrap;">결과 확인 중</span>`;
     }
     return '';
 };
@@ -264,7 +272,7 @@ window.showGameResultModal = function(options) {
     const winner = options.winner || { name: '알 수 없음', color: '#FC944D' };
     if (winnerNameEl) winnerNameEl.textContent = winner.name || '-';
     if (winnerAvatarBox && window.buildMascotSvg) {
-        winnerAvatarBox.innerHTML = window.buildMascotSvg(winner.color || '#FC944D');
+        winnerAvatarBox.innerHTML = window.buildMascotSvg(winner.color || '#FC944D', winner.costume || []);
         winnerAvatarBox.style.borderColor = winner.color || '#f59e0b';
         winnerAvatarBox.style.boxShadow = `0 0 28px ${winner.color || '#f59e0b'}60`;
     }
@@ -311,7 +319,7 @@ window.showGameResultModal = function(options) {
             const isWinner = p.isWinner || (winner && p.name === winner.name);
             const isMe = p.id === (window.socket && window.socket.id) || p.name === window.myName;
             const pColor = p.color || '#FC944D';
-            const miniSvg = window.buildMascotSvg ? window.buildMascotSvg(pColor) : '';
+            const miniSvg = window.buildMascotSvg ? window.buildMascotSvg(pColor, p.costume || []) : '';
 
             return `
                 <tr class="${isWinner ? 'row-winner' : ''}">

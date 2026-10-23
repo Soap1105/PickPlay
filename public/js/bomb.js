@@ -142,7 +142,7 @@
             const heartsHtml = isGameActive ? getHeartsHtml(heartCount) : '';
 
             const userColor = user.color || '#FC944D';
-            const mascotHtml = window.buildMascotSvg ? window.buildMascotSvg(userColor) : (user.avatar || '💣');
+            const mascotHtml = window.buildMascotSvg ? window.buildMascotSvg(userColor, user.costume || []) : (user.avatar || '💣');
 
             slot.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
             slot.innerHTML = `

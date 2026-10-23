@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PickPlay - 사운드 제어 UI 비교 데모</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 30px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0c1b;
+            color: #fffffe;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .demo-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .demo-section {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .section-header {
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #a29bfe;
+            margin: 0 0 6px 0;
+        }
+
+        .section-desc {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        /* 가상 상단 헤더 바 */
+        .mock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 12, 27, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 14px 20px;
+            position: relative;
+        }
+
+        .mock-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ---------------------------------------------
+           [안 A] 팝오버 방식 스타일
+           --------------------------------------------- */
+        .sound-popover-wrapper {
+            position: relative;
+        }
+
+        .btn-sound-trigger {
+            background: rgba(108, 92, 231, 0.15);
+            border: 1px solid rgba(108, 92, 231, 0.35);
+            color: #a29bfe;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-sound-trigger:hover, .btn-sound-trigger.active {
+            background: rgba(108, 92, 231, 0.28);
+            border-color: #6c5ce7;
+            color: #fff;
+        }
+
+        /* 사운드 팝오버 카드 */
+        .sound-popover-card {
+            display: none;
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 260px;
+            background: #181528;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            padding: 16px;
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        .sound-popover-card.show {
+            display: block;
+            animation: popoverFadeIn 0.2s ease-out;
+        }
+
+        @keyframes popoverFadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .popover-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #fffffe;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .volume-control-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+
+        .volume-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .volume-slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .volume-slider-row i {
+            font-size: 0.85rem;
+            color: #a29bfe;
+            width: 16px;
+            text-align: center;
+        }
+
+        .volume-range-input {
+            flex: 1;
+            accent-color: #6c5ce7;
+            height: 5px;
+            cursor: pointer;
+        }
+
+        .btn-mute-all {
+            width: 100%;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-mute-all:hover {
+            background: rgba(231, 76, 60, 0.15);
+            border-color: rgba(231, 76, 60, 0.4);
+            color: #ff7675;
+        }
+
+        .btn-mute-all.is-muted {
+            background: rgba(231, 76, 60, 0.25);
+            border-color: #e74c3c;
+            color: #ff7675;
+        }
+
+        /* ---------------------------------------------
+           [안 B] 심플 원클릭 토글 버튼 스타일
+           --------------------------------------------- */
+        .btn-sound-toggle-simple {
+            background: rgba(108, 92, 231, 0.15);
+            border: 1px solid rgba(108, 92, 231, 0.35);
+            color: #a29bfe;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-sound-toggle-simple.muted {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <div class="demo-container">
+        <div style="text-align: center; margin-bottom: 10px;">
+            <h1 style="font-size: 1.8rem; font-weight: 800; margin: 0 0 8px 0;">PickPlay 사운드 제어 UI 인터랙티브 비교</h1>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; margin: 0;">
+                실제 게임 화면 상단 헤더에 들어갔을 때의 모습을 직접 클릭하고 조작해보세요.
+            </p>
+        </div>
+
+        <!-- [안 A] 팝오버 방식 데모 -->
+        <div class="demo-section">
+            <div class="section-header">
+                <div class="section-title">[안 A] 듀얼 슬라이더 팝오버 방식 (클릭 시 볼륨 제어창 오픈)</div>
+                <div class="section-desc">
+                    우측 <strong>[사운드] 버튼을 클릭</strong>해보세요. 아래로 반투명 미니 카드가 열려 BGM(배경음)과 SFX(효과음) 음량을 따로 조절할 수 있습니다.
+                </div>
+            </div>
+
+            <div class="mock-header">
+                <h2 class="mock-title">
+                    <img src="/images/PickBingo1.png" alt="빙고" style="width: 32px; height: 32px; object-fit: contain;">
+                    빙고 게임 대기방
+                </h2>
+
+                <div class="sound-popover-wrapper">
+                    <button type="button" class="btn-sound-trigger" id="demo-a-trigger">
+                        <i class="fas fa-volume-up" id="demo-a-icon"></i> <span id="demo-a-text">사운드</span>
+                    </button>
+
+                    <!-- 미니 팝오버 카드 -->
+                    <div class="sound-popover-card" id="demo-a-card">
+                        <div class="popover-header">
+                            <span><i class="fas fa-sliders-h" style="color: #a29bfe; margin-right: 5px;"></i> 사운드 설정</span>
+                            <span id="demo-a-close" style="cursor: pointer; color: rgba(255,255,255,0.4); font-size: 1rem;">&times;</span>
+                        </div>
+
+                        <!-- BGM 볼륨 -->
+                        <div class="volume-control-row">
+                            <div class="volume-label-row">
+                                <span>배경음 (BGM)</span>
+                                <strong id="bgm-val-text" style="color: #a29bfe;">7%</strong>
+                            </div>
+                            <div class="volume-slider-row">
+                                <i class="fas fa-music"></i>
+                                <input type="range" class="volume-range-input" id="bgm-range" min="0" max="100" value="7">
+                            </div>
+                        </div>
+
+                        <!-- SFX 볼륨 -->
+                        <div class="volume-control-row">
+                            <div class="volume-label-row">
+                                <span>효과음 (SFX)</span>
+                                <strong id="sfx-val-text" style="color: #55efc4;">50%</strong>
+                            </div>
+                            <div class="volume-slider-row">
+                                <i class="fas fa-bell"></i>
+                                <input type="range" class="volume-range-input" id="sfx-range" min="0" max="100" value="50">
+                            </div>
+                        </div>
+
+                        <!-- 전체 음소거 토글 버튼 -->
+                        <button type="button" class="btn-mute-all" id="btn-mute-all">
+                            <i class="fas fa-volume-mute" style="margin-right: 4px;"></i> <span id="mute-all-text">전체 음소거</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- [안 B] 심플 원클릭 토글 데모 -->
+        <div class="demo-section">
+            <div class="section-header">
+                <div class="section-title">[안 B] 심플 원클릭 토글 방식 (클릭 시 켜짐/꺼짐 즉시 전환)</div>
+                <div class="section-desc">
+                    우측 <strong>[소리 켜짐] 버튼을 클릭</strong>해보세요. 팝업창 없이 버튼 하나로 사운드가 즉시 꺼지고 켜집니다.
+                </div>
+            </div>
+
+            <div class="mock-header">
+                <h2 class="mock-title">
+                    <img src="/images/PickBingo1.png" alt="빙고" style="width: 32px; height: 32px; object-fit: contain;">
+                    빙고 게임 대기방
+                </h2>
+
+                <button type="button" class="btn-sound-toggle-simple" id="demo-b-btn">
+                    <i class="fas fa-volume-up" id="demo-b-icon"></i> <span id="demo-b-text">소리 켜짐</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- [안 A] 인터랙션 ---
+        const triggerA = document.getElementById('demo-a-trigger');
+        const cardA = document.getElementById('demo-a-card');
+        const closeA = document.getElementById('demo-a-close');
+        const bgmRange = document.getElementById('bgm-range');
+        const bgmText = document.getElementById('bgm-val-text');
+        const sfxRange = document.getElementById('sfx-range');
+        const sfxText = document.getElementById('sfx-val-text');
+        const muteAllBtn = document.getElementById('btn-mute-all');
+        const muteAllText = document.getElementById('mute-all-text');
+        const iconA = document.getElementById('demo-a-icon');
+
+        let isMutedA = false;
+        let prevBgm = 7;
+        let prevSfx = 50;
+
+        triggerA.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cardA.classList.toggle('show');
+            triggerA.classList.toggle('active');
+        });
+
+        closeA.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cardA.classList.remove('show');
+            triggerA.classList.remove('active');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!cardA.contains(e.target) && !triggerA.contains(e.target)) {
+                cardA.classList.remove('show');
+                triggerA.classList.remove('active');
+            }
+        });
+
+        bgmRange.addEventListener('input', (e) => {
+            bgmText.textContent = e.target.value + '%';
+            if (isMutedA && e.target.value > 0) {
+                isMutedA = false;
+                muteAllBtn.classList.remove('is-muted');
+                muteAllText.textContent = '전체 음소거';
+                iconA.className = 'fas fa-volume-up';
+            }
+        });
+
+        sfxRange.addEventListener('input', (e) => {
+            sfxText.textContent = e.target.value + '%';
+            if (isMutedA && e.target.value > 0) {
+                isMutedA = false;
+                muteAllBtn.classList.remove('is-muted');
+                muteAllText.textContent = '전체 음소거';
+                iconA.className = 'fas fa-volume-up';
+            }
+        });
+
+        muteAllBtn.addEventListener('click', () => {
+            isMutedA = !isMutedA;
+            if (isMutedA) {
+                prevBgm = bgmRange.value;
+                prevSfx = sfxRange.value;
+                bgmRange.value = 0;
+                sfxRange.value = 0;
+                bgmText.textContent = '0%';
+                sfxText.textContent = '0%';
+                muteAllBtn.classList.add('is-muted');
+                muteAllText.textContent = '음소거 해제';
+                iconA.className = 'fas fa-volume-mute';
+            } else {
+                bgmRange.value = prevBgm || 7;
+                sfxRange.value = prevSfx || 50;
+                bgmText.textContent = bgmRange.value + '%';
+                sfxText.textContent = sfxRange.value + '%';
+                muteAllBtn.classList.remove('is-muted');
+                muteAllText.textContent = '전체 음소거';
+                iconA.className = 'fas fa-volume-up';
+            }
+        });
+
+        // --- [안 B] 인터랙션 ---
+        const btnB = document.getElementById('demo-b-btn');
+        const iconB = document.getElementById('demo-b-icon');
+        const textB = document.getElementById('demo-b-text');
+        let isMutedB = false;
+
+        btnB.addEventListener('click', () => {
+            isMutedB = !isMutedB;
+            if (isMutedB) {
+                btnB.classList.add('muted');
+                iconB.className = 'fas fa-volume-mute';
+                textB.textContent = '음소거';
+            } else {
+                btnB.classList.remove('muted');
+                iconB.className = 'fas fa-volume-up';
+                textB.textContent = '소리 켜짐';
+            }
+        });
+    </script>
+</body>
+</html>

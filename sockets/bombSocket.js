@@ -130,7 +130,8 @@ module.exports = (io, socket, gameRooms) => {
             finalWinner = { 
                 id: survivorId, 
                 name: room.players[survivorId].name,
-                color: room.players[survivorId].color || '#FC944D'
+                color: room.players[survivorId].color || '#FC944D',
+                costume: room.players[survivorId].costume || []
             };
             isGameOver = true;
         } else if (survivors.length === 0) {
@@ -164,6 +165,7 @@ module.exports = (io, socket, gameRooms) => {
                     id: pid,
                     name: p.name,
                     color: p.color || '#FC944D',
+                    costume: p.costume || [],
                     hearts: hearts,
                     passCount: passes,
                     eliminatedRound: elimRound,

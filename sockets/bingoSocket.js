@@ -45,37 +45,39 @@ module.exports = (io, socket, gameRooms) => {
                 continue;
             }
 
-            const nextPlayer = room.players[nextId];
-            if (nextPlayer.isIsolated) {
-                nextPlayer.isIsolated = false;
-                io.to(roomId).emit('system message', `🔓 ${nextPlayer.name}님이 블랙홀 격리에서 복귀했습니다! 내 차례에 보드판을 클릭하여 밀린 단어들을 마킹하세요.`);
-                io.to(roomId).emit('update user list', getSortedUserList(room));
-            }
-
             io.to(roomId).emit('turn update', {
                 currentTurnId: nextId,
                 currentTurnName: room.players[nextId].name,
                 turnTimeLimit: room.turnTimeLimit || 0
             });
             // [Bug Fix #33] 이벤트 팝업 시간만큼 서버 타이머 지연 (클라이언트 동기화)
+            // delayMs 대기 중 새로고침 시 stale nextId 방어: 실행 시점의 최신 턴 유저를 동적으로 참조
             if (delayMs > 0) {
                 setTimeout(() => {
                     if (!gameRooms[roomId] || room.status !== 'PLAYING') return;
-                    startTurnTimer(room, roomId, nextId);
+                    startTurnTimer(room, roomId);
                 }, delayMs);
             } else {
-                startTurnTimer(room, roomId, nextId);
+                startTurnTimer(room, roomId);
             }
             return;
         }
     }
 
-    function startTurnTimer(room, roomId, playerId) {
+    function startTurnTimer(room, roomId, targetPlayerId = null) {
         if (room.turnTimer) clearTimeout(room.turnTimer);
 
-        // 유저 요청 반영: 차례가 와도 누를 단어가 전혀 없다면(25칸 이미 다 참)
-        // 바보같이 타이머를 돌리지 말고 그 자리에서 즉시 게임을 종료시킵니다.
-        const player = room.players[playerId];
+        // 현재 인덱스의 최신 유효 소켓 ID를 동적으로 추출 (새로고침으로 인한 소켓 ID 변경 완벽 대응)
+        const currentId = (room.turnOrder && room.turnOrder[room.currentTurnIndex]) || targetPlayerId;
+        if (!currentId) return;
+
+        const player = room.players[currentId];
+        // 1차 Null 안전 방어: 플레이어가 교체 중이거나 보드가 없으면 에러 없이 안전 탈출
+        if (!player || !player.board) return;
+
+        room.turnStartTime = Date.now();
+
+        // 차례가 와도 누를 단어가 전혀 없다면 즉시 게임 종료
         const uncalledWords = player.board.filter(w => !room.calledNumbers.includes(w));
         if (uncalledWords.length === 0) {
             io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다. 빙고판 완료.`);
@@ -87,29 +89,30 @@ module.exports = (io, socket, gameRooms) => {
 
         room.turnTimer = setTimeout(() => {
             if (room.mode !== 'bingo' || room.status !== 'PLAYING') return;
-            const currentId = room.turnOrder[room.currentTurnIndex];
-            if (currentId !== playerId) return;
+
+            // 타이머 만료 시점의 실시간 활성 플레이어 동적 재조회
+            const activeId = room.turnOrder && room.turnOrder[room.currentTurnIndex];
+            if (!activeId) return;
+            const activePlayer = room.players[activeId];
+
+            // 2차 Null 안전 방어
+            if (!activePlayer || !activePlayer.board) return;
 
             // Auto-select a word
-            const player = room.players[playerId];
-            const uncalledWords = player.board.filter(w => !room.calledNumbers.includes(w));
-            if (uncalledWords.length > 0) {
-                const randomWord = uncalledWords[Math.floor(Math.random() * uncalledWords.length)];
+            const uncalled = activePlayer.board.filter(w => !room.calledNumbers.includes(w));
+            if (uncalled.length > 0) {
+                const randomWord = uncalled[Math.floor(Math.random() * uncalled.length)];
                 room.calledNumbers.push(randomWord);
-                Object.values(room.players).forEach(p => {
-                    if (p.isIsolated) {
-                        if (!p.ignoredNumbers) p.ignoredNumbers = [];
-                        p.ignoredNumbers.push(randomWord);
-                    }
-                });
                 io.to(roomId).emit('number called', randomWord);
 
                 broadcastBingoProgress(io, room, roomId);
 
                 // [Full Board Winner Check]
                 let anyBoardFull = false;
-                Object.values(room.players).forEach(p => { if (checkBingoLines(p.board, room.calledNumbers) === 12) anyBoardFull = true; });
-                const maxTurns = new Set(Object.values(room.players).map(p => p.board).flat()).size;
+                Object.values(room.players).forEach(p => { 
+                    if (p.board && checkBingoLines(p.board, room.calledNumbers) === 12) anyBoardFull = true; 
+                });
+                const maxTurns = new Set(Object.values(room.players).map(p => p.board || []).flat()).size;
                 if (anyBoardFull || room.calledNumbers.length >= maxTurns) {
                     endGame(io, room, roomId, resolveFullBoardWinner(room));
                     return;
@@ -117,8 +120,7 @@ module.exports = (io, socket, gameRooms) => {
 
                 passTurn(room, roomId);
             } else {
-                // 선택할 단어가 없는 상태로 여기까지 왔다면 절대 턴을 넘기지 않고 즉시 게임 종료
-                io.to(roomId).emit('system message', `⏰ ${player.name}님은 더 이상 선택할 단어가 없습니다. 빙고판 완료.`);
+                io.to(roomId).emit('system message', `⏰ ${activePlayer.name}님은 더 이상 선택할 단어가 없습니다. 빙고판 완료.`);
                 endGame(io, room, roomId, resolveFullBoardWinner(room));
             }
         }, room.turnTimeLimit * 1000 + 500); // 0.5s buffer
@@ -164,6 +166,7 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         room.status = 'INPUTTING';
+        Object.values(room.players).forEach(p => { if (p) p.isCustomizing = false; });
         room.mode = 'bingo';
         room.topic = data.topic;
         room.winLines = parseInt(data.winLines) || 3;
@@ -181,8 +184,6 @@ module.exports = (io, socket, gameRooms) => {
             p.ready = false;
             p.usedEventCount = 0;
             p.skipCount = 0;
-            p.isIsolated = false;
-            p.ignoredNumbers = [];
             io.to(p.id).emit('setup theme input', {
                 topic: data.topic,
                 winLines: room.winLines,
@@ -252,10 +253,10 @@ module.exports = (io, socket, gameRooms) => {
                 setTimeout(() => {
                     // 딜레이 도중 방이 사라지거나 게임이 종료됐을 경우 방어
                     if (!gameRooms[roomId] || room.status !== 'PLAYING') return;
-                    startTurnTimer(room, roomId, firstPlayerId);
+                    startTurnTimer(room, roomId);
                 }, FIRST_TURN_POPUP_DELAY_MS);
             } else {
-                startTurnTimer(room, roomId, firstPlayerId);
+                startTurnTimer(room, roomId);
             }
 
             broadcastBingoProgress(io, room, roomId);
@@ -284,16 +285,6 @@ module.exports = (io, socket, gameRooms) => {
 
         // [버그 방지] 통신 지연이나 더블 클릭으로 인한 중복 단어 방어
         if (room.calledNumbers.includes(data.word)) {
-            // [블랙홀 격리 복구] 격리 기간 동안 무시했던 단어라면 클릭 시 수동 복구 허용 (턴 미소모)
-            const player = room.players[socket.id];
-            if (player && player.ignoredNumbers && player.ignoredNumbers.includes(data.word)) {
-                player.ignoredNumbers = player.ignoredNumbers.filter(w => w !== data.word);
-                
-                io.to(roomId).emit('update user list', getSortedUserList(room));
-                broadcastBingoProgress(io, room, roomId);
-                socket.emit('server called numbers', room.calledNumbers); // 내 화면 갱신
-                return;
-            }
             socket.emit('action failed', '이미 선택된 단어입니다.');
             return;
         }
@@ -305,12 +296,6 @@ module.exports = (io, socket, gameRooms) => {
         }
 
         room.calledNumbers.push(data.word);
-        Object.values(room.players).forEach(p => {
-            if (p.isIsolated) {
-                if (!p.ignoredNumbers) p.ignoredNumbers = [];
-                p.ignoredNumbers.push(data.word);
-            }
-        });
         io.to(data.roomId).emit('number called', data.word);
 
         if (room.turnTimer) clearTimeout(room.turnTimer);
@@ -364,7 +349,6 @@ module.exports = (io, socket, gameRooms) => {
             // 🌀 차원 뒤틀림: 발동자 제외 상대 플레이어 판 셔플 + calledNumbers 고정 2개 삭제
             Object.keys(room.players).forEach(pId => {
                 if (pId === socket.id) return; // 발동자 본인은 제외
-                if (room.players[pId].isIsolated) return; // 격리된 플레이어도 제외 (이벤트 효과 면제)
                 const newBoard = shuffleArray([...room.players[pId].board]);
                 room.players[pId].board = newBoard;
                 io.to(pId).emit('update board', newBoard);
@@ -375,14 +359,6 @@ module.exports = (io, socket, gameRooms) => {
             for (let i = 0; i < removeCount; i++) {
                 const removeIdx = Math.floor(Math.random() * room.calledNumbers.length);
                 removedWords.push(room.calledNumbers.splice(removeIdx, 1)[0]);
-            }
-
-            if (removedWords.length > 0) {
-                Object.values(room.players).forEach(p => {
-                    if (p.isIsolated && p.ignoredNumbers) {
-                        p.ignoredNumbers = p.ignoredNumbers.filter(w => !removedWords.includes(w));
-                    }
-                });
             }
 
             const removedMsg = removedWords.length > 0
@@ -451,8 +427,6 @@ module.exports = (io, socket, gameRooms) => {
                     const randomId = candidateIds[Math.floor(Math.random() * candidateIds.length)];
                     const targetName = room.players[randomId].name;
                     room.players[randomId].skipCount += 1;
-                    room.players[randomId].isIsolated = true;
-                    room.players[randomId].ignoredNumbers = [];
 
                     io.to(roomId).emit('update user list', getSortedUserList(room));
                     io.to(roomId).emit('blackhole target confirmed', { targetName, timedOut: true });
@@ -476,14 +450,6 @@ module.exports = (io, socket, gameRooms) => {
                     if (room.calledNumbers.length === 0) break;
                     const removeIdx = Math.floor(Math.random() * room.calledNumbers.length);
                     removedWords.push(room.calledNumbers.splice(removeIdx, 1)[0]);
-                }
-
-                if (removedWords.length > 0) {
-                    Object.values(room.players).forEach(p => {
-                        if (p.isIsolated && p.ignoredNumbers) {
-                            p.ignoredNumbers = p.ignoredNumbers.filter(w => !removedWords.includes(w));
-                        }
-                    });
                 }
 
                 if (!room.lockedWords) room.lockedWords = {};
@@ -534,8 +500,6 @@ module.exports = (io, socket, gameRooms) => {
         const senderName = room.players[socket.id].name;
         const targetName = room.players[targetId].name;
         room.players[targetId].skipCount += 1;
-        room.players[targetId].isIsolated = true;
-        room.players[targetId].ignoredNumbers = [];
 
         io.to(roomId).emit('update user list', getSortedUserList(room));
         io.to(roomId).emit('blackhole target confirmed', { targetName, timedOut: false });

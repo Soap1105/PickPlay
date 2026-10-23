@@ -53,18 +53,21 @@
     const resultStatsBody = document.getElementById('result-stats-body');
     const closeResultBtn = document.getElementById('close-result-btn');
 
-    // 1. 효과음
-    const effectSound = new Audio('/call.mp3');
-    const eventSound = new Audio('/event.wav');
-
+    // 1. 통합 사운드 관리자 (SoundManager) 연동
     function playSound() {
-        effectSound.currentTime = 0;
-        effectSound.play().catch(() => { });
+        if (window.soundManager) window.soundManager.playSfx('call');
     }
 
     function playEvent() {
-        eventSound.currentTime = 0;
-        eventSound.play().catch(() => { });
+        if (window.soundManager) window.soundManager.playSfx('event');
+    }
+
+    function startBingoBgm() {
+        if (window.soundManager) window.soundManager.playBgm('bingo');
+    }
+
+    function stopBingoBgm() {
+        if (window.soundManager) window.soundManager.stopBgm();
     }
 
     // 4. 변수 초기화
@@ -92,13 +95,6 @@
     let popupActive = false;
     let lockedWords = {}; // [유령의 장난] 잠긴 단어 관리
     let lastBingoSettings = { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true };
-
-    let myIgnoredNumbers = [];
-    function getActiveCalledNumbers() {
-        const normalize = (str) => String(str).replace(/\s+/g, '').trim().toLowerCase();
-        const ignoreSet = new Set(myIgnoredNumbers.map(normalize));
-        return calledNumbers.filter(num => !ignoreSet.has(normalize(num)));
-    }
 
     function getUserId() {
         let userId = localStorage.getItem('bingo_user_id');
@@ -175,8 +171,7 @@
         users.forEach(user => {
             if (user.id === socket.id) {
                 myUsedEventCount = user.usedEventCount || 0;
-                myIgnoredNumbers = user.ignoredNumbers || [];
-                updateBingoActionButtons(checkBingoLines(myBoard, getActiveCalledNumbers()));
+                updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
             }
 
             const card = document.createElement('div');
@@ -195,7 +190,7 @@
             avatar.className = 'avatar';
             const userColor = user.color || '#FC944D';
             if (window.buildMascotSvg) {
-                avatar.innerHTML = window.buildMascotSvg(userColor);
+                avatar.innerHTML = window.buildMascotSvg(userColor, user.costume || []);
             } else {
                 avatar.textContent = user.avatar || '😀';
             }
@@ -364,7 +359,7 @@
             }
         });
 
-        const activeNums = getActiveCalledNumbers();
+        const activeNums = calledNumbers;
         cells.forEach(cell => {
             const word = cell.dataset.word;
             const isCalled = activeNums.some(num => normalize(num) === normalize(word));
@@ -434,11 +429,6 @@
                     return;
                 }
                 if (calledNumbers.includes(word)) {
-                    // [블랙홀 격리 복구] 격리 기간 동안 무시되었던 단어인 경우 마킹 복원 허용
-                    if (myIgnoredNumbers.includes(word)) {
-                        socket.emit('theme word selected', { roomId: window.roomId, word });
-                        return;
-                    }
                     if (window.showToast) window.showToast("이미 선택된 단어입니다.", "warning");
                     else alert("이미 선택된 단어입니다.");
                     return;
@@ -855,12 +845,16 @@
     }
 
     function updateRerollUI() {
+        // [셔플 버튼 독립 제어] 준비 완료 상태가 아니면 셔플은 항상 사용 가능
+        if (shuffleBtn) {
+            shuffleBtn.disabled = isMyReady;
+        }
+
         if (!rerollBtn || !rerollCountDisplay) return;
         
         if (maxRerollLimit > 0 && rerollCount < maxRerollLimit) {
-            rerollBtn.disabled = false;
+            rerollBtn.disabled = isMyReady;
             rerollCountDisplay.textContent = `${rerollCount}/${maxRerollLimit}`;
-            if (shuffleBtn) shuffleBtn.disabled = false;
         } else {
             rerollBtn.disabled = true;
             rerollBtn.classList.remove('reroll-active');
@@ -1117,7 +1111,7 @@
     // 빙고 이벤트 리스너들
     eventTriggerBtn.addEventListener('click', () => {
         if (!isMyTurn || !window.useEventsGlobal) return;
-        const { count } = getBingoLines(myBoard, getActiveCalledNumbers());
+        const { count } = getBingoLines(myBoard, calledNumbers);
         const remaining = count - myUsedEventCount;
         if (remaining > 0) {
             socket.emit('trigger event', { name: window.myName });
@@ -1125,7 +1119,7 @@
     });
 
     victoryBingoBtn.addEventListener('click', () => {
-        const { count } = getBingoLines(myBoard, getActiveCalledNumbers());
+        const { count } = getBingoLines(myBoard, calledNumbers);
         if (count >= targetLines) {
             socket.emit('bingo declared', { name: window.myName });
         }
@@ -1525,6 +1519,7 @@
 
         // AI 로더 강제 정리 및 초기화
         resetAILoader();
+        stopBingoBgm();
 
         // 타이머 인터벌 해제
         if (turnTimerInterval) {
@@ -1574,6 +1569,9 @@
         bingoActionArea.style.display = 'none';
         isMyReady = false;
         readyButton.disabled = false;
+        if (shuffleBtn) {
+            shuffleBtn.disabled = false;
+        }
         readyButton.textContent = "준비 완료";
         readyButton.style.display = 'inline-block';
         readyButton.style.position = 'relative';
@@ -1659,6 +1657,13 @@
     });
 
     socket.on('start theme game', (data) => {
+        if (typeof showContainer === 'function') {
+            showContainer('bingo-container');
+        }
+        setupArea.style.display = 'none';
+        waitingArea.style.display = 'none';
+        playerUI.style.display = 'block';
+        turnDisplay.style.display = 'block';
         const gameTitleEl = document.getElementById('game-title');
         if (gameTitleEl) gameTitleEl.textContent = "빙고 게임";
         resetAILoader(); // 인게임 진입 시 AI 로더 잔상 및 타이머 클리어
@@ -1670,9 +1675,9 @@
         manualStartArea.style.display = 'none';
         targetLines = data.winLines;
         calledNumbers = [];
-        myIgnoredNumbers = [];
         myUsedEventCount = 0;
         isGameStarted = true;
+        isMyReady = true;
         renderBoard(data.board);
         bingoActionArea.style.display = 'flex';
         bingoActionArea.style.position = 'relative';
@@ -1680,24 +1685,49 @@
 
         updateBoardVisuals();
 
-        // 3초 카운트다운 연출 실행
-        if (window.playStartCountdown) {
-            window.playStartCountdown();
-        } else {
-            showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
-        }
+        // BGM 재생
+        startBingoBgm();
 
-        popupActive = true;
-        setTimeout(() => {
+        if (data.isReconnect) {
+            // 재접속 복구 시 카운트다운 연출을 건너뛰고 참여자 목록 및 턴 상태 즉시 반영
             popupActive = false;
-            // 팝업 종료 후 0.5초 뒤에 타이머 및 턴 표시 시작
+            if (window.renderBingoUsers && window.roomPlayers && window.roomPlayers.length > 0) {
+                window.renderBingoUsers(window.roomPlayers, amIHost);
+            }
+            if (pendingTurnUpdate) {
+                processTurnUpdate(pendingTurnUpdate);
+                pendingTurnUpdate = null;
+            }
+        } else {
+            // 최초 게임 시작 시 3초 카운트다운 연출 실행
+            if (window.playStartCountdown) {
+                window.playStartCountdown();
+            } else {
+                showBigEvent('🚀', '게임 시작!', `목표: ${targetLines}줄 빙고!`, 'good');
+            }
+
+            popupActive = true;
             setTimeout(() => {
-                if (pendingTurnUpdate) {
-                    processTurnUpdate(pendingTurnUpdate);
-                    pendingTurnUpdate = null;
-                }
-            }, 500);
-        }, 3000);
+                popupActive = false;
+                // 팝업 종료 후 0.5초 뒤에 타이머 및 턴 표시 시작
+                setTimeout(() => {
+                    if (pendingTurnUpdate) {
+                        processTurnUpdate(pendingTurnUpdate);
+                        pendingTurnUpdate = null;
+                    }
+                }, 500);
+            }, 3000);
+        }
+    });
+
+    socket.on('restore called words', (data) => {
+        if (data.calledNumbers && Array.isArray(data.calledNumbers)) {
+            calledNumbers = data.calledNumbers;
+        }
+        if (data.lockedWords) {
+            lockedWords = data.lockedWords;
+        }
+        updateBoardVisuals();
     });
 
     socket.on('number called', (number) => {
@@ -1724,7 +1754,7 @@
 
     socket.on('action failed', (msg) => {
         if (window.showToast) window.showToast(msg, "error");
-        updateBingoActionButtons(checkBingoLines(myBoard, getActiveCalledNumbers()));
+        updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
     });
 
     socket.on('event happened', (data) => {
@@ -1843,10 +1873,10 @@
     });
 
     socket.on('game over', (data) => {
+        stopBingoBgm();
         playEvent();
         if (turnTimerInterval) clearInterval(turnTimerInterval);
         turnTimerBar.style.display = 'none';
-        myIgnoredNumbers = [];
 
         calledNumbersDisplay.textContent = '';
         bingoBoard.innerHTML = '';
@@ -1904,7 +1934,50 @@
         if (window.showToast) window.showToast(`🚨 ${msg}`, "error");
         if (isMyTurn) {
             if (victoryBingoBtn) victoryBingoBtn.disabled = false;
-            updateBingoActionButtons(checkBingoLines(myBoard, getActiveCalledNumbers()));
+            updateBingoActionButtons(checkBingoLines(myBoard, calledNumbers));
+        }
+    });
+
+    function resetBingoToLobbyUI() {
+        stopBingoBgm();
+        if (turnTimerInterval) clearInterval(turnTimerInterval);
+        turnTimerBar.style.display = 'none';
+
+        calledNumbersDisplay.textContent = '';
+        bingoBoard.innerHTML = '';
+        if (victoryBingoBtn) victoryBingoBtn.style.display = 'none';
+        themeTitle.style.display = 'none';
+        readyButton.style.display = 'none';
+        if (saveThemeBtn) saveThemeBtn.style.display = 'none';
+        turnDisplay.style.display = 'none';
+        inputControls.style.display = 'none';
+        isGameStarted = false;
+        playerUI.style.display = 'none';
+
+        readyStatusDisplay.style.display = 'none';
+        bingoBoard.classList.remove('inactive-board');
+        bingoBoard.classList.remove('active-board');
+        currentProgressMap = {};
+        if (document.getElementById('turn-track')) {
+            document.getElementById('turn-track').style.display = 'none';
+        }
+
+        window.updateBingoRoleUI(amIHost);
+    }
+
+    // 상대방 이탈로 인한 기권승(몰수승) 수신 처리
+    socket.on('forfeit victory', (data) => {
+        resetBingoToLobbyUI();
+        playEvent();
+        if (window.showToast) {
+            window.showToast(data.reason || '상대방의 연결 종료로 기권승(몰수승) 처리되었습니다.', 'success');
+        }
+    });
+
+    // 방 모드가 lobby로 강제 복귀되었을 때 인게임 화면 정리
+    socket.on('game changed', (mode) => {
+        if (mode === 'lobby' && isGameStarted) {
+            resetBingoToLobbyUI();
         }
     });
 })();

@@ -591,7 +591,8 @@ module.exports = (io, socket, gameRooms) => {
                     finalWinner = {
                         id: pid,
                         name: room.players[pid]?.name,
-                        color: room.players[pid]?.color || '#FC944D'
+                        color: room.players[pid]?.color || '#FC944D',
+                        costume: room.players[pid]?.costume || []
                     };
                 }
             }
@@ -636,6 +637,7 @@ module.exports = (io, socket, gameRooms) => {
                 id: pid,
                 name: p.name,
                 color: p.color || '#FC944D',
+                costume: p.costume || [],
                 score: score,
                 correctCount: correctCount,
                 citizenRounds: citizenRounds,

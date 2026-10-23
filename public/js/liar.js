@@ -108,7 +108,7 @@
                     const chip = document.createElement('span');
                     chip.className = 'liar-voter-chip';
                     const vColor = v.color || '#FC944D';
-                    const vMascot = window.buildMascotSvg ? `<span style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:4px;">${window.buildMascotSvg(vColor)}</span>` : '';
+                    const vMascot = window.buildMascotSvg ? `<span style="display:inline-block;width:16px;height:16px;vertical-align:middle;margin-right:4px;">${window.buildMascotSvg(vColor, v.costume || [])}</span>` : '';
                     chip.innerHTML = `${vMascot}${v.name}`;
                     listDiv.appendChild(chip);
                 });
@@ -150,7 +150,7 @@
                 avatar.className = 'avatar';
                 const userColor = user.color || '#FC944D';
                 if (window.buildMascotSvg) {
-                    avatar.innerHTML = window.buildMascotSvg(userColor);
+                    avatar.innerHTML = window.buildMascotSvg(userColor, user.costume || []);
                 } else {
                     avatar.textContent = user.avatar || '😀';
                 }
@@ -213,7 +213,7 @@
                 }
 
                 const userColor = user.color || '#FC944D';
-                const mascotHtml = window.buildMascotSvg ? window.buildMascotSvg(userColor) : (user.avatar || '😀');
+                const mascotHtml = window.buildMascotSvg ? window.buildMascotSvg(userColor, user.costume || []) : (user.avatar || '😀');
 
                 card.innerHTML = `
                     ${dotsHtml}
@@ -942,7 +942,7 @@
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
                     ${(result.stats || []).map(s => {
-                        const mascotSvg = window.buildMascotSvg ? window.buildMascotSvg(s.color || '#FC944D') : '';
+                        const mascotSvg = window.buildMascotSvg ? window.buildMascotSvg(s.color || '#FC944D', s.costume || []) : '';
                         const isScored = s.score > 0;
                         return `
                             <div style="display:flex; align-items:center; gap:8px; padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">

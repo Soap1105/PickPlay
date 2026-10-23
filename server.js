@@ -19,6 +19,8 @@ const io = new Server(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/BGM', express.static(path.join(__dirname, 'BGM')));
+app.use('/bgm', express.static(path.join(__dirname, 'BGM')));
 app.use(express.json());
 
 // io 객체를 모든 요청(req)에 첨부하여 컨트롤러에서 접근 가능하게 설정

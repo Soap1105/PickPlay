@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="160" viewBox="0 0 256 160">
+  <title>Simple blue cap accessory</title>
+  <g stroke="#26334A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43 103 C45 59 79 25 123 22 C164 20 195 47 204 87 L207 103 Z" fill="#65B7F2"/>
+    <path d="M43 101 C76 91 143 89 194 99 C211 102 225 111 229 122 C203 137 149 143 99 135 C70 131 48 119 43 101 Z" fill="#3E8FD0"/>
+    <path d="M123 24 C126 48 126 68 123 91" fill="none" stroke="#9DD9FF" stroke-width="5"/>
+    <path d="M61 91 C89 82 139 80 174 86" fill="none" stroke="#9DD9FF" stroke-width="5"/>
+  </g>
+</svg>

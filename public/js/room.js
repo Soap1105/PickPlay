@@ -169,6 +169,11 @@ function showContainer(containerId) {
     const activeContainer = document.getElementById(containerId);
     if (activeContainer) activeContainer.classList.remove('hidden-container');
 
+    // 인게임 진입 시 열려 있는 마스코트 꾸미기 모달 강제 종료
+    if (typeof closeCustomModal === 'function' && containerId !== 'lobby-container') {
+        closeCustomModal();
+    }
+
     // 상단 메인 타이틀 (#game-title) 대기방/인게임 동적 갱신
     const gameTitleEl = document.getElementById('game-title');
     if (gameTitleEl) {
@@ -303,6 +308,9 @@ socket.on('update user list', (users) => {
         // 대기실 상태일 때는 100% 채팅 모드로 클래스 추가 및 2x4 매트릭스 렌더링
         document.body.classList.add('in-lobby');
         renderPlayerMatrix(users);
+        if (window.isLobbyCustomMode || window.isCustomModalOpen) {
+            renderCustomShowroom();
+        }
     }
 });
 
@@ -432,24 +440,25 @@ socket.on('game changed', (newGameType) => {
         if (stageSelection) stageSelection.style.display = 'none';
         if (stageWaiting) stageWaiting.style.display = 'flex';
 
-        // 대기실 헤더 텍스트 변경
+        // 대기실 헤더 텍스트 변경 (이모지 대신 공식 마스코트 아이콘 40px 적용)
         const waitingTitleEl = document.getElementById('waiting-game-title');
+        const iconStyle = 'width:40px; height:40px; object-fit:contain; vertical-align:middle; margin-right:10px;';
         if (newGameType === 'bingo') {
             stylesheetLink.href = "/css/bingo.css";
             document.getElementById('game-title').textContent = "빙고 게임 대기방";
-            if (waitingTitleEl) waitingTitleEl.innerHTML = `🎯 빙고 게임 대기방`;
+            if (waitingTitleEl) waitingTitleEl.innerHTML = `<img src="/images/PickBingo1.png" alt="빙고" style="${iconStyle}" /> 빙고 게임 대기방`;
             gameContainer.classList.add('game-active-bingo');
             if (window.initBingoUI) window.initBingoUI(isHost);
         } else if (newGameType === 'liar') {
             stylesheetLink.href = "/css/liar.css";
             document.getElementById('game-title').textContent = "라이어 게임 대기방";
-            if (waitingTitleEl) waitingTitleEl.innerHTML = `🕵️ 라이어 게임 대기방`;
+            if (waitingTitleEl) waitingTitleEl.innerHTML = `<img src="/images/PickLiar1.png" alt="라이어" style="${iconStyle}" /> 라이어 게임 대기방`;
             gameContainer.classList.add('game-active-liar');
             if (window.initLiarUI) window.initLiarUI(isHost);
         } else if (newGameType === 'bomb') {
             stylesheetLink.href = "";
             document.getElementById('game-title').textContent = "폭탄 돌리기 게임 대기방";
-            if (waitingTitleEl) waitingTitleEl.innerHTML = `💣 폭탄 돌리기 게임 대기방`;
+            if (waitingTitleEl) waitingTitleEl.innerHTML = `<img src="/images/PickBomb1.png" alt="폭탄" style="${iconStyle}" /> 폭탄 돌리기 게임 대기방`;
             gameContainer.classList.add('game-active-bomb');
             if (window.initBombUI) window.initBombUI(isHost);
         }
@@ -473,7 +482,76 @@ let latestSettings = {
 // 8칸 플레이어 매트릭스 동적 렌더링 함수
 const MASCOT_COLOR_PRESETS = ['#FC944D','#55B4E0','#50C9A0','#A78BFA','#F472B6','#F87171','#FBBF24','#4ADE80'];
 
-function buildMascotSvg(color) {
+// 마스코트 파츠/코스튬 에셋 사전 (언제든 자유롭게 파츠 추가 가능)
+const MASCOT_ITEMS = {
+    'cap_blue': {
+        name: '파란 캡모자',
+        category: 'head',
+        svg: `<svg x="441" y="134" width="371" height="232" viewBox="0 0 256 160">
+                <g stroke="#26334A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M43 103 C45 59 79 25 123 22 C164 20 195 47 204 87 L207 103 Z" fill="#65B7F2"/>
+                    <path d="M43 101 C76 91 143 89 194 99 C211 102 225 111 229 122 C203 137 149 143 99 135 C70 131 48 119 43 101 Z" fill="#3E8FD0"/>
+                    <path d="M123 24 C126 48 126 68 123 91" fill="none" stroke="#9DD9FF" stroke-width="5"/>
+                    <path d="M61 91 C89 82 139 80 174 86" fill="none" stroke="#9DD9FF" stroke-width="5"/>
+                </g>
+              </svg>`,
+        previewSvg: `<svg viewBox="0 0 256 160" style="width:100%;height:100%;">
+                        <g stroke="#26334A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M43 103 C45 59 79 25 123 22 C164 20 195 47 204 87 L207 103 Z" fill="#65B7F2"/>
+                            <path d="M43 101 C76 91 143 89 194 99 C211 102 225 111 229 122 C203 137 149 143 99 135 C70 131 48 119 43 101 Z" fill="#3E8FD0"/>
+                            <path d="M123 24 C126 48 126 68 123 91" fill="none" stroke="#9DD9FF" stroke-width="5"/>
+                            <path d="M61 91 C89 82 139 80 174 86" fill="none" stroke="#9DD9FF" stroke-width="5"/>
+                        </g>
+                     </svg>`
+    },
+    'hat_party': {
+        name: '파티 모자',
+        category: 'head',
+        svg: `<polygon points="627,120 540,320 714,320" fill="#FF5252" stroke="#4A1715" stroke-width="12" stroke-linejoin="round"/>
+              <circle cx="627" cy="115" r="22" fill="#FFD700" stroke="#4A1715" stroke-width="10"/>
+              <circle cx="590" cy="240" r="14" fill="#FFEB3B"/>
+              <circle cx="650" cy="270" r="16" fill="#40C4FF"/>`,
+        previewSvg: `<svg viewBox="500 90 254 240" style="width:100%;height:100%;">
+                        <polygon points="627,120 540,320 714,320" fill="#FF5252" stroke="#4A1715" stroke-width="12" stroke-linejoin="round"/>
+                        <circle cx="627" cy="115" r="22" fill="#FFD700" stroke="#4A1715" stroke-width="10"/>
+                        <circle cx="590" cy="240" r="14" fill="#FFEB3B"/>
+                        <circle cx="650" cy="270" r="16" fill="#40C4FF"/>
+                     </svg>`
+    },
+    'hat_crown': {
+        name: '왕관',
+        category: 'head',
+        svg: `<path d="M 520,310 L 520,200 L 573,260 L 627,170 L 681,260 L 734,200 L 734,310 Z" fill="#FFD700" stroke="#4A1715" stroke-width="12" stroke-linejoin="round"/>
+              <circle cx="520" cy="190" r="12" fill="#E91E63"/>
+              <circle cx="627" cy="160" r="14" fill="#2196F3"/>
+              <circle cx="734" cy="190" r="12" fill="#4CAF50"/>`,
+        previewSvg: `<svg viewBox="500 150 254 170" style="width:100%;height:100%;">
+                        <path d="M 520,310 L 520,200 L 573,260 L 627,170 L 681,260 L 734,200 L 734,310 Z" fill="#FFD700" stroke="#4A1715" stroke-width="12" stroke-linejoin="round"/>
+                        <circle cx="520" cy="190" r="12" fill="#E91E63"/>
+                        <circle cx="627" cy="160" r="14" fill="#2196F3"/>
+                        <circle cx="734" cy="190" r="12" fill="#4CAF50"/>
+                     </svg>`
+    },
+    'glasses_pixel': {
+        name: '선글라스',
+        category: 'eyes',
+        svg: `<path d="M 400,560 H 530 V 620 H 400 Z M 720,560 H 850 V 620 H 720 Z M 530,580 H 720 V 600 H 530 Z" fill="#212121" stroke="#4A1715" stroke-width="8"/>
+              <path d="M 420,575 H 450 V 585 H 420 Z M 740,575 H 770 V 585 H 740 Z" fill="#FFFFFF"/>`,
+        previewSvg: `<svg viewBox="380 540 490 100" style="width:100%;height:100%;">
+                        <path d="M 400,560 H 530 V 620 H 400 Z M 720,560 H 850 V 620 H 720 Z M 530,580 H 720 V 600 H 530 Z" fill="#212121" stroke="#4A1715" stroke-width="8"/>
+                        <path d="M 420,575 H 450 V 585 H 420 Z M 740,575 H 770 V 585 H 740 Z" fill="#FFFFFF"/>
+                     </svg>`
+    }
+};
+window.MASCOT_ITEMS = MASCOT_ITEMS;
+
+function buildMascotSvg(color, costume = []) {
+    const costumeItems = Array.isArray(costume) ? costume : [];
+    const itemSvgParts = costumeItems
+        .map(itemId => MASCOT_ITEMS[itemId]?.svg || '')
+        .filter(Boolean)
+        .join('');
+
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" style="width:100%;height:100%;">
         <g>
             <path fill="${color}" style="stroke:#4A1715;stroke-width:12;stroke-linejoin:round;stroke-linecap:round;"
@@ -491,6 +569,7 @@ function buildMascotSvg(color) {
             </g>
             <path d="M 634,639 599,647 583,656 566,673 577,707 592,731 615,750 639,755 661,746 677,728 690,698 695,661 672,646 Z"
                   fill="#F7B4C1" style="stroke:#4A1715;stroke-width:12;stroke-linejoin:round;"/>
+            ${itemSvgParts ? `<g id="customization-layer">${itemSvgParts}</g>` : ''}
         </g>
     </svg>`;
 }
@@ -523,6 +602,9 @@ function renderPlayerMatrix(users) {
             if (user.confirmedResult === false) {
                 badgeClass = 'badge-unconfirmed';
                 badgeText = '결과 확인 중';
+            } else if (user.isCustomizing) {
+                badgeClass = 'badge-customizing';
+                badgeText = '코디 중';
             } else {
                 badgeClass = isReady ? 'badge-ready' : 'badge-waiting';
                 badgeText = isUserHost ? '방장' : (isReady ? '준비 완료' : '대기 중...');
@@ -530,27 +612,12 @@ function renderPlayerMatrix(users) {
 
             let kickHtml = (isHost && !isMe) ? `<div class="slot-kick-btn" onclick="window.confirmKick('${user.id}', '${user.name.replace(/'/g, "\\'")}')">✕</div>` : '';
 
-            // 본인 카드에만 색 변경 팔레트 표시
-            let paletteHtml = '';
-            if (isMe) {
-                const swatches = MASCOT_COLOR_PRESETS.map(c => {
-                    const isTakenByOther = usedColors.has(c) && c !== userColor;
-                    const isSelected = c === userColor;
-                    const takenClass = isTakenByOther ? 'swatch-taken' : '';
-                    const selectedClass = isSelected ? 'swatch-selected' : '';
-                    const onclick = isTakenByOther ? '' : `window.changeMyColor('${c}')`;
-                    return `<button class="matrix-swatch ${takenClass} ${selectedClass}" style="background:${c}" title="${c}" ${isTakenByOther ? 'disabled' : `onclick="${onclick}"`}></button>`;
-                }).join('');
-                paletteHtml = `<div class="matrix-palette">${swatches}</div>`;
-            }
-
             html += `
                 <div class="player-slot ${isMe ? 'is-me' : ''}" style="--slot-color: ${userColor};">
                     ${crownHtml}
-                    <div class="avatar-wrap" style="${borderStyle}">${buildMascotSvg(userColor)}</div>
+                    <div class="avatar-wrap" style="${borderStyle}">${buildMascotSvg(userColor, user.costume || [])}</div>
                     <div class="player-name">${user.name}${isMe ? ' (나)' : ''}</div>
                     <span class="player-badge ${badgeClass}">${badgeText}</span>
-                    ${paletteHtml}
                     ${kickHtml}
                 </div>
             `;
@@ -566,35 +633,33 @@ function renderPlayerMatrix(users) {
     if (lobbyCount) lobbyCount.textContent = countText;
     if (waitingCount) waitingCount.textContent = countText;
 
-    // 커스텀 쇼룸이 열려 있다면 팔레트 상태 동기화
-    if (window.isLobbyCustomMode) {
+    // 커스텀 모달이 열려 있다면 팔레트 상태 동기화
+    if (window.isCustomModalOpen) {
         renderCustomShowroom();
     }
 }
 
 // =============================================
-//  로비 마스코트 커스텀 쇼룸 엔진
+//  통합 마스코트 커스텀 모달 엔진
 // =============================================
-window.isLobbyCustomMode = false;
+window.isCustomModalOpen = false;
 
 function renderCustomShowroom() {
-    const avatarStage = document.getElementById('lobby-custom-avatar-stage');
-    const paletteRow = document.getElementById('lobby-custom-palette-row');
-    if (!avatarStage || !paletteRow) return;
-
-    // 현재 본인 색상 탐색
+    // 현재 본인 색상 및 코스튬 탐색
     const users = window.roomPlayers || [];
     const me = users.find(u => u.id === socket.id);
     const myColor = (me && me.color) ? me.color : (localStorage.getItem('pp_color') || '#FC944D');
+    let myCostume = [];
+    if (me && Array.isArray(me.costume)) {
+        myCostume = me.costume;
+    } else {
+        try { myCostume = JSON.parse(localStorage.getItem('pp_costume') || '[]'); } catch(e) {}
+    }
 
-    // 마스코트 아바타 갱신
-    avatarStage.innerHTML = buildMascotSvg(myColor);
-
-    // 사용 중인 색상 집합
+    const mascotSvg = buildMascotSvg(myColor, myCostume);
     const usedColors = new Set(users.map(u => u.color).filter(Boolean));
 
-    // 팔레트 버튼 생성
-    paletteRow.innerHTML = MASCOT_COLOR_PRESETS.map(c => {
+    const paletteHtml = MASCOT_COLOR_PRESETS.map(c => {
         const isTakenByOther = usedColors.has(c) && c !== myColor;
         const isSelected = c === myColor;
         const takenClass = isTakenByOther ? 'swatch-taken' : '';
@@ -602,41 +667,190 @@ function renderCustomShowroom() {
         const onclick = isTakenByOther ? '' : `window.changeMyColor('${c}')`;
         return `<button class="showroom-swatch ${takenClass} ${selectedClass}" style="background:${c}" title="${c}" ${isTakenByOther ? 'disabled' : `onclick="${onclick}"`}></button>`;
     }).join('');
+
+    // 머리/얼굴 소품(코스튬) 그리드 렌더링
+    const headGrid = document.getElementById('custom-modal-costume-grid-head');
+    const eyesGrid = document.getElementById('custom-modal-costume-grid-eyes');
+
+    if (headGrid) {
+        const isHeadNone = !myCostume.some(id => MASCOT_ITEMS[id]?.category === 'head');
+        let headHtml = `
+            <div class="costume-item-card ${isHeadNone ? 'selected' : ''}" onclick="window.toggleCostumeItem('none_head')">
+                <div class="costume-item-icon-box" style="font-size: 1.15rem; color: var(--text-dim);">✕</div>
+                <div class="costume-item-name">미착용</div>
+            </div>
+        `;
+        Object.keys(MASCOT_ITEMS).filter(id => MASCOT_ITEMS[id].category === 'head').forEach(itemId => {
+            const item = MASCOT_ITEMS[itemId];
+            const isEquipped = myCostume.includes(itemId);
+            headHtml += `
+                <div class="costume-item-card ${isEquipped ? 'selected' : ''}" onclick="window.toggleCostumeItem('${itemId}')">
+                    <div class="costume-item-icon-box">${item.previewSvg || ''}</div>
+                    <div class="costume-item-name">${item.name}</div>
+                </div>
+            `;
+        });
+        headGrid.innerHTML = headHtml;
+    }
+
+    if (eyesGrid) {
+        const isEyesNone = !myCostume.some(id => MASCOT_ITEMS[id]?.category === 'eyes');
+        let eyesHtml = `
+            <div class="costume-item-card ${isEyesNone ? 'selected' : ''}" onclick="window.toggleCostumeItem('none_eyes')">
+                <div class="costume-item-icon-box" style="font-size: 1.15rem; color: var(--text-dim);">✕</div>
+                <div class="costume-item-name">미착용</div>
+            </div>
+        `;
+        Object.keys(MASCOT_ITEMS).filter(id => MASCOT_ITEMS[id].category === 'eyes').forEach(itemId => {
+            const item = MASCOT_ITEMS[itemId];
+            const isEquipped = myCostume.includes(itemId);
+            eyesHtml += `
+                <div class="costume-item-card ${isEquipped ? 'selected' : ''}" onclick="window.toggleCostumeItem('${itemId}')">
+                    <div class="costume-item-icon-box">${item.previewSvg || ''}</div>
+                    <div class="costume-item-name">${item.name}</div>
+                </div>
+            `;
+        });
+        eyesGrid.innerHTML = eyesHtml;
+    }
+
+    // 모달 팝업 쇼룸 갱신
+    const modalAvatar = document.getElementById('custom-modal-avatar-stage');
+    const modalPalette = document.getElementById('custom-modal-palette-row');
+    if (modalAvatar) modalAvatar.innerHTML = mascotSvg;
+    if (modalPalette) modalPalette.innerHTML = paletteHtml;
 }
 window.renderCustomShowroom = renderCustomShowroom;
+
+// 쇼룸 탭 전환 함수
+window.switchShowroomTab = function(tab) {
+    const colorPanel = document.getElementById('showroom-panel-color');
+    const costumePanel = document.getElementById('showroom-panel-costume');
+    const colorBtn = document.getElementById('tab-btn-color');
+    const costumeBtn = document.getElementById('tab-btn-costume');
+
+    if (tab === 'color') {
+        if (colorPanel) colorPanel.style.display = 'block';
+        if (costumePanel) costumePanel.style.display = 'none';
+        if (colorBtn) colorBtn.classList.add('active');
+        if (costumeBtn) costumeBtn.classList.remove('active');
+    } else {
+        if (colorPanel) colorPanel.style.display = 'none';
+        if (costumePanel) costumePanel.style.display = 'block';
+        if (colorBtn) colorBtn.classList.remove('active');
+        if (costumeBtn) costumeBtn.classList.add('active');
+    }
+};
+
+// 소품(코스튬) 토글 장착/해제 함수
+window.toggleCostumeItem = function(itemId) {
+    const users = window.roomPlayers || [];
+    const me = users.find(u => u.id === socket.id);
+    let currentCostume = [];
+    if (me && Array.isArray(me.costume)) {
+        currentCostume = [...me.costume];
+    } else {
+        try { currentCostume = JSON.parse(localStorage.getItem('pp_costume') || '[]'); } catch(e) {}
+    }
+
+    if (itemId === 'none') {
+        window.changeMyCostume([]);
+        return;
+    }
+    if (itemId === 'none_head') {
+        currentCostume = currentCostume.filter(id => MASCOT_ITEMS[id]?.category !== 'head');
+        window.changeMyCostume(currentCostume);
+        return;
+    }
+    if (itemId === 'none_eyes') {
+        currentCostume = currentCostume.filter(id => MASCOT_ITEMS[id]?.category !== 'eyes');
+        window.changeMyCostume(currentCostume);
+        return;
+    }
+
+    const targetItem = MASCOT_ITEMS[itemId];
+    if (!targetItem) return;
+
+    if (currentCostume.includes(itemId)) {
+        // 이미 착용 중이면 해제
+        currentCostume = currentCostume.filter(id => id !== itemId);
+    } else {
+        // 같은 카테고리 아이템이 있다면 교체 (예: 모자 -> 다른 모자)
+        currentCostume = currentCostume.filter(id => {
+            const it = MASCOT_ITEMS[id];
+            return !it || it.category !== targetItem.category;
+        });
+        currentCostume.push(itemId);
+    }
+    window.changeMyCostume(currentCostume);
+};
 
 // 색상 변경 함수 (본인 카드 팔레트 및 쇼룸에서 호출)
 window.changeMyColor = function(newColor) {
     localStorage.setItem('pp_color', newColor);
     socket.emit('change color', newColor);
-    if (window.isLobbyCustomMode) {
-        renderCustomShowroom();
-    }
+    renderCustomShowroom();
 };
 
-// 쇼룸 토글 버튼 바인딩
-(function initLobbyCustomToggle() {
-    const toggleBtn = document.getElementById('lobby-custom-toggle-btn');
-    const toggleText = document.getElementById('lobby-custom-toggle-text');
-    const cardsCol = document.getElementById('lobby-banner-cards-column');
-    const showroom = document.getElementById('lobby-custom-showroom');
+// 코스튬 변경 함수 (쇼룸 파츠 선택 시 호출)
+window.changeMyCostume = function(newCostume) {
+    if (!Array.isArray(newCostume)) return;
+    try {
+        localStorage.setItem('pp_costume', JSON.stringify(newCostume));
+    } catch(e) {}
+    socket.emit('change costume', newCostume);
+    renderCustomShowroom();
+};
 
-    if (!toggleBtn) return;
+// 마스코트 꾸미기 모달 제어 함수
+function openCustomModal() {
+    const modal = document.getElementById('custom-showroom-modal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    window.isCustomModalOpen = true;
+    socket.emit('set customizing status', true);
+    renderCustomShowroom();
+}
 
-    toggleBtn.addEventListener('click', () => {
-        window.isLobbyCustomMode = !window.isLobbyCustomMode;
+function closeCustomModal() {
+    const modal = document.getElementById('custom-showroom-modal');
+    if (!modal) return;
+    if (modal.style.display === 'block') {
+        modal.style.display = 'none';
+        window.isCustomModalOpen = false;
+        socket.emit('set customizing status', false);
+    }
+}
+window.openCustomModal = openCustomModal;
+window.closeCustomModal = closeCustomModal;
 
-        if (window.isLobbyCustomMode) {
-            if (cardsCol) cardsCol.style.display = 'none';
-            if (showroom) showroom.style.display = 'flex';
-            if (toggleText) toggleText.textContent = '게임 목록 보기';
-            renderCustomShowroom();
-        } else {
-            if (cardsCol) cardsCol.style.display = 'flex';
-            if (showroom) showroom.style.display = 'none';
-            if (toggleText) toggleText.textContent = '내 캐릭터 꾸미기';
-        }
-    });
+// 대기실 및 게임 대기방 [내 캐릭터 꾸미기] 버튼 통합 이벤트 바인딩
+(function initCustomModalEvents() {
+    const lobbyBtn = document.getElementById('lobby-custom-toggle-btn');
+    const waitingBtn = document.getElementById('waiting-custom-toggle-btn');
+    const closeX = document.getElementById('custom-modal-close-x');
+    const doneBtn = document.getElementById('custom-modal-done-btn');
+    const modal = document.getElementById('custom-showroom-modal');
+
+    if (lobbyBtn) {
+        lobbyBtn.addEventListener('click', openCustomModal);
+    }
+    if (waitingBtn) {
+        waitingBtn.addEventListener('click', openCustomModal);
+    }
+    if (closeX) {
+        closeX.addEventListener('click', closeCustomModal);
+    }
+    if (doneBtn) {
+        doneBtn.addEventListener('click', closeCustomModal);
+    }
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeCustomModal();
+            }
+        });
+    }
 })();
 
 // 설정 실시간 수신 핸들러 등록
