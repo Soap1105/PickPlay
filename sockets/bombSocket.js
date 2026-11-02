@@ -11,6 +11,38 @@ try {
     bombWordsData = [{ category: '기본 과일', words: ['사과', '바나나', '포도'] }];
 }
 
+// 폭탄 길이 프리셋: 첫 라운드 범위와 하한(초). 라운드마다 BOMB_TIMER_DECAY 비율로 감소
+const BOMB_TIMER_PRESETS = {
+    short:  { min: 15, max: 30, floor: 8 },
+    medium: { min: 25, max: 45, floor: 10 },
+    long:   { min: 40, max: 65, floor: 12 }
+};
+const BOMB_TIMER_DECAY = 0.9;
+const BOMB_FLOOR_SPREAD = 4; // 하한 도달 후에도 폭발 시점을 예측할 수 없도록 유지하는 무작위 폭(초)
+const BOMB_SUPER_MIN_PLAYERS = 5; // 슈퍼 폭탄(하트 -2) 시스템은 5인 이상 방에서만 가동
+
+function computeBombDuration(range, round) {
+    const preset = BOMB_TIMER_PRESETS[range] || BOMB_TIMER_PRESETS.medium;
+    const decay = Math.pow(BOMB_TIMER_DECAY, Math.max(0, round - 1));
+    const lo = Math.max(preset.floor, Math.round(preset.min * decay));
+    const hi = Math.max(lo + BOMB_FLOOR_SPREAD, Math.round(preset.max * decay));
+    return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+// 5인 이상: 3, 6, 9, 12R 및 13R+ 상시 슈퍼 폭탄 (하트 -2). 2~4인은 항상 일반 폭탄
+function getSuperBombInfo(initialCount, roundCount) {
+    if ((initialCount || 0) < BOMB_SUPER_MIN_PLAYERS) {
+        return { isSuper: false, isIntro: false, damage: 1 };
+    }
+    if (roundCount >= 13) {
+        return { isSuper: true, isIntro: (roundCount === 13), damage: 2 };
+    }
+    if (roundCount % 3 === 0) {
+        return { isSuper: true, isIntro: true, damage: 2 };
+    }
+    return { isSuper: false, isIntro: false, damage: 1 };
+}
+
 module.exports = (io, socket, gameRooms) => {
     
     // 타이머 헬퍼 함수
@@ -20,10 +52,13 @@ module.exports = (io, socket, gameRooms) => {
 
         clearBombTimer(roomId);
 
+        room.bombGame.maxTime = durationSec;
         room.bombGame.timeLeft = durationSec;
+        room.bombGame.passHoldUntil = 0;
         
         io.to(roomId).emit('bomb timer tick', { 
             timeLeft: room.bombGame.timeLeft,
+            maxTime: room.bombGame.maxTime,
             showTimer: room.bombGameConfig.showTimer
         });
 
@@ -39,11 +74,15 @@ module.exports = (io, socket, gameRooms) => {
                 return;
             }
 
+            // 폭탄 패스 직후 정지 구간에는 시간을 차감하지 않음 (타이머 위상은 유지하여 연속 패스로 도화선이 멈추는 악용 방지)
+            if (Date.now() < (room.bombGame.passHoldUntil || 0)) return;
+
             room.bombGame.timeLeft--;
             
             if (room.bombGame.timeLeft > 0) {
                 io.to(roomId).emit('bomb timer tick', { 
                     timeLeft: room.bombGame.timeLeft,
+                    maxTime: room.bombGame.maxTime || durationSec,
                     showTimer: room.bombGameConfig.showTimer
                 });
             } else {
@@ -76,6 +115,7 @@ module.exports = (io, socket, gameRooms) => {
         const room = gameRooms[roomId];
         if (!room) return;
         if (room.nextRoundTimeout) {
+            clearTimeout(room.nextRoundTimeout);
             clearInterval(room.nextRoundTimeout);
             room.nextRoundTimeout = null;
         }
@@ -89,12 +129,16 @@ module.exports = (io, socket, gameRooms) => {
         const loserId = room.bombGame.currentTurnId;
         const loserName = room.players[loserId]?.name || "알 수 없음";
         
-        // 하트 차감
+        const curRound = room.bombGame.roundCount || 1;
+        // 하트 차감 (슈퍼 폭탄 라운드에는 2개)
+        const superInfo = getSuperBombInfo(room.bombGame.initialPlayerCount, curRound);
+        const damage = superInfo.damage;
         if (room.bombGame.hearts[loserId] > 0) {
-            room.bombGame.hearts[loserId]--;
+            const actualDamage = Math.min(damage, room.bombGame.hearts[loserId]);
+            room.bombGame.hearts[loserId] -= actualDamage;
         }
 
-        console.log(`[Bomb] Exploded! Loser: ${loserName}(${loserId}). Remaining Hearts: ${room.bombGame.hearts[loserId]}`);
+        console.log(`[Bomb] Exploded! Loser: ${loserName}(${loserId}). Damage: ${damage}. Remaining Hearts: ${room.bombGame.hearts[loserId]}`);
 
         // 남은 단어 중 하나를 랜덤으로 공개
         const remainingWords = room.bombGame.wordPool.filter(w => !room.bombGame.usedWords.includes(w));
@@ -107,7 +151,6 @@ module.exports = (io, socket, gameRooms) => {
         let finalWinner = null;
         let isGameOver = false;
 
-        const curRound = room.bombGame.roundCount || 1;
         const isEliminated = room.bombGame.hearts[loserId] <= 0;
         if (!room.bombGame.history) room.bombGame.history = [];
         if (!room.bombGame.eliminatedRound) room.bombGame.eliminatedRound = {};
@@ -145,6 +188,20 @@ module.exports = (io, socket, gameRooms) => {
             maxHearts: room.bombGameConfig.maxHearts
         });
 
+        const payload = {
+            loserId: loserId,
+            loserName: loserName,
+            victimHearts: room.bombGame.hearts[loserId],
+            damage: damage,
+            message: isGameOver
+                ? (finalWinner
+                    ? `${loserName} 님의 손에서 폭탄이 터졌습니다. 최종 우승: ${finalWinner.name}`
+                    : `${loserName} 님의 손에서 폭탄이 터졌습니다. 전원 탈락으로 무승부입니다.`)
+                : `${loserName} 님의 손에서 폭탄이 터졌습니다. (남은 하트: ${room.bombGame.hearts[loserId]}개)`,
+            isGameOver: isGameOver,
+            revealWord: revealWord
+        };
+
         if (isGameOver) {
             room.status = 'WAITING';
             
@@ -179,18 +236,11 @@ module.exports = (io, socket, gameRooms) => {
                 return b.passCount - a.passCount;
             });
 
-            io.to(roomId).emit('bomb exploded', {
-                loserId: loserId,
-                loserName: loserName,
-                message: finalWinner 
-                    ? `💥 퍼엉! ${loserName}님이 터졌습니다! 🏆 최종 우승: ${finalWinner.name}!` 
-                    : `💥 퍼엉! ${loserName}님이 터졌습니다! 🛑 전원 탈락으로 무승부입니다.`,
-                isGameOver: true,
-                winner: finalWinner,
-                stats: stats,
-                history: room.bombGame.history,
-                revealWord: revealWord
-            });
+            payload.winner = finalWinner;
+            payload.stats = stats;
+            payload.history = room.bombGame.history;
+            room.bombGame.lastExplosionData = payload;
+            io.to(roomId).emit('bomb exploded', payload);
         } else {
             room.status = 'ROUND_OVER';
             if (room.bombGame.roundCount) {
@@ -198,31 +248,16 @@ module.exports = (io, socket, gameRooms) => {
             } else {
                 room.bombGame.roundCount = 2;
             }
-            io.to(roomId).emit('bomb exploded', {
-                loserId: loserId,
-                loserName: loserName,
-                message: `💥 퍼엉! ${loserName}님의 하트가 깎였습니다! (남은 하트: ${room.bombGame.hearts[loserId]}개)`,
-                isGameOver: false,
-                revealWord: revealWord
-            });
+            room.bombGame.lastExplosionData = payload;
+            io.to(roomId).emit('bomb exploded', payload);
 
-            // 5초 후 자동 다음 라운드
-            let countdown = 5;
-            const countdownInterval = setInterval(() => {
+            // 3초 후 자동 다음 라운드 (불필요한 카운트다운 브로드캐스트 생략)
+            const nextRoundTimer = setTimeout(() => {
                 const currentRoom = gameRooms[roomId];
-                if (!currentRoom || currentRoom.status !== 'ROUND_OVER') {
-                    clearInterval(countdownInterval);
-                    return;
-                }
-                countdown--;
-                if (countdown > 0) {
-                    io.to(roomId).emit('bomb next round countdown', countdown);
-                } else {
-                    clearInterval(countdownInterval);
-                    startNewRound(roomId);
-                }
-            }, 1000);
-            room.nextRoundTimeout = countdownInterval;
+                if (!currentRoom || currentRoom.status !== 'ROUND_OVER') return;
+                startNewRound(roomId);
+            }, 3000);
+            room.nextRoundTimeout = nextRoundTimer;
         }
     }
 
@@ -235,6 +270,10 @@ module.exports = (io, socket, gameRooms) => {
     socket.on('setup bomb game', (data) => {
         const room = gameRooms[socket.roomId];
         if (!room || room.hostId !== socket.id) return;
+
+        room.explodeBombRef = explodeBomb;
+        room.startNewRoundRef = startNewRound;
+        room.clearBombTimerRef = clearBombTimer;
 
         // 결과 확인 중인 플레이어가 있는 경우 시작 차단
         const unconfirmed = Object.values(room.players).filter(p => p.confirmedResult === false);
@@ -253,7 +292,6 @@ module.exports = (io, socket, gameRooms) => {
         // 설정 저장
         room.bombGameConfig = {
             maxHearts: parseInt(data.hearts) || 3,
-            subMode: data.subMode || 'random', // 'random', 'tactical'
             showTimer: data.showTimer !== undefined ? data.showTimer : true,
             timerRange: data.timerRange || 'medium',
             selectedCategories: data.selectedCategories || []
@@ -267,7 +305,8 @@ module.exports = (io, socket, gameRooms) => {
             passCounts: {},
             eliminatedRound: {},
             roundTurns: 0,
-            history: []
+            history: [],
+            initialPlayerCount: players.length
         };
         players.forEach(pid => {
             room.bombGame.hearts[pid] = room.bombGameConfig.maxHearts;
@@ -297,9 +336,11 @@ module.exports = (io, socket, gameRooms) => {
         // 라운드 데이터 초기화
         room.status = 'playing';
         room.bombGame.usedWords = [];
+        room.bombGame.wordsExhausted = false;
+        room.bombGame.lastWordsByPlayer = {};
+        room.bombGame.lastPassedWord = null;
         room.bombGame.roundTurns = 0;
         room.bombGame.lastSuccessPId = null; 
-        room.bombGame.lastSenderId = null; // 반사 기능을 위해 추가
         
         // 카테고리 결정
         let targetPool = bombWordsData;
@@ -322,42 +363,53 @@ module.exports = (io, socket, gameRooms) => {
         room.bombGame.currentTurnId = players[Math.floor(Math.random() * players.length)];
         room.bombGame.turnStartTime = Date.now();
 
-        // 타이머 범위 설정 (short, medium, long)
-        let min = 30, max = 55;
-        const range = room.bombGameConfig.timerRange;
-        if (range === 'short') { min = 15; max = 30; }
-        else if (range === 'long') { min = 50; max = 80; }
-        else { min = 30; max = 55; }
-        
-        // 라운드가 진행될수록 제한 시간이 줄어들도록 5초씩 패널티 적용 (최소 12초 보장)
         const round = room.bombGame.roundCount || 1;
-        const penalty = (round - 1) * 5;
-        const randomDuration = Math.max(12, Math.floor(Math.random() * (max - min + 1)) + min - penalty);
-        
-        console.log(`[Bomb] Round ${round} started. Timer range: ${min}~${max}s (penalty: -${penalty}s). Resulting duration: ${randomDuration}s.`);
+        const randomDuration = computeBombDuration(room.bombGameConfig.timerRange, round);
+        const superInfo = getSuperBombInfo(room.bombGame.initialPlayerCount, round);
+        room.bombGame.isSuperBomb = superInfo.isSuper;
+
+        console.log(`[Bomb] Round ${round} started. Range: ${room.bombGameConfig.timerRange}. Duration: ${randomDuration}s. SuperBomb: ${superInfo.isSuper} (intro: ${superInfo.isIntro})`);
+
+        room.bombGame.maxTime = randomDuration;
+        room.bombGame.timeLeft = randomDuration;
+
+        // 생존자 수에 따른 록온+곡사포 연출 지속 시간 계산 (1R 및 6인 이상: 3.6초 / 4~5인: 3.0초 / 2~3인: 2.4초)
+        let rouletteDuration = 3600;
+        if (round !== 1) {
+            if (players.length < 4) {
+                rouletteDuration = 2400;
+            } else if (players.length < 6) {
+                rouletteDuration = 3000;
+            }
+        }
+
+        const totalDelay = superInfo.isIntro ? (2000 + rouletteDuration) : rouletteDuration;
 
         io.to(roomId).emit('bomb round started', {
             category: room.bombGame.category,
             currentTurnId: room.bombGame.currentTurnId,
             showTimer: room.bombGameConfig.showTimer,
-            subMode: room.bombGameConfig.subMode,
-            roundCount: round
+            roundCount: round,
+            isSuperBomb: superInfo.isSuper,
+            isSuperIntro: superInfo.isIntro,
+            rouletteDuration: rouletteDuration,
+            maxTime: randomDuration,
+            timeLeft: randomDuration,
+            hearts: room.bombGame.hearts,
+            maxHearts: room.bombGameConfig.maxHearts
         });
 
-        if (round === 1) {
-            // 1라운드 최초 시작 시 클라이언트 3초 카운트다운(약 3.2초) 완료 후 타이머 가동
-            room.bombGame.startDelayTimeout = setTimeout(() => {
-                const currentRoom = gameRooms[roomId];
-                if (!currentRoom || currentRoom.status !== 'playing' || !currentRoom.bombGame) return;
-                currentRoom.bombGame.startDelayTimeout = null;
-                startBombTimer(roomId, randomDuration);
-                startTurnTimeout(roomId);
-            }, 3200);
-        } else {
-            // 2라운드 이후는 카운트다운이 없으므로 즉시 가동
+        // 룰렛 연출(및 슈퍼 폭탄 인트로) 동안 서버 타이머 일시 락 및 동기화 시작
+        room.bombGame.isCountingDown = true;
+        room.bombGame.startDelayTimeout = setTimeout(() => {
+            const currentRoom = gameRooms[roomId];
+            if (!currentRoom || currentRoom.status !== 'playing' || !currentRoom.bombGame) return;
+            currentRoom.bombGame.startDelayTimeout = null;
+            currentRoom.bombGame.isCountingDown = false;
+            currentRoom.bombGame.turnStartTime = Date.now();
             startBombTimer(roomId, randomDuration);
             startTurnTimeout(roomId);
-        }
+        }, totalDelay);
     }
 
     function startTurnTimeout(roomId) {
@@ -377,26 +429,30 @@ module.exports = (io, socket, gameRooms) => {
         }, 15000);
     }
 
+    // 실시간 타이핑 중계 (방식 A: 관전 연출용이므로 카운트다운 락에 의해 패킷이 드랍되지 않도록 완화)
+    socket.on('bomb typing', (rawText) => {
+        const room = gameRooms[socket.roomId];
+        if (!room || room.status !== 'playing' || !room.bombGame) return;
+        // 현재 차례가 아닌 유저의 스팸만 차단
+        if (room.bombGame.currentTurnId !== socket.id) return;
+
+        const cleanText = String(rawText || '').slice(0, 15);
+        socket.to(socket.roomId).emit('bomb typing update', {
+            playerId: socket.id,
+            text: cleanText
+        });
+    });
+
     // 단어 제출
     socket.on('submit bomb word', (input) => {
         const room = gameRooms[socket.roomId];
-        if (!room || room.status !== 'playing') return;
+        if (!room || room.status !== 'playing' || !room.bombGame) return;
+        if (room.bombGame.isCountingDown) return;
+        if (Date.now() < (room.bombGame.passHoldUntil || 0)) return;
+        if (room.bombGame.wordsExhausted) return;
         if (room.bombGame.currentTurnId !== socket.id) return;
 
-        // 전략 모드 지목 체크 (예: "사과 3")
-        let word = input.trim();
-        let targetNum = null;
-        
-        if (room.bombGameConfig.subMode === 'tactical') {
-            const parts = word.split(' ');
-            if (parts.length > 1) {
-                const lastPart = parts[parts.length - 1];
-                if (!isNaN(lastPart)) {
-                    targetNum = parseInt(lastPart);
-                    word = parts.slice(0, -1).join(' ');
-                }
-            }
-        }
+        const word = String(input || '').trim();
 
         const normalizedInput = word.replace(/\s+/g, '').toLowerCase();
         
@@ -406,52 +462,38 @@ module.exports = (io, socket, gameRooms) => {
         );
 
         if (!matchedWord) {
-            socket.emit('bomb invalid word', '해당 주제의 단어 리스트에 없습니다!');
+            socket.emit('bomb invalid word', '해당 주제의 단어 리스트에 없습니다.');
+            io.to(socket.roomId).emit('bomb word rejected', {
+                playerId: socket.id,
+                word: word.slice(0, 15),
+                reason: 'not_found'
+            });
             return;
         }
 
         // 중복 체크
         if (room.bombGame.usedWords.includes(matchedWord)) {
-            socket.emit('bomb invalid word', '이미 사용된 단어입니다!');
+            socket.emit('bomb invalid word', '이미 사용된 단어입니다.');
+            io.to(socket.roomId).emit('bomb word rejected', {
+                playerId: socket.id,
+                word: matchedWord,
+                reason: 'duplicate'
+            });
             return;
         }
 
         // 성공!
         const cleanWord = matchedWord;
         room.bombGame.usedWords.push(cleanWord);
-        const timeTaken = Date.now() - room.bombGame.turnStartTime;
-        
+        if (!room.bombGame.lastWordsByPlayer) room.bombGame.lastWordsByPlayer = {};
+        room.bombGame.lastWordsByPlayer[socket.id] = cleanWord;
+        room.bombGame.lastPassedWord = cleanWord;
+
         const survivors = Object.keys(room.players).filter(pid => room.bombGame.hearts[pid] > 0);
-        let nextPId;
-        let reflectTriggered = false;
+        const others = survivors.filter(id => id !== socket.id);
+        const nextPId = others.length > 0 ? others[Math.floor(Math.random() * others.length)] : socket.id;
 
-        // 반사 체크 (전략 모드 & 2초 내 답변 & 나를 보낸 사람이 아직 생존 중일 때)
-        if (room.bombGameConfig.subMode === 'tactical' && timeTaken < 2000 && room.bombGame.lastSenderId && room.bombGame.lastSenderId !== socket.id && survivors.includes(room.bombGame.lastSenderId)) {
-            nextPId = room.bombGame.lastSenderId;
-            reflectTriggered = true;
-        } 
-        // 지목 체크 (전략 모드)
-        else if (room.bombGameConfig.subMode === 'tactical' && targetNum !== null) {
-            const sortedPlayers = Object.keys(room.players).sort(); // 입장순
-            const targetId = sortedPlayers[targetNum - 1];
-            if (targetId && survivors.includes(targetId) && targetId !== socket.id) {
-                nextPId = targetId;
-            }
-        }
-
-        // 결정 안됐으면 랜덤 패스 (혹은 다음 사람)
-        if (!nextPId) {
-            const others = survivors.filter(id => id !== socket.id);
-            nextPId = others[Math.floor(Math.random() * others.length)];
-        }
-
-        room.bombGame.lastSenderId = socket.id;
-
-        // 단어 수락 - 메인 타이머 일시 정지 (턴 전환 딜레이 동안 시간이 흐르지 않도록)
-        if (room.bombGame.timerInterval) {
-            clearInterval(room.bombGame.timerInterval);
-            room.bombGame.timerInterval = null;
-        }
+        // 단어 수락 - 잠수 타임아웃만 해제 (메인 타이머는 정지 구간 플래그로 처리)
         if (room.bombGame.turnTimeout) {
             clearTimeout(room.bombGame.turnTimeout);
             room.bombGame.turnTimeout = null;
@@ -464,62 +506,44 @@ module.exports = (io, socket, gameRooms) => {
         // 성공 이벤트 먼저 전송 (화면에 단어 표시)
         io.to(socket.roomId).emit('bomb word accepted', {
             word: cleanWord,
+            senderId: socket.id,
             senderName: room.players[socket.id].name,
-            reflect: reflectTriggered
+            nextTurnId: nextPId
         });
 
         // 모든 단어 소진 체크
         if (room.bombGame.usedWords.length >= room.bombGame.wordPool.length) {
             clearBombTimer(socket.roomId);
+            room.bombGame.wordsExhausted = true;
+
+            // 마지막 단어를 낸 유저가 아닌, 폭탄을 넘겨받은 다음 유저가 폭발 대상이 되도록 턴 이전
+            room.bombGame.currentTurnId = nextPId;
+            io.to(socket.roomId).emit('bomb turn changed', {
+                nextTurnId: nextPId,
+            });
             
-            // 메시지를 즉시 전송하여 상황 인지
             io.to(socket.roomId).emit('bomb all words used', { 
-                message: '⚠️ 모든 단어 소진! 더 이상 입력할 단어가 없습니다! ⚠️\n폭탄이 곧 폭발합니다!' 
+                message: '모든 단어가 소진되어 폭탄이 곧 폭발합니다.' 
             });
 
-            // 2.5초 후 폭발 (상황 파악 및 마지막 단어 확인 시간)
             setTimeout(() => {
                 const currentRoom = gameRooms[socket.roomId];
                 if (currentRoom && currentRoom.status === 'playing') {
                     explodeBomb(socket.roomId);
                 }
-            }, 2500);
+            }, 2200);
             return; 
         }
 
-        // 끄투 스타일: 1초 대기 후 다음 사람에게 턴 전환
-        setTimeout(() => {
-            const currentRoom = gameRooms[socket.roomId];
-            if (currentRoom && currentRoom.status === 'playing') {
-                room.bombGame.currentTurnId = nextPId;
-                io.to(socket.roomId).emit('bomb turn changed', {
-                    nextTurnId: nextPId
-                });
-                startTurnTimeout(socket.roomId); // 다음 사람 턴 타이머 시작
-
-                // 메인 타이머 재개 (남은 시간부터 이어서)
-                room.bombGame.timerInterval = setInterval(() => {
-                    const currentRoom = gameRooms[socket.roomId];
-                    if (!currentRoom || !currentRoom.bombGame) {
-                        clearInterval(room.bombGame.timerInterval);
-                        room.bombGame.timerInterval = null;
-                        return;
-                    }
-
-                    room.bombGame.timeLeft--;
-
-                    if (room.bombGame.timeLeft > 0) {
-                        io.to(socket.roomId).emit('bomb timer tick', { 
-                            timeLeft: room.bombGame.timeLeft,
-                            showTimer: room.bombGameConfig.showTimer
-                        });
-                    } else {
-                        clearBombTimer(socket.roomId);
-                        explodeBomb(socket.roomId);
-                    }
-                }, 1000);
-            }
-        }, 1000);
+        // 즉시 다음 사람에게 폭탄 이동 + 도화선 정지 (위기 구간 5초 이하는 0.25초, 그 외 0.4초)
+        const holdMs = room.bombGame.timeLeft <= 5 ? 250 : 400;
+        room.bombGame.passHoldUntil = Date.now() + holdMs;
+        room.bombGame.currentTurnId = nextPId;
+        io.to(socket.roomId).emit('bomb turn changed', {
+            nextTurnId: nextPId,
+            holdMs: holdMs
+        });
+        startTurnTimeout(socket.roomId);
     });
 
     // 라운드 재시작 또는 다음 라운드
@@ -550,16 +574,112 @@ module.exports = (io, socket, gameRooms) => {
         io.to(socket.roomId).emit('game changed', 'lobby');
     });
 
-    socket.on('disconnect', () => {
-        const roomId = socket.roomId;
-        const room = gameRooms[roomId];
-        if (!room || room.mode !== 'bomb' || room.status === 'WAITING') return;
-
-        if (room.bombGame && room.bombGame.currentTurnId === socket.id) {
-            // 현재 턴인 사람이 나간 경우 즉시 폭발 처리
-            clearBombTimer(roomId);
-            explodeBomb(roomId);
-        }
-    });
-
 };
+
+// ================= 세션 복구 및 예외 방어 외부 노출 헬퍼 =================
+
+function buildBombRecoveryData(room, socketId) {
+    if (!room || !room.bombGame) return null;
+
+    const bg = room.bombGame;
+    const cfg = room.bombGameConfig || {};
+    const currentTurnPlayer = bg.currentTurnId ? room.players[bg.currentTurnId] : null;
+
+    return {
+        status: room.status,
+        category: bg.category || '--',
+        currentTurnId: bg.currentTurnId,
+        currentTurnName: currentTurnPlayer ? currentTurnPlayer.name : '',
+        isMyTurn: (bg.currentTurnId === socketId),
+        hearts: bg.hearts || {},
+        maxHearts: cfg.maxHearts || 3,
+        showTimer: cfg.showTimer !== undefined ? cfg.showTimer : true,
+        timeLeft: bg.timeLeft || 0,
+        maxTime: bg.maxTime || 30,
+        usedWords: bg.usedWords || [],
+        roundCount: bg.roundCount || 1,
+        isSuperBomb: !!bg.isSuperBomb,
+        lastWordsByPlayer: bg.lastWordsByPlayer || {},
+        lastPassedWord: bg.lastPassedWord || null,
+        lastExplosionData: (room.status === 'ROUND_OVER') ? (bg.lastExplosionData || null) : null
+    };
+}
+
+function handleBombPlayerDisconnect(io, gameRooms, roomId, leavingSocketId, leavingPlayerName) {
+    const room = gameRooms[roomId];
+    if (!room || !room.bombGame || room.status === 'WAITING') return;
+
+    const bg = room.bombGame;
+
+    // 이탈자 하트 0 처리 및 탈락 기록
+    if (bg.hearts && bg.hearts[leavingSocketId] !== undefined) {
+        bg.hearts[leavingSocketId] = 0;
+    }
+    if (!bg.eliminatedRound) bg.eliminatedRound = {};
+    if (!bg.eliminatedRound[leavingSocketId]) {
+        bg.eliminatedRound[leavingSocketId] = bg.roundCount || 1;
+    }
+
+    // 현재 턴 보유자가 진짜 이탈(1.5초 유예 만료)한 경우 폭탄 즉시 폭발 처리
+    if (room.status === 'playing' && bg.currentTurnId === leavingSocketId) {
+        if (room.clearBombTimerRef) room.clearBombTimerRef(roomId);
+        if (room.explodeBombRef) {
+            room.explodeBombRef(roomId);
+        }
+        return;
+    }
+
+    // 현재 턴이 아닌 유저가 이탈했는데 생존자가 1명만 남은 경우 즉시 우승 처리
+    const survivors = Object.keys(room.players).filter(pid => bg.hearts && bg.hearts[pid] > 0);
+    if (survivors.length === 1 && room.status === 'playing') {
+        if (room.clearBombTimerRef) room.clearBombTimerRef(roomId);
+        const survivorId = survivors[0];
+        const finalWinner = {
+            id: survivorId,
+            name: room.players[survivorId].name,
+            color: room.players[survivorId].color || '#FC944D',
+            costume: room.players[survivorId].costume || []
+        };
+        room.status = 'WAITING';
+        Object.values(room.players).forEach(p => { p.confirmedResult = false; });
+        const { getSortedUserList } = require('./utils');
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+
+        const stats = Object.keys(room.players).map(pid => {
+            const p = room.players[pid];
+            const hearts = bg.hearts[pid] !== undefined ? bg.hearts[pid] : 0;
+            const elimRound = bg.eliminatedRound[pid] || 999;
+            const passes = (bg.passCounts && bg.passCounts[pid]) || 0;
+            return {
+                id: pid,
+                name: p.name,
+                color: p.color || '#FC944D',
+                costume: p.costume || [],
+                hearts: hearts,
+                passCount: passes,
+                eliminatedRound: elimRound,
+                isAlive: hearts > 0
+            };
+        });
+
+        io.to(roomId).emit('bomb exploded', {
+            loserId: leavingSocketId,
+            loserName: leavingPlayerName,
+            victimHearts: 0,
+            message: `${leavingPlayerName} 님의 연결 종료로 최종 우승: ${finalWinner.name}`,
+            isGameOver: true,
+            winner: finalWinner,
+            stats: stats,
+            history: bg.history || [],
+            revealWord: null
+        });
+    } else {
+        io.to(roomId).emit('bomb hearts updated', {
+            hearts: bg.hearts,
+            maxHearts: room.bombGameConfig ? room.bombGameConfig.maxHearts : 3
+        });
+    }
+}
+
+module.exports.buildBombRecoveryData = buildBombRecoveryData;
+module.exports.handleBombPlayerDisconnect = handleBombPlayerDisconnect;

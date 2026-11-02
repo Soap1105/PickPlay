@@ -71,6 +71,51 @@ socket.on('room full', (msg) => { showToast(msg, 'error'); setTimeout(() => wind
 socket.on('join failed', (msg) => { showToast(msg, 'error'); setTimeout(() => window.location.href = '/', 2000); });
 socket.on('kicked', () => { showToast("강퇴되었습니다.", "warning"); setTimeout(() => window.location.href = '/', 2000); });
 
+// 클립보드 복사 공용 헬퍼 (HTTPS/localhost 및 HTTP/IP 환경 완벽 폴백 지원)
+window.copyToClipboard = function (text, successMsg = '링크가 복사되었습니다!') {
+    if (!text) return;
+    function fallbackCopy(str) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = str;
+            ta.style.position = 'fixed';
+            ta.style.top = '0';
+            ta.style.left = '0';
+            ta.style.width = '2em';
+            ta.style.height = '2em';
+            ta.style.padding = '0';
+            ta.style.border = 'none';
+            ta.style.outline = 'none';
+            ta.style.boxShadow = 'none';
+            ta.style.background = 'transparent';
+            ta.style.opacity = '0';
+            ta.style.pointerEvents = 'none';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const successful = document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (successful) {
+                if (window.showToast) showToast(successMsg, 'success');
+            } else {
+                if (window.showToast) showToast('복사에 실패했습니다. 주소를 직접 복사해 주세요.', 'error');
+            }
+        } catch (err) {
+            console.error('[copyToClipboard] fallback error:', err);
+            if (window.showToast) showToast('복사에 실패했습니다. 주소를 직접 복사해 주세요.', 'error');
+        }
+    }
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function' && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (window.showToast) showToast(successMsg, 'success');
+        }).catch(() => {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+};
+
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatHistory = document.getElementById('chat-history');
@@ -79,7 +124,7 @@ const inviteBtn = document.getElementById('invite-btn');
 if (inviteBtn) {
     inviteBtn.addEventListener('click', () => {
         const url = window.location.href;
-        navigator.clipboard.writeText(url).then(() => showToast("링크가 복사되었습니다!", "success"));
+        window.copyToClipboard(url, "초대 링크가 복사되었습니다!");
     });
 }
 

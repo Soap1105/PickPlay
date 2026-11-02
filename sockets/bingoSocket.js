@@ -48,7 +48,8 @@ module.exports = (io, socket, gameRooms) => {
             io.to(roomId).emit('turn update', {
                 currentTurnId: nextId,
                 currentTurnName: room.players[nextId].name,
-                turnTimeLimit: room.turnTimeLimit || 0
+                turnTimeLimit: room.turnTimeLimit || 0,
+                turnOrder: room.turnOrder || []
             });
             // [Bug Fix #33] 이벤트 팝업 시간만큼 서버 타이머 지연 (클라이언트 동기화)
             // delayMs 대기 중 새로고침 시 stale nextId 방어: 실행 시점의 최신 턴 유저를 동적으로 참조
@@ -233,7 +234,8 @@ module.exports = (io, socket, gameRooms) => {
                 if (room.players[socketId]) {
                     io.to(socketId).emit('start theme game', {
                         board: room.players[socketId].board,
-                        winLines: room.winLines
+                        winLines: room.winLines,
+                        turnOrder: room.turnOrder || []
                     });
                 }
             });
@@ -244,7 +246,8 @@ module.exports = (io, socket, gameRooms) => {
             io.to(roomId).emit('turn update', {
                 currentTurnId: firstPlayerId,
                 currentTurnName: room.players[firstPlayerId].name,
-                turnTimeLimit: room.turnTimeLimit || 0
+                turnTimeLimit: room.turnTimeLimit || 0,
+                turnOrder: room.turnOrder || []
             });
 
             // 첫 턴만 팝업 지속 시간만큼 타이머 시작을 지연시킵니다.
@@ -393,7 +396,8 @@ module.exports = (io, socket, gameRooms) => {
             io.to(roomId).emit('turn update', {
                 currentTurnId: socket.id,
                 currentTurnName: playerName,
-                turnTimeLimit: room.turnTimeLimit || 0
+                turnTimeLimit: room.turnTimeLimit || 0,
+                turnOrder: room.turnOrder || []
             });
             // [Bug Fix #33] 이벤트 팝업 시간만큼 서버 타이머 지연 (클라이언트 동기화)
             if (room.turnTimeLimit > 0) {

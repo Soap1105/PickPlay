@@ -547,7 +547,10 @@
 
     <header id="top-global-header">
         <div class="header-side-left"></div>
-        <h1 id="game-title">PickPlay 대기실</h1>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <h1 id="game-title" style="margin: 0;">PickPlay 대기실</h1>
+            <span class="header-version-badge" style="font-size: 0.72rem; font-weight: 800; color: #38bdf8; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); padding: 2px 7px; border-radius: 999px; letter-spacing: 0.5px;">v1.9.0</span>
+        </div>
         <div class="header-side-right">
             <!-- 사운드 제어 팝오버 래퍼 -->
             <div class="sound-popover-wrapper" id="global-sound-controller">
@@ -631,6 +634,7 @@
                                     id="lobby-card-bingo">
                                     <div class="banner-mascot-box">
                                         <img src="/images/PickBingo1.png" alt="빙고 마스코트" class="banner-mascot-img default" />
+                                        <img src="/images/PickBingo2.png" alt="빙고 신난 마스코트" class="banner-mascot-img hover" />
                                     </div>
                                     <div class="game-meta">
                                         <div class="game-title-text">빙고 게임</div>
@@ -966,48 +970,99 @@
                 </div>
 
                 <div class="player-ui bomb-player-ui" style="display: none;">
-                    <!-- 상단 정보 바 -->
-                    <div id="bomb-info-bar">
-                        <div id="bomb-theme-display">주제: --</div>
-                        <div id="bomb-timer-area">
-                            <span id="bomb-timer-text"></span>
+                    <!-- 상단 주제 배너 + 도화선 바 + 사용된 단어 스트립 -->
+                    <div id="bomb-top-hud">
+                        <div class="bomb-hud-row">
+                            <div id="bomb-theme-display">
+                                <span class="bomb-theme-label">주제:</span>
+                                <span id="bomb-theme-value">--</span>
+                            </div>
+                            <div id="bomb-type-badge" class="bomb-type-badge" style="display: none;"></div>
+                            <div id="bomb-timer-area">
+                                <span id="bomb-timer-text"></span>
+                            </div>
+                        </div>
+                        <div id="bomb-fuse-track">
+                            <div id="bomb-fuse-fill" style="width: 100%;">
+                                <div class="fuse-spark-tip"></div>
+                            </div>
+                        </div>
+                        <!-- 상단 도화선 바로 아래 가로형 사용 단어 스트립 -->
+                        <div id="bomb-used-words-preview">
+                            <span class="used-words-label">사용된 단어</span>
+                            <div id="bomb-words-list"></div>
                         </div>
                     </div>
 
-                    <!-- 원형 경기장 -->
+                    <!-- 오픈 원형 경기장 -->
                     <div id="bomb-arena">
+                        <!-- 록온 레이저 SVG -->
+                        <svg id="target-laser-svg">
+                            <line id="laser-line" x1="50%" y1="50%" x2="50%" y2="50%" stroke="#ef4444" stroke-width="3" stroke-dasharray="6,4" stroke-linecap="round" />
+                        </svg>
+                        <div id="crosshair-lock" class="crosshair-lock"></div>
+
                         <div id="bomb-arena-players">
                             <!-- JS로 동적 생성 -->
                         </div>
-                        <!-- 중앙 폭탄 -->
-                        <div id="bomb-visual-area">
-                            <div id="bomb-graphic" class="bomb-idle">💣</div>
-                            <div class="safe-overlay"></div>
+
+                        <!-- 중앙 단어 코어 (컴팩트 원형 코어) -->
+                        <div id="bomb-center-core">
+                            <div class="core-impact-ring ring-1"></div>
+                            <div class="core-impact-ring ring-2"></div>
+
+                            <!-- 평상시 코어 뷰 -->
+                            <div id="bomb-core-normal-view">
+                                <span id="bomb-core-label" class="bomb-core-label">방금 통과한 단어</span>
+                                <div id="bomb-core-word" class="empty">첫 단어 대기 중</div>
+                                <div id="bomb-core-owner">현재 폭탄: <strong id="bomb-core-owner-name">--</strong></div>
+                            </div>
+
+                            <!-- 추첨 중 전용 뷰 (TARGETING 모드) -->
+                            <div id="bomb-core-targeting-view" style="display: none;">
+                                <span class="bomb-core-targeting-badge">LOCK-ON</span>
+                                <div class="bomb-core-targeting-title">TARGETING</div>
+                                <div class="bomb-core-targeting-sub">타깃 스캔 중...</div>
+                            </div>
+
+                            <!-- 폭발 시 인-아레나 브리핑 뷰 -->
+                            <div id="bomb-core-exploded-view" style="display: none;">
+                                <div class="bomb-exploded-mascot-wrap">
+                                    <img src="/images/PickBomb2.png" alt="폭탄 폭발 마스코트" class="bomb-exploded-mascot-img">
+                                </div>
+                                <span id="bomb-exploded-badge" class="bomb-round-badge">하트 -1</span>
+                                <div id="bomb-result-msg"></div>
+                                <div id="bomb-result-hint-box" style="display: none;"></div>
+                            </div>
+
+                            <!-- 슈퍼 폭탄 인트로 대형 브리핑 뷰 -->
+                            <div id="bomb-core-super-view" style="display: none;">
+                                <span class="bomb-super-intro-badge">DANGER ROUND</span>
+                                <div class="bomb-super-intro-title">슈퍼 폭탄 가동</div>
+                                <div class="bomb-super-intro-desc">폭발 시 하트 2개 차감</div>
+                            </div>
+                        </div>
+
+                        <!-- 이동형 심플 구체 폭탄 -->
+                        <div id="bomb-floating-token" style="left: 50%; top: 50%;">
+                            <div class="bomb-sphere"></div>
+                        </div>
+
+                        <!-- 폭발 이펙트 오버레이 -->
+                        <div id="bomb-explosion-fx">
+                            <img src="/images/PickBomb2.png" alt="폭탄 폭발">
                         </div>
                     </div>
 
-                    <!-- 현재 차례 안내 + 입력창 -->
+                    <!-- 하단 고정 입력 독 -->
                     <div id="bomb-turn-zone">
-                        <div id="bomb-current-turn"></div>
-                        <div id="bomb-input-area" style="display: none;">
-                            <input type="text" id="bomb-word-input" placeholder="단어 입력 후 엔터!" autocomplete="off">
+                        <div id="bomb-dock-box">
+                            <span id="bomb-turn-chip" class="waiting">대기 중</span>
+                            <div id="bomb-input-area">
+                                <input type="text" id="bomb-word-input" placeholder="폭탄이 오면 단어를 입력하세요" autocomplete="off" disabled>
+                            </div>
+                            <span id="bomb-input-error-badge"></span>
                         </div>
-                    </div>
-
-                    <!-- 하단 사용 단어 피드 -->
-                    <div id="bomb-used-words-preview">
-                        최근 사용 단어: <span id="bomb-words-list"></span>
-                    </div>
-                </div>
-
-                <div id="bomb-round-result"
-                    style="display: none; margin-top: 20px; padding: 25px; background: rgba(15, 14, 23, 0.8); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-                    <h3 id="bomb-result-msg"
-                        style="color: #fffffe; margin: 0 0 20px 0; font-size: 1.3rem; line-height: 1.5;"></h3>
-                    <div class="bomb-result-btns">
-                        <button id="next-bomb-round-btn" class="start-btn"
-                            style="display: none; width: auto; padding: 12px 30px; background: linear-gradient(135deg, #e67e22, #d35400); box-shadow: 0 4px 15px rgba(230,126,34,0.3);">다음
-                            라운드 시작</button>
                     </div>
                 </div>
             </div>

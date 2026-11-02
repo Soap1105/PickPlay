@@ -897,10 +897,8 @@ function updateIntegratedLobbySettingsPreview(gameType) {
     } else if (gameType === 'bomb') {
         const settings = latestSettings.bomb;
         const timerText = settings.timerRange === 'short' ? '짧게' : (settings.timerRange === 'long' ? '길게' : '보통');
-        const modeText = settings.subMode === 'tactical' ? '전략 모드' : '랜덤 모드';
         html = `
             <span class="preview-badge"><i class="fas fa-heart"></i> 시작 목숨: <strong>${settings.hearts}개</strong></span>
-            <span class="preview-badge"><i class="fas fa-gamepad"></i> 모드: <strong>${modeText}</strong></span>
             <span class="preview-badge"><i class="fas fa-stopwatch"></i> 시간: <strong>${timerText}</strong></span>
             <span class="preview-badge"><i class="fas fa-eye"></i> 타이머 표시: <strong>${settings.showTimer ? 'ON' : 'OFF'}</strong></span>
         `;
@@ -967,8 +965,17 @@ function bindIntegratedEvents() {
     const lobbyInviteBtn = document.getElementById('lobby-invite-btn');
     if (lobbyInviteBtn) {
         lobbyInviteBtn.addEventListener('click', () => {
-            const orgBtn = document.getElementById('invite-btn');
-            if (orgBtn) orgBtn.click();
+            if (window.copyToClipboard) {
+                window.copyToClipboard(window.location.href, '초대 링크가 복사되었습니다!');
+            }
+            // 버튼 시각적 피드백
+            const originalHtml = lobbyInviteBtn.innerHTML;
+            lobbyInviteBtn.innerHTML = '<i class="fas fa-check"></i> 복사 완료!';
+            lobbyInviteBtn.style.color = '#34d399';
+            setTimeout(() => {
+                lobbyInviteBtn.innerHTML = originalHtml;
+                lobbyInviteBtn.style.color = '';
+            }, 1500);
         });
     }
 }

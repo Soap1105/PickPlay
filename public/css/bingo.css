@@ -1099,4 +1099,81 @@ body.timeout-flash {
     }
 }
 
+/* ======================================================================
+   화이트 모드 전용 빙고 게임 UI 고대비 및 가독성 최적화
+   ====================================================================== */
+body:not(.dark-mode) #theme-title {
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) #turn-display {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+body:not(.dark-mode) #bingo-board {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+body:not(.dark-mode) .board-cell {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #1e293b !important;
+}
+
+body:not(.dark-mode) .board-cell:hover {
+    background: #e2e8f0 !important;
+}
+
+body:not(.dark-mode) .board-cell.checked {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: #ffffff !important;
+}
+
+body:not(.dark-mode) #load-theme-btn {
+    background: rgba(147, 51, 234, 0.12) !important;
+    border-color: rgba(147, 51, 234, 0.4) !important;
+    color: #7e22ce !important;
+}
+
+body:not(.dark-mode) #save-theme-btn {
+    background: rgba(217, 119, 6, 0.12) !important;
+    border-color: rgba(217, 119, 6, 0.4) !important;
+    color: #b45309 !important;
+}
+
+body:not(.dark-mode) #auto-fill-btn {
+    background: rgba(16, 185, 129, 0.12) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    color: #047857 !important;
+}
+
+body:not(.dark-mode) #bingo-shuffle-btn {
+    background: rgba(2, 132, 199, 0.12) !important;
+    border-color: rgba(2, 132, 199, 0.4) !important;
+    color: #0369a1 !important;
+}
+
+body:not(.dark-mode) #bingo-reroll-btn {
+    background: rgba(202, 138, 4, 0.12) !important;
+    border-color: rgba(202, 138, 4, 0.4) !important;
+    color: #a16207 !important;
+}
+
+body:not(.dark-mode) .user-card {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+body:not(.dark-mode) .user-card .nickname {
+    color: #0f172a !important;
+    text-shadow: none !important;
+}
+
+
 

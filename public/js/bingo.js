@@ -87,6 +87,7 @@
     let currentTurnId = "";
     let myUsedEventCount = 0;
     let currentUsers = [];
+    let serverTurnOrder = [];
     let turnTimerInterval = null;
     let turnDuration = 0;
     let turnStartTime = 0;
@@ -126,7 +127,27 @@
         }
         turnTrack.style.display = 'flex';
 
-        users.forEach((user, index) => {
+        let targetList = [...(users || currentUsers || [])];
+        if (serverTurnOrder && serverTurnOrder.length > 0) {
+            const userMap = new Map();
+            targetList.forEach(u => {
+                if (u && u.id) userMap.set(u.id, u);
+            });
+            const ordered = [];
+            serverTurnOrder.forEach(id => {
+                if (userMap.has(id)) ordered.push(userMap.get(id));
+            });
+            targetList.forEach(u => {
+                if (u && u.id && !serverTurnOrder.includes(u.id)) {
+                    ordered.push(u);
+                }
+            });
+            if (ordered.length > 0) {
+                targetList = ordered;
+            }
+        }
+
+        targetList.forEach((user, index) => {
             const span = document.createElement('div');
             span.textContent = user.name;
             span.style.padding = "5px 10px";
@@ -150,7 +171,7 @@
             }
             turnTrack.appendChild(span);
 
-            if (index < users.length - 1) {
+            if (index < targetList.length - 1) {
                 const arrow = document.createElement('span');
                 arrow.textContent = "→";
                 arrow.style.margin = "0 5px";
@@ -204,8 +225,8 @@
 
             const nickname = document.createElement('div');
             nickname.className = 'nickname';
-            nickname.style.color = "#fffffe";
-            nickname.style.textShadow = "0 2px 4px rgba(0,0,0,0.3)";
+            nickname.style.color = "var(--text-main)";
+            nickname.style.textShadow = "0 1px 2px rgba(0,0,0,0.15)";
             if (user.isWaiting) {
                 nickname.textContent = `⏳ ${user.name}`;
             } else {
@@ -1324,6 +1345,9 @@
     socket.on('game status update', (data) => { isGameStarted = data.started; });
 
     function processTurnUpdate(data) {
+        if (data && Array.isArray(data.turnOrder)) {
+            serverTurnOrder = data.turnOrder;
+        }
         currentTurnId = data.currentTurnId;
         currentTurnPlayerName = data.currentTurnName;
         document.querySelectorAll('.user-card').forEach(c => c.classList.remove('current-turn'));
@@ -1657,6 +1681,9 @@
     });
 
     socket.on('start theme game', (data) => {
+        if (data && Array.isArray(data.turnOrder)) {
+            serverTurnOrder = data.turnOrder;
+        }
         if (typeof showContainer === 'function') {
             showContainer('bingo-container');
         }

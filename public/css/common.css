@@ -65,7 +65,7 @@ body.dark-mode .bingo-card .game-title-text { color: #74b9ff !important; }
 body.dark-mode .liar-card .game-title-text { color: #ff7675 !important; }
 body.dark-mode .bomb-card .game-title-text { color: #fdcb6e !important; }
 body.dark-mode .player-slot.empty::after {
-    content: '\be44\c5b4\c788\c74c';
+    content: '비어있음';
     font-size: 0.8rem;
     color: var(--text-dim);
 }
@@ -1789,7 +1789,7 @@ body.in-lobby #right-sidebar #chat-section {
 }
 
 .player-slot.empty::after {
-    content: '비어?�음';
+    content: '비어있음';
     font-size: 0.8rem;
     color: var(--text-dim);
 }
@@ -2156,8 +2156,13 @@ body.dark-mode .badge-customizing {
     transform: scale(1.15) rotate(1deg);
 }
 
-/* 빙고 마스코트 호버 반응 (2번 에셋 추가 전 단일 마스코트 틸트 모션) */
-.lobby-game-card.bingo-card:hover .banner-mascot-img {
+/* 빙고 호버 반응: 기본 단어판 ↔ 신난 표정 */
+.lobby-game-card.bingo-card:hover .banner-mascot-img.default {
+    opacity: 0;
+    transform: scale(0.92) rotate(-3deg);
+}
+.lobby-game-card.bingo-card:hover .banner-mascot-img.hover {
+    opacity: 1;
     transform: scale(1.1) rotate(2deg);
 }
 
@@ -3418,6 +3423,29 @@ body.dark-mode .history-desc {
     text-overflow: ellipsis;
     max-width: 80px;
 }
+
+/* ======================================================================
+   화이트 모드 [내 캐릭터 꾸미기] 버튼 고대비 가독성 최적화
+   ====================================================================== */
+body:not(.dark-mode) #lobby-custom-toggle-btn {
+    background: #6c5ce7 !important;
+    color: #ffffff !important;
+    border: 1px solid #5b4bc4 !important;
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.25) !important;
+}
+
+body:not(.dark-mode) #waiting-custom-toggle-btn {
+    background: #6c5ce7 !important;
+    color: #ffffff !important;
+    border: 1px solid #5b4bc4 !important;
+    box-shadow: 0 2px 10px rgba(108, 92, 231, 0.25) !important;
+}
+
+body:not(.dark-mode) #waiting-custom-toggle-btn:hover,
+body:not(.dark-mode) #lobby-custom-toggle-btn:hover {
+    background: #5b4bc4 !important;
+}
+
 
 
 

@@ -549,35 +549,41 @@ body.liar-game-word.word-liar { color: #f87171 !important; -webkit-text-fill-col
 }
 
 /* ======================================================================
-   직관적 구역 투표 조준경 오버레이 (Direct Target Vote Overlay)
+   직관적 구역 투표 오버레이 (Direct Target Vote Overlay)
    ====================================================================== */
 .liar-player-slot.voting-target {
     cursor: pointer;
 }
 
 .liar-player-slot.voting-target:hover {
-    border-color: #ef4444;
-    box-shadow: 0 0 35px rgba(239, 68, 68, 0.45);
-    transform: translateY(-4px) scale(1.01);
-    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(129, 140, 248, 0.7) !important;
+    box-shadow: 0 12px 28px rgba(99, 102, 241, 0.22) !important;
+    transform: translateY(-4px);
+}
+
+body:not(.dark-mode) .liar-player-slot.voting-target:hover {
+    border-color: rgba(99, 102, 241, 0.6) !important;
+    box-shadow: 0 12px 28px rgba(99, 102, 241, 0.16) !important;
 }
 
 .liar-player-slot.voting-target:hover::after {
-    content: '투표';
+    content: '지목하기';
     position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    color: #ef4444;
-    font-size: 1.6rem;
-    font-weight: 900;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 22px;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(79, 70, 229, 0.92);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 6px 18px;
+    border-radius: 999px;
     z-index: 40;
-    animation: fadeInScale 0.15s ease-out;
-    letter-spacing: 1.5px;
-    text-shadow: 0 0 12px rgba(0,0,0,0.9);
+    letter-spacing: 0.5px;
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+    pointer-events: none;
 }
 
 /* 투표 확인 팝업 버튼 및 프롬프트 */
@@ -896,4 +902,728 @@ body:not(.dark-mode) .liar-vote-cancel-btn {
 body:not(.dark-mode) .liar-vote-cancel-btn:hover {
     background: #cbd5e1 !important;
     color: #0f172a !important;
+}
+
+/* ======================================================================
+   화면 덜컹거림(Layout Shift) 방지 및 마스코트 감정표현 핑 시스템
+   ====================================================================== */
+#liar-input-zone {
+    width: 100%;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.2s ease;
+}
+
+#liar-reaction-palette {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px auto;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 30px;
+    padding: 6px 14px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    z-index: 40;
+    transition: opacity 0.2s ease;
+}
+
+body.game-mode-liar #liar-reaction-palette {
+    display: flex;
+}
+
+.liar-reaction-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.35rem;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease;
+}
+
+.liar-reaction-btn:hover {
+    transform: scale(1.25);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.liar-reaction-btn:active {
+    transform: scale(0.95);
+}
+
+.liar-reaction-btn.cooldown {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 마스코트 슬롯 핑 애니메이션 */
+@keyframes emojiPingPop {
+    0% { transform: translate(-50%, 0) scale(0.3); opacity: 0; }
+    25% { transform: translate(-50%, -16px) scale(1.3); opacity: 1; }
+    75% { transform: translate(-50%, -24px) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -32px) scale(0.8); opacity: 0; }
+}
+
+.liar-slot-emoji-ping {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.9rem;
+    line-height: 1;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+    animation: emojiPingPop 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    pointer-events: none;
+    z-index: 60;
+}
+
+/* ======================================================================
+   화이트 모드 전용 세련된 디자인 및 텍스트 가독성 최적화
+   ====================================================================== */
+body:not(.dark-mode) #liar-reaction-palette {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+body:not(.dark-mode) .liar-reaction-btn:hover {
+    background: rgba(0, 0, 0, 0.06) !important;
+}
+
+body:not(.dark-mode) .liar-turn-panel {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+body:not(.dark-mode) .liar-turn-panel p,
+body:not(.dark-mode) .liar-turn-message {
+    color: #334155 !important;
+}
+
+body:not(.dark-mode) .liar-turn-panel strong {
+    color: #0284c7 !important;
+}
+
+body:not(.dark-mode) .liar-player-slot {
+    background: rgba(255, 255, 255, 0.88) !important;
+    border: 2px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+}
+
+body:not(.dark-mode) .liar-player-slot.active-turn {
+    border-color: #0284c7 !important;
+    box-shadow: 0 0 20px rgba(2, 132, 199, 0.25) !important;
+}
+
+body:not(.dark-mode) .liar-slot-nickname {
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) .liar-speech-bubble {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+/* ======================================================================
+   상단 타이머 캡슐 뱃지 스타일 (직사각형 박스 탈피)
+   ====================================================================== */
+#liar-timer-ui {
+    display: none;
+    margin: 6px auto 10px auto;
+    width: auto;
+    max-width: 440px;
+    text-align: center;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.liar-timer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 18px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #f8fafc;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body:not(.dark-mode) .liar-timer-badge {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06) !important;
+}
+
+.timer-phase-tag {
+    color: #38bdf8;
+    font-weight: 800;
+}
+
+body:not(.dark-mode) .timer-phase-tag {
+    color: #0284c7;
+}
+
+.timer-countdown {
+    color: #f59e0b;
+    font-weight: 900;
+}
+
+/* ======================================================================
+   3D 역할/제시어 카드 고대비 스타일 (세로형 원본 비율 유지 + 화이트모드 시인성 보장)
+   ====================================================================== */
+.liar-card-back-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+}
+
+body:not(.dark-mode) .liar-card-back {
+    background: linear-gradient(135deg, #312e81 0%, #4c1d95 100%) !important;
+    border: 2px solid #818cf8 !important;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.22) !important;
+}
+
+body:not(.dark-mode) .liar-card-back::before {
+    color: rgba(255, 255, 255, 0.22) !important;
+}
+
+body:not(.dark-mode) .liar-card-back-label {
+    color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.liar-card-front {
+    padding: 12px 8px;
+    gap: 6px;
+}
+
+/* 1) 시민 카드 앞면 */
+.liar-card-front.role-citizen {
+    background: linear-gradient(135deg, #064e3b, #022c22);
+    border: 2px solid #10b981;
+}
+
+body:not(.dark-mode) .liar-card-front.role-citizen {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
+    border: 1.5px solid rgba(16, 185, 129, 0.38) !important;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08) !important;
+}
+
+/* 2) 라이어 카드 앞면 */
+.liar-card-front.role-liar {
+    background: linear-gradient(135deg, #7f1d1d, #450a0a);
+    border: 2px solid #ef4444;
+}
+
+body:not(.dark-mode) .liar-card-front.role-liar {
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%) !important;
+    border: 1.5px solid rgba(244, 63, 94, 0.35) !important;
+    box-shadow: 0 6px 16px rgba(244, 63, 94, 0.08) !important;
+}
+
+/* 3) 워드 모드 카드 앞면 */
+.liar-card-front.role-word {
+    background: linear-gradient(135deg, #3b0764, #1e1b4b);
+    border: 2px solid #a855f7;
+    justify-content: center;
+}
+
+body:not(.dark-mode) .liar-card-front.role-word {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%) !important;
+    border: 1.5px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.08) !important;
+}
+
+/* 카드 내부 구성요소: 역할 뱃지 */
+.liar-card-badge {
+    font-size: 0.82rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    line-height: 1.3;
+}
+
+.role-citizen .liar-card-badge {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+body:not(.dark-mode) .role-citizen .liar-card-badge {
+    background: rgba(16, 185, 129, 0.14) !important;
+    color: #059669 !important;
+    border: 1px solid rgba(16, 185, 129, 0.32) !important;
+}
+
+.role-liar .liar-card-badge {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+body:not(.dark-mode) .role-liar .liar-card-badge {
+    background: rgba(244, 63, 94, 0.12) !important;
+    color: #e11d48 !important;
+    border: 1px solid rgba(244, 63, 94, 0.3) !important;
+}
+
+.role-word .liar-card-badge {
+    background: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+body:not(.dark-mode) .role-word .liar-card-badge {
+    background: rgba(139, 92, 246, 0.12) !important;
+    color: #7c3aed !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+}
+
+/* 카드 내부 구성요소: 카테고리 텍스트 */
+.liar-card-cat-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin-bottom: 2px;
+    text-align: center;
+    word-break: keep-all;
+    line-height: 1.3;
+}
+
+.liar-card-cat-label strong {
+    color: #fbbf24 !important;
+    font-weight: 800;
+}
+
+body:not(.dark-mode) .liar-card-cat-label {
+    color: #475569 !important;
+}
+
+body:not(.dark-mode) .liar-card-cat-label strong {
+    color: #d97706 !important;
+}
+
+/* 카드 내부 구성요소: 제시어 단어 */
+.liar-card-main-word {
+    font-size: 1.12rem;
+    font-weight: 900;
+    color: #38bdf8;
+    letter-spacing: -0.3px;
+    line-height: 1.25;
+    word-break: keep-all;
+    max-width: 106px;
+    text-align: center;
+}
+
+body:not(.dark-mode) .liar-card-main-word {
+    color: #0284c7 !important;
+}
+
+.liar-card-main-word.liar-secret {
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: #f87171;
+    line-height: 1;
+}
+
+body:not(.dark-mode) .liar-card-main-word.liar-secret {
+    color: #e11d48 !important;
+}
+
+/* 내 카드 하단 발언 캡슐 칩 (카드를 가리지 않고 내 설명 표시) */
+.liar-my-speech-chip {
+    margin-top: 8px;
+    padding: 5px 12px;
+    max-width: 92%;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+body:not(.dark-mode) .liar-my-speech-chip {
+    background: rgba(241, 245, 249, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: #334155;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+}
+
+/* ======================================================================
+   라이어 게임 결과창 컴포넌트 (다크 모드 & 화이트 모드 완벽 대응)
+   ====================================================================== */
+.liar-result-msg {
+    color: #cbd5e1;
+}
+
+.liar-result-final-msg {
+    color: #ffffff;
+}
+
+.reveal-box-liar {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.reveal-box-word {
+    background: rgba(56, 189, 248, 0.08);
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
+.reveal-box-subword {
+    background: rgba(251, 191, 36, 0.08);
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.reveal-subword {
+    color: #fbbf24;
+}
+
+.liar-result-section {
+    margin-top: 14px;
+    text-align: left;
+    background: rgba(0, 0, 0, 0.22);
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.liar-result-sec-title {
+    color: #cbd5e1;
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+}
+
+.liar-result-sec-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 600;
+    margin-left: 4px;
+}
+
+/* 1) 스코어 카드 & 골드 도트 */
+.liar-result-score-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.liar-result-player-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+}
+
+.liar-result-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16);
+    transition: all 0.2s;
+}
+
+.liar-result-dot.filled {
+    background: #fbbf24;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+/* 2) 플레이어 발언 아이템 */
+.liar-result-speech-item {
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.86rem;
+}
+
+.liar-result-speaker {
+    color: #38bdf8;
+    font-weight: 800;
+    margin-right: 4px;
+}
+
+.liar-result-speech-text {
+    color: #e2e8f0;
+}
+
+/* 3) 투표 결과 아이템 */
+.liar-result-vote-item {
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.liar-result-vote-item.has-votes .liar-result-vote-name {
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.liar-result-vote-item.no-votes .liar-result-vote-name {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+}
+
+.liar-result-vote-item.has-votes .liar-result-vote-count {
+    color: #fbbf24;
+    font-weight: 800;
+    margin-left: 4px;
+}
+
+.liar-result-vote-item.no-votes .liar-result-vote-count {
+    color: #94a3b8;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
+.liar-result-voters {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 4) 결과창 내장 채팅 */
+.liar-result-chat {
+    margin-top: 14px;
+    text-align: left;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.liar-result-chat-header {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    font-weight: 800;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 5px;
+}
+
+#liar-result-chat-history {
+    height: 90px;
+    overflow-y: auto;
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 8px;
+}
+
+#liar-result-chat-input {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.25);
+    color: #ffffff;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+#liar-result-chat-send {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #38bdf8;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+#liar-result-chat-send:hover {
+    opacity: 0.9;
+}
+
+/* ======================================================================
+   화이트 모드 전용 라이어 게임 결과창 고대비 테마 오버라이드
+   ====================================================================== */
+body:not(.dark-mode) .liar-result-panel {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12) !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .liar-result-msg,
+body:not(.dark-mode) .liar-result-panel .liar-result-final-msg {
+    color: #334155 !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-box-liar {
+    background: #fef2f2 !important;
+    border: 1.5px solid #fca5a5 !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-box-liar .reveal-liar {
+    color: #dc2626 !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-box-word {
+    background: #f0f9ff !important;
+    border: 1.5px solid #7dd3fc !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-box-word .reveal-word {
+    color: #0284c7 !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-box-subword {
+    background: #fffbeb !important;
+    border: 1.5px solid #fcd34d !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-box-subword .reveal-subword {
+    color: #d97706 !important;
+}
+
+body:not(.dark-mode) .liar-result-panel .reveal-label {
+    color: #64748b !important;
+    font-weight: 700 !important;
+}
+
+body:not(.dark-mode) .liar-result-section {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+body:not(.dark-mode) .liar-result-sec-title {
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) .liar-result-sec-sub {
+    color: #64748b !important;
+}
+
+body:not(.dark-mode) .liar-result-score-card,
+body:not(.dark-mode) .liar-result-speech-item,
+body:not(.dark-mode) .liar-result-vote-item {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+body:not(.dark-mode) .liar-result-player-name {
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) .liar-result-dot {
+    background: #cbd5e1 !important;
+}
+
+body:not(.dark-mode) .liar-result-dot.filled {
+    background: #f59e0b !important;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.45) !important;
+}
+
+body:not(.dark-mode) .liar-result-speaker {
+    color: #0284c7 !important;
+}
+
+body:not(.dark-mode) .liar-result-speech-text {
+    color: #1e293b !important;
+    font-weight: 600 !important;
+}
+
+body:not(.dark-mode) .liar-result-vote-item.has-votes .liar-result-vote-name {
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) .liar-result-vote-item.no-votes .liar-result-vote-name {
+    color: #64748b !important;
+}
+
+body:not(.dark-mode) .liar-result-vote-item.has-votes .liar-result-vote-count {
+    color: #d97706 !important;
+}
+
+body:not(.dark-mode) .liar-result-vote-item.no-votes .liar-result-vote-count {
+    color: #94a3b8 !important;
+}
+
+body:not(.dark-mode) .liar-result-voters {
+    color: #475569 !important;
+}
+
+body:not(.dark-mode) .liar-result-chat {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+body:not(.dark-mode) .liar-result-chat-header {
+    color: #0f172a !important;
+    border-bottom-color: #e2e8f0 !important;
+}
+
+body:not(.dark-mode) #liar-result-chat-history {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+body:not(.dark-mode) #liar-result-chat-history .chat-time {
+    color: #64748b !important;
+}
+
+body:not(.dark-mode) #liar-result-chat-history .chat-text {
+    color: #1e293b !important;
+}
+
+body:not(.dark-mode) #liar-result-chat-input {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+body:not(.dark-mode) #liar-result-chat-input::placeholder {
+    color: #94a3b8 !important;
+}
+
+body:not(.dark-mode) #liar-result-chat-send {
+    background: #0284c7 !important;
+    color: #ffffff !important;
 }

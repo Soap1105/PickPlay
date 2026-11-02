@@ -21,7 +21,7 @@ try {
     liarWordPairsData = [{ category: '음식', pairs: [['사과', '배']] }];
 }
 
-module.exports = (io, socket, gameRooms) => {
+function liarSocketHandler(io, socket, gameRooms) {
 
     // 타이머 헬퍼 함수
     function startLiarTimer(roomId, phaseName, durationSec, onTimeout) {
@@ -107,15 +107,15 @@ module.exports = (io, socket, gameRooms) => {
         const modeLabel = subMode === 'word' ? '라이어 워드' : '클래식';
         socket.emit('system message', `게임 모드: ${modeLabel}, 목표 승수: ${data.winTarget}승으로 설정되었습니다.`);
         
-        // 라운드 시작
-        startRound(socket.roomId);
+        // 1라운드 최초 시작 시에도 3초 카운트다운 후 시작
+        startLiarCountdown(socket.roomId);
     });
 
     // 다음 라운드 시작
     socket.on('next liar round', () => {
         const room = gameRooms[socket.roomId];
         if (!room || room.hostId !== socket.id) return;
-        startRound(socket.roomId); // Task 4-12: 카운트다운 생략
+        startLiarCountdown(socket.roomId); // 3초 카운트다운 후 부드럽게 새 라운드 시작
     });
 
     function startLiarCountdown(roomId) {
@@ -156,6 +156,7 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.subMode = room.liarGameConfig?.subMode || 'classic';
         room.liarGame.votes = {};
         room.liarGame.submissions = {};
+        room.liarGame.isTallying = false; // 새 라운드 시작 시 개표 락 완벽 해제
         if (!room.liarGame.liarHistory) {
             room.liarGame.liarHistory = [];
         }
@@ -341,6 +342,7 @@ module.exports = (io, socket, gameRooms) => {
         if (!room) return;
 
         room.status = 'playing'; // 투표 페이즈 진행
+        room.liarGame.isTallying = false; // 투표 개시 시 개표 락 리셋
         
         // 투표 단계 전환 알림
         io.to(roomId).emit('liar voting phase start');
@@ -376,7 +378,7 @@ module.exports = (io, socket, gameRooms) => {
     // 라이어 지목(투표)
     socket.on('vote liar', (targetId) => {
         const room = gameRooms[socket.roomId];
-        if (!room || room.status !== 'playing') return;
+        if (!room || room.status !== 'playing' || !room.liarGame || room.liarGame.isTallying) return;
 
         if (!targetId) return;
 
@@ -390,12 +392,10 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame.votes[socket.id] = targetId;
         const voterName = room.players[socket.id]?.name || '알수없음';
 
-        // io.to(socket.roomId).emit('system message', `[투표] ${voterName}님이 투표를 완료했습니다.`);
         io.to(socket.roomId).emit('liar player voted', socket.id);
         io.to(socket.roomId).emit('vote updated', room.liarGame.votes); // 중간 결과 UI 업데이트용
 
         // 전원 투표 완료 시 결과 집계
-        // 참여자 중 현재 방에 남아있는 인원수와 투표수 비교
         const activeVoterCount = room.liarGame.turnOrder.filter(pid => room.players[pid]).length;
         if (Object.keys(room.liarGame.votes).length >= activeVoterCount) {
             clearLiarTimer(socket.roomId);
@@ -405,7 +405,11 @@ module.exports = (io, socket, gameRooms) => {
 
     function tallyVotesAndProceed(roomId) {
         const room = gameRooms[roomId];
-        if (!room) return;
+        if (!room || !room.liarGame || room.liarGame.isTallying) return;
+
+        // 중복 개표 원천 차단 락 활성화
+        room.liarGame.isTallying = true;
+        clearLiarTimer(roomId);
 
         // 1. 모든 유저에게 투표 결과 화살표 레이저를 그리라고 신호 전송 (스포일러 방지 쇼다운 페이즈)
         io.to(roomId).emit('liar showdown start', { votes: room.liarGame.votes });
@@ -442,8 +446,8 @@ module.exports = (io, socket, gameRooms) => {
                 // 라이어 방어 성공 (동표이거나 엉뚱한 사람 지목됨)
                 const targetName = isTie ? '동표' : currentRoom.players[maxTarget]?.name;
                 const resultMsg = isTie ?
-                    `동표입니다! 라이어가 무사히 살아남았습니다.` :
-                    `의심받은 ${targetName}님은 선량한 시민이었습니다! 진짜 라이어는 ${currentRoom.players[currentRoom.liarGame.liarId]?.name}님입니다.`;
+                    `투표가 동률로 무효 처리되어 라이어가 생존했습니다.` :
+                    `의심받은 ${targetName}님은 선량한 시민이었습니다.`;
 
                 // 라이어 1점 획득 (시민은 0점)
                 currentRoom.liarGame.scores[currentRoom.liarGame.liarId] = (currentRoom.liarGame.scores[currentRoom.liarGame.liarId] || 0) + 1;
@@ -654,6 +658,7 @@ module.exports = (io, socket, gameRooms) => {
         });
 
         resultData.history = room.liarGame.roundHistory;
+        room.liarGame.lastRoundResult = resultData; // 새로고침 세션 복구용 저장
 
         io.to(roomId).emit('round over', resultData);
 
@@ -672,7 +677,8 @@ module.exports = (io, socket, gameRooms) => {
         room.liarGame = {
             scores: {},
             liarId: null, category: null, word: null, votes: {}, submissions: {},
-            liarHistory: [] // 최근 라이어 이력 완벽 소거
+            liarHistory: [], // 최근 라이어 이력 완벽 소거
+            lastRoundResult: null
         };
         for (let pid in room.players) {
             room.liarGame.scores[pid] = 0;
@@ -688,4 +694,236 @@ module.exports = (io, socket, gameRooms) => {
         io.to(socket.roomId).emit('update scores', room.liarGame.scores, room.liarGameConfig?.winTarget || 3);
         io.to(socket.roomId).emit('system message', '방장이 게임을 완전히 초기화했습니다. 설정을 확인하고 다시 시작해주세요.');
     });
+
+    // 라이어 게임 마스코트 감정표현 이모지(4종) 브로드캐스트 핸들러
+    const ALLOWED_LIAR_EMOJIS = ['❓', '👀', '💦', '👍'];
+    socket.on('liar reaction', (data) => {
+        const room = gameRooms[socket.roomId];
+        if (!room || !room.liarGame) return;
+        if (!data || !ALLOWED_LIAR_EMOJIS.includes(data.emoji)) return;
+
+        io.to(socket.roomId).emit('liar reaction broadcast', {
+            senderId: socket.id,
+            emoji: data.emoji,
+            targetId: data.targetId || socket.id
+        });
+    });
+}
+
+// ================= 세션 복구 및 예외 방어 외부 노출 헬퍼 =================
+
+// 1. 재접속한 클라이언트를 위한 0초 상태 복원 패킷 빌더
+function buildLiarRecoveryData(room, socketId) {
+    if (!room || !room.liarGame) return null;
+
+    const lg = room.liarGame;
+    const isLiar = (socketId === lg.liarId);
+    let myWord = null;
+
+    if (isLiar) {
+        if (lg.subMode === 'word') {
+            myWord = lg.liarWord;
+        } else {
+            // 클래식 모드 라이어는 정답 비공개 (단, 라운드 종료 시 공개)
+            myWord = (room.status === 'ROUND_OVER') ? lg.word : null;
+        }
+    } else {
+        myWord = lg.word;
+    }
+
+    const currentTurnId = (lg.turnOrder && lg.currentTurnIndex !== undefined) ? lg.turnOrder[lg.currentTurnIndex] : null;
+    const currentTurnPlayer = currentTurnId ? room.players[currentTurnId] : null;
+
+    return {
+        status: room.status,
+        isLiar: isLiar,
+        word: myWord,
+        category: lg.category,
+        subMode: lg.subMode || 'classic',
+        submissions: lg.submissions || {},
+        turnOrder: lg.turnOrder || [],
+        currentTurnIndex: lg.currentTurnIndex || 0,
+        currentTurnId: currentTurnId,
+        currentTurnName: currentTurnPlayer ? currentTurnPlayer.name : '',
+        isMyTurn: (currentTurnId === socketId),
+        votes: lg.votes || {},
+        hasVoted: !!(lg.votes && lg.votes[socketId]),
+        liarId: (room.status === 'final_guess' || room.status === 'ROUND_OVER') ? lg.liarId : null,
+        liarName: (room.status === 'final_guess' || room.status === 'ROUND_OVER') ? (room.players[lg.liarId]?.name || '') : '',
+        timeLeft: lg.timeLeft || 0,
+        timerPhase: lg.timerPhase || '',
+        scores: lg.scores || {},
+        winTarget: room.liarGameConfig?.winTarget || 3,
+        lastRoundResult: (room.status === 'ROUND_OVER') ? lg.lastRoundResult : null
+    };
+}
+
+// 2. 라이어 게임 진행 중 플레이어 중도 이탈/탈주 예외 처리기
+function handleLiarPlayerDisconnect(io, gameRooms, roomId, leavingSocketId, leavingPlayerName) {
+    const room = gameRooms[roomId];
+    if (!room || !room.liarGame) return;
+
+    const remainingPlayers = Object.keys(room.players);
+
+    // 1) 최소 인원(3명) 미만 도달 시 게임 안전 종료
+    if (remainingPlayers.length < 3) {
+        if (room.liarGame.timerInterval) {
+            clearInterval(room.liarGame.timerInterval);
+            room.liarGame.timerInterval = null;
+        }
+        io.to(roomId).emit('liar timer clear');
+
+        room.mode = 'lobby';
+        room.status = 'WAITING';
+        room.lobbyVotes = { bingo: 0, liar: 0 };
+        room.votedUsers = {};
+        delete room.liarGame;
+
+        io.to(roomId).emit('action failed', `인원이 부족하여 라이어 게임이 종료되었습니다. (최소 3명 필요)`);
+        io.to(roomId).emit('game changed', 'lobby');
+        io.to(roomId).emit('update user list', getSortedUserList(room));
+        return;
+    }
+
+    if (room.status === 'WAITING') return;
+
+    // 2) 라이어가 중도 탈주한 경우 -> 시민 즉시 승리 처리
+    if (leavingSocketId === room.liarGame.liarId) {
+        if (room.liarGame.timerInterval) {
+            clearInterval(room.liarGame.timerInterval);
+            room.liarGame.timerInterval = null;
+        }
+        io.to(roomId).emit('liar timer clear');
+
+        io.to(roomId).emit('system message', `라이어였던 ${leavingPlayerName}님이 연결을 종료하여 시민들의 승리로 종료되었습니다.`);
+
+        // 생존 시민 전원에게 1점씩 가산
+        for (let pid of remainingPlayers) {
+            room.liarGame.scores[pid] = (room.liarGame.scores[pid] || 0) + 1;
+        }
+
+        // 라운드 종료 통보 (내부 handleRoundEnd 모사)
+        const target = room.liarGameConfig?.winTarget || 3;
+        io.to(roomId).emit('update scores', room.liarGame.scores, target);
+
+        let finalWinner = null;
+        for (let pid of remainingPlayers) {
+            if (room.liarGame.scores[pid] >= target) {
+                finalWinner = {
+                    id: pid,
+                    name: room.players[pid]?.name,
+                    color: room.players[pid]?.color || '#FC944D',
+                    costume: room.players[pid]?.costume || []
+                };
+                break;
+            }
+        }
+
+        const resultData = {
+            message: `라이어(${leavingPlayerName})의 연결 종료로 시민들이 승리했습니다!`,
+            liarName: leavingPlayerName,
+            word: room.liarGame.word,
+            citizensWon: true,
+            votes: room.liarGame.votes || {},
+            isFinalGameOver: !!finalWinner,
+            winner: finalWinner,
+            turnOrder: room.liarGame.turnOrder,
+            playerNames: {},
+            submissions: room.liarGame.submissions,
+            subMode: room.liarGame.subMode,
+            liarWord: room.liarGame.liarWord,
+            stats: remainingPlayers.map(pid => ({
+                id: pid,
+                name: room.players[pid]?.name,
+                color: room.players[pid]?.color || '#FC944D',
+                costume: room.players[pid]?.costume || [],
+                score: room.liarGame.scores[pid] || 0,
+                correctCount: 1,
+                citizenRounds: 1,
+                voteCorrectRate: 100,
+                stat2Text: '100% (1/1)',
+                isLiar: false
+            }))
+        };
+
+        room.status = finalWinner ? 'WAITING' : 'ROUND_OVER';
+        room.liarGame.lastRoundResult = resultData;
+        io.to(roomId).emit('round over', resultData);
+        return;
+    }
+
+    // 3) 발언 단계('submission')에서 발언자가 이탈한 경우
+    if (room.status === 'submission') {
+        const turnOrder = room.liarGame.turnOrder || [];
+        const currentIndex = room.liarGame.currentTurnIndex || 0;
+        const currentTurnId = turnOrder[currentIndex];
+
+        // 턴 오더에서 제거
+        room.liarGame.turnOrder = turnOrder.filter(id => id !== leavingSocketId);
+
+        if (currentTurnId === leavingSocketId) {
+            // 현재 발언자가 나간 경우: 타이머 리셋 후 턴 자동 승계
+            if (room.liarGame.timerInterval) {
+                clearInterval(room.liarGame.timerInterval);
+                room.liarGame.timerInterval = null;
+            }
+            io.to(roomId).emit('liar timer clear');
+            io.to(roomId).emit('system message', `${leavingPlayerName}님의 이탈로 발언 턴이 다음 사람에게 넘어갑니다.`);
+
+            // 인덱스가 배열 범위를 벗어나지 않게 조정
+            if (room.liarGame.currentTurnIndex >= room.liarGame.turnOrder.length) {
+                // 전원 발언 완료 -> 투표 단계로 진입
+                room.status = 'playing';
+                io.to(roomId).emit('liar voting phase start');
+            } else {
+                const nextId = room.liarGame.turnOrder[room.liarGame.currentTurnIndex];
+                const nextPlayer = room.players[nextId];
+                io.to(roomId).emit('liar next turn', {
+                    playerId: nextId,
+                    playerName: nextPlayer ? nextPlayer.name : '',
+                    isMyTurn: false
+                });
+            }
+        } else {
+            // 아직 발언 전이거나 이미 발언한 사람이 나간 경우: 인덱스 보정
+            const removedIndex = turnOrder.indexOf(leavingSocketId);
+            if (removedIndex !== -1 && removedIndex < currentIndex) {
+                room.liarGame.currentTurnIndex = Math.max(0, room.liarGame.currentTurnIndex - 1);
+            }
+        }
+    }
+
+    // 4) 투표 단계('playing')에서 유저가 이탈한 경우
+    if (room.status === 'playing') {
+        if (room.liarGame.votes) {
+            delete room.liarGame.votes[leavingSocketId];
+        }
+
+        // 남은 유저들이 전원 투표했는지 검사
+        const activeVoters = (room.liarGame.turnOrder || []).filter(pid => room.players[pid]);
+        const allVoted = activeVoters.length > 0 && activeVoters.every(pid => room.liarGame.votes && room.liarGame.votes[pid]);
+
+        if (allVoted) {
+            // 전원 투표 완료 시 개표 즉시 트리거 (중복 방지 락 적용)
+            if (!room.liarGame.isTallying) {
+                if (room.liarGame.timerInterval) {
+                    clearInterval(room.liarGame.timerInterval);
+                    room.liarGame.timerInterval = null;
+                }
+                io.to(roomId).emit('vote updated', room.liarGame.votes);
+                io.to(roomId).emit('system message', '모든 생존 플레이어가 투표를 마쳤습니다! 개표를 진행합니다.');
+                tallyVotesAndProceed(roomId);
+            }
+        } else {
+            io.to(roomId).emit('vote updated', room.liarGame.votes || {});
+        }
+    }
+}
+
+module.exports = function(io, socket, gameRooms) {
+    liarSocketHandler(io, socket, gameRooms);
 };
+
+module.exports.buildLiarRecoveryData = buildLiarRecoveryData;
+module.exports.handleLiarPlayerDisconnect = handleLiarPlayerDisconnect;
+

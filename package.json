@@ -1,6 +1,6 @@
 {
   "name": "bingo_game",
-  "version": "1.0.0",
+  "version": "1.9.0",
   "description": "소셜 빙고 플랫폼",
   "main": "server.js",
   "scripts": {

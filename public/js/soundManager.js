@@ -16,7 +16,15 @@
 
     const SFX_SOURCES = {
         call: '/call.mp3',
-        event: '/event.wav'
+        event: '/event.wav',
+        superBombSiren: '/sounds/super_bomb_siren.mp3',
+        bombExplosion: '/sounds/bomb_explosion.mp3',
+        bombWordSuccess: '/sounds/bomb_word_success.wav',
+        bombWordReject: '/sounds/bomb_word_reject.wav',
+        bombRouletteTick: '/sounds/bomb_roulette_tick.wav',
+        bombLockon: '/sounds/bomb_lockon.wav',
+        bombLaunch: '/sounds/bomb_launch.wav',
+        bombLand: '/sounds/bomb_land.wav'
     };
 
     class SoundManager {
@@ -29,13 +37,15 @@
             // 오디오 객체 풀
             this.currentBgm = null;
             this.currentBgmName = null;
+            this.pendingBgm = null; // 브라우저 자동재생 차단 시 대기할 BGM
             this.sfxPool = {};
+            this._unlockHandler = null;
 
             // 사전 로드
             this._initAudio();
 
-            // 유저 첫 인터랙션 시 자동재생 언락
-            this._initAutoplayUnlock();
+            // 유저 첫 인터랙션 시 자동재생 언락 안전장치 등록
+            this._armAutoplayUnlock();
         }
 
         _loadFloat(key, defaultVal) {
@@ -57,17 +67,41 @@
             }
         }
 
-        _initAutoplayUnlock() {
-            const unlock = () => {
-                document.removeEventListener('click', unlock);
-                document.removeEventListener('keydown', unlock);
-                // 오디오 재생 언락 시도
+        // 브라우저 Autoplay 차단 시 유저의 첫 클릭/키입력을 감지해 BGM을 즉시 깨우는 리스너
+        _armAutoplayUnlock() {
+            if (this._unlockHandler) return;
+
+            this._unlockHandler = () => {
+                this._disarmAutoplayUnlock();
+
+                // 1) 이미 생성된 currentBgm이 일시정지 상태라면 재생 시도
                 if (this.currentBgm && this.currentBgm.paused && !this.isMuted) {
-                    this.currentBgm.play().catch(() => {});
+                    this.currentBgm.play()
+                        .then(() => {
+                            this.pendingBgm = null;
+                            console.log(`[SoundManager] 인터랙션 감지: BGM '${this.currentBgmName}' 언락 재생 성공`);
+                        })
+                        .catch(() => {});
+                } else if (this.pendingBgm && !this.isMuted) {
+                    // 2) 대기 중이던 pendingBgm이 있다면 재생
+                    const target = this.pendingBgm;
+                    this.pendingBgm = null;
+                    this.playBgm(target);
                 }
             };
-            document.addEventListener('click', unlock, { once: true });
-            document.addEventListener('keydown', unlock, { once: true });
+
+            ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
+                window.addEventListener(evt, this._unlockHandler, { capture: true, once: true });
+            });
+        }
+
+        _disarmAutoplayUnlock() {
+            if (this._unlockHandler) {
+                ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
+                    window.removeEventListener(evt, this._unlockHandler, { capture: true });
+                });
+                this._unlockHandler = null;
+            }
         }
 
         // BGM 재생
@@ -75,8 +109,26 @@
             const src = BGM_SOURCES[name];
             if (!src) return;
 
-            // 이미 동일한 BGM이 재생 중인 경우
+            // 이미 동일한 BGM이 정상 재생 중인 경우 리턴
             if (this.currentBgm && this.currentBgmName === name && !this.currentBgm.paused) {
+                this.pendingBgm = null;
+                return;
+            }
+
+            // 만약 동일한 BGM 객체가 이미 생성되어 있지만 paused 상태인 경우 재생만 시도
+            if (this.currentBgm && this.currentBgmName === name) {
+                this.pendingBgm = name;
+                this.currentBgm.volume = this.isMuted ? 0 : this.bgmVolume;
+                this.currentBgm.play()
+                    .then(() => {
+                        this.pendingBgm = null;
+                        this._disarmAutoplayUnlock();
+                        console.log(`[SoundManager] BGM '${name}' 재개`);
+                    })
+                    .catch((err) => {
+                        console.warn(`[SoundManager] BGM 재생 대기 (인터랙션 대기):`, err);
+                        this._armAutoplayUnlock();
+                    });
                 return;
             }
 
@@ -87,10 +139,19 @@
                 this.currentBgm.loop = true;
                 this.currentBgm.volume = this.isMuted ? 0 : this.bgmVolume;
                 this.currentBgmName = name;
+                this.pendingBgm = name;
 
                 this.currentBgm.play()
-                    .then(() => console.log(`[SoundManager] BGM '${name}' 재생 시작`))
-                    .catch((err) => console.warn(`[SoundManager] BGM 재생 대기 (인터랙션 필요):`, err));
+                    .then(() => {
+                        this.pendingBgm = null;
+                        this._disarmAutoplayUnlock();
+                        console.log(`[SoundManager] BGM '${name}' 재생 시작`);
+                    })
+                    .catch((err) => {
+                        console.warn(`[SoundManager] BGM 재생 대기 (인터랙션 대기):`, err);
+                        // 차단 시 유저 첫 인터랙션을 기다려 즉시 깨우도록 무장
+                        this._armAutoplayUnlock();
+                    });
             } catch(e) {
                 console.warn(`[SoundManager] BGM '${name}' 생성 실패:`, e);
             }
@@ -98,6 +159,8 @@
 
         // BGM 정지
         stopBgm() {
+            this.pendingBgm = null;
+            this._disarmAutoplayUnlock();
             if (this.currentBgm) {
                 this.currentBgm.pause();
                 this.currentBgm.currentTime = 0;
@@ -106,14 +169,23 @@
             }
         }
 
-        // SFX 재생
+        // SFX 재생 (연타 시 소리가 씹히지 않도록 인스턴스 복제 지원)
         playSfx(name) {
             if (this.isMuted) return;
-            const audio = this.sfxPool[name];
-            if (audio) {
+            const originalAudio = this.sfxPool[name];
+            if (!originalAudio) return;
+
+            try {
+                // 이미 재생 중이면 cloneNode로 독립 오디오를 생성하여 매끄럽게 겹쳐서 출력
+                const audio = originalAudio.paused ? originalAudio : originalAudio.cloneNode();
                 audio.currentTime = 0;
                 audio.volume = this.sfxVolume;
                 audio.play().catch(() => {});
+            } catch (e) {
+                // cloneNode 실패 시 기존 단일 인스턴스 재생으로 폴백
+                originalAudio.currentTime = 0;
+                originalAudio.volume = this.sfxVolume;
+                originalAudio.play().catch(() => {});
             }
         }
 

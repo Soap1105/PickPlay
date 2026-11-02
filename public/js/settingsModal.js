@@ -99,7 +99,6 @@
 
         } else if (game === 'bomb') {
             const hearts = parseInt(modalBody.querySelector('input[name="modal-bomb-hearts"]:checked')?.value || '3');
-            const subMode = modalBody.querySelector('#modal-bomb-sub-mode').value;
             const showTimer = modalBody.querySelector('#modal-bomb-show-timer').checked;
             const timerRange = modalBody.querySelector('#modal-bomb-timer-range').value;
             const checkedCbs = modalBody.querySelectorAll('.modal-bomb-cat-cb:checked');
@@ -107,15 +106,13 @@
 
             // hidden 필드에 반영
             const hiddenHearts = document.getElementById('bomb-hearts');
-            const hiddenSubMode = document.getElementById('bomb-sub-mode');
             const hiddenTimer = document.getElementById('bomb-show-timer');
             const hiddenRange = document.getElementById('bomb-timer-range');
             if (hiddenHearts) hiddenHearts.value = hearts;
-            if (hiddenSubMode) hiddenSubMode.value = subMode;
             if (hiddenTimer) hiddenTimer.value = showTimer;
             if (hiddenRange) hiddenRange.value = timerRange;
 
-            return { hearts, subMode, showTimer, timerRange, selectedCategories };
+            return { hearts, showTimer, timerRange, selectedCategories };
         }
         return {};
     }
@@ -265,20 +262,13 @@
                     </div>
                 </div>
                 <div class="smodal-section">
-                    <label class="smodal-label">게임 모드</label>
-                    <select id="modal-bomb-sub-mode" class="smodal-select">
-                        <option value="random" ${hSubMode === 'random' ? 'selected' : ''}>랜덤 모드</option>
-                        <option value="tactical" ${hSubMode === 'tactical' ? 'selected' : ''}>전략 모드</option>
-                    </select>
-                    <p class="smodal-desc">전략 모드: 단어 뒤에 번호를 입력해 지목하거나, 빠른 답변으로 반사할 수 있습니다.</p>
-                </div>
-                <div class="smodal-section">
-                    <label class="smodal-label">폭탄 시간</label>
+                    <label class="smodal-label">폭탄 길이</label>
                     <select id="modal-bomb-timer-range" class="smodal-select">
                         <option value="short" ${hTimerRange === 'short' ? 'selected' : ''}>짧게 (15~30초) — 짧고 굵게</option>
-                        <option value="medium" ${hTimerRange === 'medium' ? 'selected' : ''}>보통 (30~55초) — 적당한 긴장감</option>
-                        <option value="long" ${hTimerRange === 'long' ? 'selected' : ''}>길게 (50~80초) — 길고 여유롭게</option>
+                        <option value="medium" ${hTimerRange === 'medium' ? 'selected' : ''}>보통 (25~45초) — 적당한 긴장감</option>
+                        <option value="long" ${hTimerRange === 'long' ? 'selected' : ''}>길게 (40~65초) — 길고 여유롭게</option>
                     </select>
+                    <p class="smodal-desc">첫 라운드 기준이며 라운드가 진행될수록 점점 짧아집니다. (5인 이상: 3, 6, 9, 12R 및 13R+ 슈퍼 폭탄)</p>
                 </div>
                 <div class="smodal-section smodal-toggle-row">
                     <label class="smodal-label" style="margin:0;">타이머 표시</label>

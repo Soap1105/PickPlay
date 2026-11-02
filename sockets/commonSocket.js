@@ -1,9 +1,12 @@
 const { AVATARS, getSortedUserList, updateReadyStatus } = require('./utils');
 const bingoHelpers = require('./bingoHelpers');
 const themeController = require('../controllers/themeController');
+const liarSocket = require('./liarSocket');
+const bombSocket = require('./bombSocket');
+const devBotManager = require('./devBotManager');
 
 const MAX_PLAYERS = 8;
-const COLOR_PRESETS = ['#FC944D','#55B4E0','#50C9A0','#A78BFA','#F472B6','#F87171','#FBBF24','#4ADE80'];
+const COLOR_PRESETS = ['#FC944D', '#55B4E0', '#50C9A0', '#A78BFA', '#F472B6', '#F87171', '#FBBF24', '#4ADE80'];
 
 function assignColor(room, requestedColor) {
     const usedColors = new Set(Object.values(room.players).map(p => p.color));
@@ -86,6 +89,64 @@ module.exports = (io, socket, gameRooms) => {
                     room.turnOrder = room.turnOrder.map(id => id === oldSocketId ? socket.id : id);
                 }
 
+                // [Liar Bug Fix] 라이어 게임 진행 중 재접속 시 room.liarGame 내 소켓 ID 완전 마이그레이션
+                if (room.liarGame) {
+                    if (room.liarGame.turnOrder && room.liarGame.turnOrder.length > 0) {
+                        room.liarGame.turnOrder = room.liarGame.turnOrder.map(id => id === oldSocketId ? socket.id : id);
+                    }
+                    if (room.liarGame.liarId === oldSocketId) {
+                        room.liarGame.liarId = socket.id;
+                    }
+                    if (room.liarGame.scores && room.liarGame.scores[oldSocketId] !== undefined) {
+                        room.liarGame.scores[socket.id] = room.liarGame.scores[oldSocketId];
+                        delete room.liarGame.scores[oldSocketId];
+                    }
+                    if (room.liarGame.submissions && room.liarGame.submissions[oldSocketId] !== undefined) {
+                        room.liarGame.submissions[socket.id] = room.liarGame.submissions[oldSocketId];
+                        delete room.liarGame.submissions[oldSocketId];
+                    }
+                    if (room.liarGame.votes) {
+                        if (room.liarGame.votes[oldSocketId] !== undefined) {
+                            room.liarGame.votes[socket.id] = room.liarGame.votes[oldSocketId];
+                            delete room.liarGame.votes[oldSocketId];
+                        }
+                        for (let voter in room.liarGame.votes) {
+                            if (room.liarGame.votes[voter] === oldSocketId) {
+                                room.liarGame.votes[voter] = socket.id;
+                            }
+                        }
+                    }
+                }
+
+                // [Bomb Bug Fix] 폭탄 돌리기 진행 중 재접속 시 room.bombGame 내 소켓 ID 완전 마이그레이션
+                if (room.bombGame) {
+                    if (room.bombGame.currentTurnId === oldSocketId) {
+                        room.bombGame.currentTurnId = socket.id;
+                    }
+                    if (room.bombGame.lastSenderId === oldSocketId) {
+                        room.bombGame.lastSenderId = socket.id;
+                    }
+                    if (room.bombGame.lastSuccessPId === oldSocketId) {
+                        room.bombGame.lastSuccessPId = socket.id;
+                    }
+                    if (room.bombGame.hearts && room.bombGame.hearts[oldSocketId] !== undefined) {
+                        room.bombGame.hearts[socket.id] = room.bombGame.hearts[oldSocketId];
+                        if (oldSocketId !== socket.id) delete room.bombGame.hearts[oldSocketId];
+                    }
+                    if (room.bombGame.passCounts && room.bombGame.passCounts[oldSocketId] !== undefined) {
+                        room.bombGame.passCounts[socket.id] = room.bombGame.passCounts[oldSocketId];
+                        if (oldSocketId !== socket.id) delete room.bombGame.passCounts[oldSocketId];
+                    }
+                    if (room.bombGame.eliminatedRound && room.bombGame.eliminatedRound[oldSocketId] !== undefined) {
+                        room.bombGame.eliminatedRound[socket.id] = room.bombGame.eliminatedRound[oldSocketId];
+                        if (oldSocketId !== socket.id) delete room.bombGame.eliminatedRound[oldSocketId];
+                    }
+                    if (room.bombGame.lastWordsByPlayer && room.bombGame.lastWordsByPlayer[oldSocketId] !== undefined) {
+                        room.bombGame.lastWordsByPlayer[socket.id] = room.bombGame.lastWordsByPlayer[oldSocketId];
+                        if (oldSocketId !== socket.id) delete room.bombGame.lastWordsByPlayer[oldSocketId];
+                    }
+                }
+
                 // 방장 권한 복구 및 갱신
                 if (room.hostId === oldSocketId) {
                     room.hostId = socket.id;
@@ -104,12 +165,12 @@ module.exports = (io, socket, gameRooms) => {
                     bomb: room.bombSettings || { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
                 });
                 io.to(socket.id).emit('vote update', room.lobbyVotes);
-                
+
                 // [Bug 1-1 FIX] 투표 진행 중일 때 새로운 참가자에게 타이머 정보 전송
                 if (room.voteTimer && room.voteTimeLeft > 0) {
-                    io.to(socket.id).emit('vote timer', { 
-                        status: 'started', 
-                        timeLeft: room.voteTimeLeft 
+                    io.to(socket.id).emit('vote timer', {
+                        status: 'started',
+                        timeLeft: room.voteTimeLeft
                     });
                 }
 
@@ -123,6 +184,7 @@ module.exports = (io, socket, gameRooms) => {
                         socket.emit('start theme game', {
                             board: oldPlayer.board || [],
                             winLines: room.winLines || 3,
+                            turnOrder: room.turnOrder || [],
                             isReconnect: true
                         });
                         socket.emit('restore called words', {
@@ -140,7 +202,8 @@ module.exports = (io, socket, gameRooms) => {
                             socket.emit('turn update', {
                                 currentTurnId: currentTurnId,
                                 currentTurnName: currentTurnPlayer ? currentTurnPlayer.name : '',
-                                turnTimeLimit: remainingTurnTime
+                                turnTimeLimit: remainingTurnTime,
+                                turnOrder: room.turnOrder || []
                             });
                         }
                         bingoHelpers.broadcastBingoProgress(io, room, roomId);
@@ -153,6 +216,27 @@ module.exports = (io, socket, gameRooms) => {
                             presetWords: room.presetWords || []
                         });
                     }
+                }
+
+                // 라이어 게임 진행 중 세션 복구 처리
+                if (room.mode === 'liar' && room.liarGame && room.status !== 'WAITING') {
+                    const liarRecoveryData = liarSocket.buildLiarRecoveryData(room, socket.id);
+                    if (liarRecoveryData) {
+                        socket.emit('restore liar state', liarRecoveryData);
+                    }
+                    if (room.liarGame.scores) {
+                        socket.emit('update scores', room.liarGame.scores, room.liarGameConfig?.winTarget || 3);
+                    }
+                    socket.emit('update user list', getSortedUserList(room));
+                }
+
+                // 폭탄 돌리기 진행 중 세션 복구 처리
+                if (room.mode === 'bomb' && room.bombGame && room.status !== 'WAITING') {
+                    const bombRecoveryData = bombSocket.buildBombRecoveryData(room, socket.id);
+                    if (bombRecoveryData) {
+                        socket.emit('restore bomb state', bombRecoveryData);
+                    }
+                    socket.emit('update user list', getSortedUserList(room));
                 }
 
                 // [Bug Fix #7] AI 주제 생성 중 이탈/재입장 시 진행 상황 복구
@@ -207,12 +291,12 @@ module.exports = (io, socket, gameRooms) => {
             bomb: room.bombSettings || { hearts: 3, subMode: 'random', showTimer: true, timerRange: 'medium', selectedCategories: [] }
         });
         io.to(socket.id).emit('vote update', room.lobbyVotes); // 접속 시 투표 현황 전달
-        
+
         // [Bug 1-1 FIX] 투표 진행 중일 때 새로운 참가자에게 타이머 정보 전송
         if (room.voteTimer && room.voteTimeLeft > 0) {
-            io.to(socket.id).emit('vote timer', { 
-                status: 'started', 
-                timeLeft: room.voteTimeLeft 
+            io.to(socket.id).emit('vote timer', {
+                status: 'started',
+                timeLeft: room.voteTimeLeft
             });
         }
 
@@ -272,6 +356,10 @@ module.exports = (io, socket, gameRooms) => {
     socket.on('chat message', (msgData) => {
         const roomId = socket.roomId;
         if (!roomId || !gameRooms[roomId]) return;
+        if (msgData && typeof msgData.message === 'string' && msgData.message.trim().startsWith('/bot')) {
+            devBotManager.handleBotChatCommand(io, socket, gameRooms, msgData.message);
+            return;
+        }
         msgData.socketId = socket.id;
         if (!msgData.sender) msgData.sender = gameRooms[roomId].players[socket.id].name;
         io.to(roomId).emit('chat message', msgData);
@@ -301,7 +389,7 @@ module.exports = (io, socket, gameRooms) => {
 
         room.mode = selectedGame;
         room.status = 'WAITING'; // 게임 시작 전 준비 상태로 변경
-        
+
         io.to(roomId).emit('game changed', selectedGame);
         io.to(roomId).emit('lobby settings updated', {
             bingo: room.bingoSettings || { winLines: 3, turnOrder: 'host_first', turnTimeLimit: 15, topic: '', useEvents: true },
@@ -321,14 +409,14 @@ module.exports = (io, socket, gameRooms) => {
         room.status = 'WAITING';
         room.lobbyVotes = { bingo: 0, liar: 0 };
         room.votedUsers = {};
-        
+
         // [Bug 1-2 FIX] 대기실 복귀 시 기존 투표 타이머 확실히 중지
         if (room.voteTimer) {
             clearInterval(room.voteTimer);
             room.voteTimer = null;
         }
         room.voteTimeLeft = 0;
-        
+
         io.to(roomId).emit('game changed', 'lobby');
         io.to(roomId).emit('vote update', room.lobbyVotes);
         io.to(roomId).emit('update user list', getSortedUserList(room));
@@ -345,7 +433,7 @@ module.exports = (io, socket, gameRooms) => {
         room.lobbyVotes = { bingo: 0, liar: 0 };
         room.votedUsers = {};
         room.voteTimeLeft = data.duration || 30;
-        
+
         io.to(roomId).emit('vote timer', { status: 'started', timeLeft: room.voteTimeLeft });
         io.to(roomId).emit('vote update', room.lobbyVotes);
         io.to(roomId).emit('system message', `방장이 게임 투표를 시작했습니다! ${room.voteTimeLeft}초 안에 투표해주세요.`);
@@ -362,7 +450,7 @@ module.exports = (io, socket, gameRooms) => {
                 else if (room.lobbyVotes.liar > room.lobbyVotes.bingo) winner = 'liar';
 
                 io.to(roomId).emit('vote timer', { status: 'ended', winner });
-                
+
                 if (winner !== 'tie') {
                     // [Refinement] Don't switch game automatically anymore. 
                     // Just show the result in the lobby.
@@ -394,7 +482,7 @@ module.exports = (io, socket, gameRooms) => {
             if (votedCount >= totalPlayers && room.voteTimer) {
                 clearInterval(room.voteTimer);
                 room.voteTimer = null;
-                
+
                 let winner = 'tie';
                 if (room.lobbyVotes.bingo > room.lobbyVotes.liar) winner = 'bingo';
                 else if (room.lobbyVotes.liar > room.lobbyVotes.bingo) winner = 'liar';
@@ -489,11 +577,15 @@ module.exports = (io, socket, gameRooms) => {
 
                 io.to(roomId).emit('system message', `💨 ${leavingPlayerName}님이 퇴장하셨습니다.`);
 
-                // 방장 위임 처리 (인원 부족 강제 종료 전 먼저 위임 진행)
-                if (oldSocketId === room.hostId && gameRooms[roomId]) {
-                    const remaining = Object.keys(room.players);
-                    if (remaining.length > 0) {
-                        room.hostId = remaining[0];
+                // 방장 위임 처리 (인원 부족 강제 종료 전 먼저 위임 진행, 테스트 봇은 제외)
+                const botSocketIds = devBotManager.getBotSocketIds(roomId);
+                const remainingHumans = Object.keys(room.players).filter(id => !botSocketIds.has(id));
+
+                if (remainingHumans.length === 0 && (room.pendingDisconnects || 0) === 0) {
+                    devBotManager.clearBotsInRoom(roomId);
+                } else if (oldSocketId === room.hostId && gameRooms[roomId]) {
+                    if (remainingHumans.length > 0) {
+                        room.hostId = remainingHumans[0];
                         room.hostClientId = null;
                         const newHostClientId = Object.keys(room.clientIds || {}).find(cid => room.clientIds[cid] === room.hostId);
                         if (newHostClientId) room.hostClientId = newHostClientId;
@@ -568,16 +660,23 @@ module.exports = (io, socket, gameRooms) => {
 
                 // 인원이 부족하지 않은 경우 개별 게임 업데이트 처리
                 if (room.mode === 'bingo') {
+                    if (room.turnOrder && room.turnOrder.length > 0) {
+                        room.turnOrder = room.turnOrder.filter(id => id !== oldSocketId);
+                    }
                     if (room.status === 'PLAYING') {
                         bingoHelpers.broadcastBingoProgress(io, room, roomId);
                     } else {
                         updateReadyStatus(io, room, roomId);
                     }
+                } else if (room.mode === 'liar') {
+                    liarSocket.handleLiarPlayerDisconnect(io, gameRooms, roomId, oldSocketId, leavingPlayerName);
+                } else if (room.mode === 'bomb') {
+                    bombSocket.handleBombPlayerDisconnect(io, gameRooms, roomId, oldSocketId, leavingPlayerName);
                 }
 
                 io.to(roomId).emit('update user list', getSortedUserList(room));
-                
-                // [Bug Fix] pendingDisconnects가 0일 때만 방 해제 (전원 타이머 완료 확인)
+
+                1                // [Bug Fix] pendingDisconnects가 0일 때만 방 해제 (전원 타이머 완료 확인)
                 if (Object.keys(room.players).length === 0 && (room.pendingDisconnects || 0) === 0) {
                     if (room.numberInterval) clearInterval(room.numberInterval);
                     if (room.voteTimer) clearInterval(room.voteTimer);
